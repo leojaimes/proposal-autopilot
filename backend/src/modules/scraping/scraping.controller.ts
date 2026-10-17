@@ -93,13 +93,13 @@ export class ScrapingController {
         where: {
           uq_tenant_external_job: {
             tenantId,
-            externalUpworkId: raw.id,
+            externalUpworkId: String(raw.id),
           },
         },
         create: {
           tenantId,
           batchRunId: batchRun.id,
-          externalUpworkId: raw.id,
+          externalUpworkId: String(raw.id),
           title: raw.title || 'Untitled Job',
           description: raw.description || '',
           budgetType,
