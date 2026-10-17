@@ -1,68 +1,169 @@
-<header class="h-14 border-b border-border-subtle bg-surface px-6 flex items-center justify-between flex-shrink-0 select-none">
-  <!-- Brand & Live Indicator -->
-  <div class="flex items-center gap-3">
-    <div class="w-8 h-8 rounded-xl bg-brand-primary flex items-center justify-center text-white font-black text-sm shadow-md">
-      ⚡
+<header class="h-14 border-b border-border-subtle bg-surface px-5 flex items-center justify-between select-none relative z-30">
+  
+  <!-- Left: Logo & PROFILE SWITCHER (Multi-Persona) -->
+  <div class="flex items-center gap-5">
+    <div class="flex items-center gap-2">
+      <div class="w-7 h-7 rounded-lg bg-brand-primary flex items-center justify-center font-bold text-white text-xs shadow-md">
+        PA
+      </div>
+      <div class="flex flex-col">
+        <span class="text-xs font-bold text-content-primary tracking-tight">Proposal Autopilot</span>
+        <span class="text-[10px] text-content-muted font-mono leading-none">v1.2 · High-Fit Engine</span>
+      </div>
     </div>
-    <div>
-      <span class="font-bold text-sm tracking-tight text-content-primary">Proposal Autopilot</span>
-      <span class="text-[11px] text-content-muted ml-2 font-mono">v1.0</span>
+
+    <!-- DIVIDER -->
+    <div class="h-5 w-[1px] bg-border-subtle"></div>
+
+    <!-- PROFILE SWITCHER (Multi-Persona Selector) -->
+    <div class="relative">
+      <button (click)="toggleProfileDropdown()"
+              class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-elevated hover:bg-surface-hover border border-border-subtle transition-all text-left">
+        <span class="text-sm">👤</span>
+        <div class="flex flex-col">
+          <span class="text-[11px] font-extrabold text-content-primary leading-tight flex items-center gap-1.5">
+            <span>{{ pipeline.activeProfile().name }}</span>
+            <span class="text-[9px] font-mono text-brand-primary bg-brand-primary/10 px-1 py-0.2 rounded font-bold">Activo</span>
+          </span>
+          <span class="text-[9px] text-content-muted">{{ pipeline.proofStories().length }} historias · $40/h</span>
+        </div>
+        <svg class="w-3.5 h-3.5 text-content-muted ml-1 transition-transform" [class.rotate-180]="isProfileDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+
+      <!-- DROPDOWN MENU -->
+      @if (isProfileDropdownOpen()) {
+        <div class="fixed inset-0 z-20" (click)="isProfileDropdownOpen.set(false)"></div>
+        <div class="absolute left-0 mt-2 w-72 rounded-2xl bg-surface border border-border-subtle shadow-2xl p-2 z-30 space-y-1">
+          <div class="px-3 py-1.5 text-[10px] font-bold text-content-muted uppercase tracking-wider">
+            Perfiles de Calibración (Personas)
+          </div>
+
+          <!-- Profile List -->
+          @for (p of pipeline.profiles(); track p.id) {
+            <div (click)="selectProfile(p.id)"
+                 class="flex items-center justify-between p-2.5 rounded-xl hover:bg-surface-elevated cursor-pointer transition-colors group"
+                 [ngClass]="pipeline.activeProfileId() === p.id ? 'bg-brand-primary/10 border border-brand-primary/30' : ''">
+              <div class="flex items-center gap-2">
+                <span class="text-sm">👤</span>
+                <div>
+                  <span class="text-xs font-bold text-content-primary block">{{ p.name }}</span>
+                  <span class="text-[10px] text-content-muted">{{ p.proofStories.length }} historias configuradas</span>
+                </div>
+              </div>
+
+              <!-- Delete Profile if more than 1 -->
+              @if (pipeline.profiles().length > 1) {
+                <button (click)="deleteProfile(p.id, $event)"
+                        class="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-rose-500/20 text-content-muted hover:text-rose-400 text-xs transition-opacity"
+                        title="Eliminar este perfil">
+                  ✕
+                </button>
+              }
+            </div>
+          }
+
+          <!-- BOTÓN CREAR NUEVO PERFIL DE CERO -->
+          <div class="pt-1 border-t border-border-subtle">
+            <button (click)="openCreateModal()"
+                    class="w-full p-2.5 rounded-xl bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary font-bold text-xs flex items-center justify-center gap-1.5 transition-colors">
+              <span>➕</span>
+              <span>Crear Perfil de Cero (Otra Persona)</span>
+            </button>
+          </div>
+        </div>
+      }
     </div>
   </div>
 
-  <!-- CENTER VIEW SWITCHER: [ ⚡ Cabina de Despacho ] | [ 🔍 Motor de Búsqueda ] -->
-  <div class="flex items-center bg-surface-elevated p-1 rounded-xl border border-border-subtle text-xs font-semibold">
-    <button (click)="viewModeChange.emit('TERMINAL')"
-            class="px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5"
-            [ngClass]="activeView() === 'TERMINAL' ? 'bg-surface text-content-primary font-bold shadow-sm' : 'text-content-secondary hover:text-content-primary'">
+  <!-- Center: View Mode Switcher -->
+  <div class="flex items-center gap-1 p-1 bg-surface-elevated rounded-xl border border-border-subtle">
+    <button (click)="switchView('TERMINAL')"
+            [ngClass]="activeView() === 'TERMINAL' ? 'bg-brand-primary text-white shadow-sm' : 'text-content-secondary hover:text-content-primary'"
+            class="px-3.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
       <span>⚡</span>
       <span>Cabina de Despacho</span>
     </button>
-    <button (click)="viewModeChange.emit('EXPLORER')"
-            class="px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5"
-            [ngClass]="activeView() === 'EXPLORER' ? 'bg-surface text-content-primary font-bold shadow-sm' : 'text-content-secondary hover:text-content-primary'">
+    <button (click)="switchView('EXPLORER')"
+            [ngClass]="activeView() === 'EXPLORER' ? 'bg-brand-primary text-white shadow-sm' : 'text-content-secondary hover:text-content-primary'"
+            class="px-3.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
       <span>🔍</span>
-      <span>Motor de Búsqueda ({{ report.jobs().length }})</span>
+      <span>Motor de Búsqueda</span>
+      <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono"
+            [ngClass]="activeView() === 'EXPLORER' ? 'bg-white/20 text-white' : 'bg-surface text-content-muted'">
+        {{ report.jobs().length }}
+      </span>
     </button>
   </div>
 
-  <!-- Right Actions -->
-  <div class="flex items-center gap-3">
-    <!-- Run Morning Scrape -->
-    <button (click)="report.triggerLiveScrape(25)"
-            [disabled]="report.isScrapingInProgress()"
-            class="flex items-center gap-2 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-brand-primary hover:bg-brand-hover text-white transition-all shadow-sm disabled:opacity-50">
-      @if (report.isScrapingInProgress()) {
-        <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-        </svg>
-        <span>Scrapeando...</span>
-      } @else {
-        <span>⚡ Scrapear Ahora</span>
-      }
-    </button>
+  <!-- Right: Metrics & Settings -->
+  <div class="flex items-center gap-4">
+    <!-- Quick Counts -->
+    <div class="flex items-center gap-3 text-xs font-mono">
+      <span class="flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        {{ highFitCount() }} High Fit
+      </span>
+    </div>
 
-    <!-- Engine Settings Button -->
+    <!-- Engine Settings Trigger Button -->
     <button (click)="openSettings.emit()"
-            class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-surface-elevated hover:bg-surface-hover text-content-primary border border-border-subtle transition-all"
-            title="Abrir Calibrador del Motor">
-      <span>⚙️ Calibrar</span>
-    </button>
-
-    <!-- Theme Toggle -->
-    <button (click)="theme.toggleTheme()"
-            class="p-2 rounded-xl bg-surface-elevated hover:bg-surface-hover text-content-secondary border border-border-subtle transition-all"
-            title="Cambiar Tema Claro / Oscuro">
-      @if (theme.theme() === 'dark') {
-        <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
-        </svg>
-      } @else {
-        <svg class="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-        </svg>
-      }
+            class="px-3.5 py-1.5 rounded-xl bg-surface-elevated hover:bg-surface-hover text-content-primary border border-border-subtle text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm">
+      <span>⚙️</span>
+      <span>Calibrar Perfil</span>
     </button>
   </div>
 </header>
+
+<!-- MODAL CREAR NUEVO PERFIL DE CERO (OTRA PERSONA) -->
+@if (isCreateProfileModalOpen()) {
+  <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-surface border border-border-subtle rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
+      
+      <div class="flex items-center justify-between border-b border-border-subtle pb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">👤</span>
+          <div>
+            <h3 class="text-sm font-bold text-content-primary">Crear Perfil de Calibración</h3>
+            <p class="text-[11px] text-content-muted">Configura una nueva persona u oferta desde cero</p>
+          </div>
+        </div>
+        <button (click)="isCreateProfileModalOpen.set(false)" class="text-content-muted hover:text-content-primary text-xs">✕</button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-content-primary mb-1">Nombre de la Persona o Especialidad</label>
+          <input type="text"
+                 [ngModel]="newPersonName()"
+                 (ngModelChange)="newPersonName.set($event)"
+                 placeholder="Ej: Armando (Fullstack & AI) o María (Mobile UX)..."
+                 class="w-full bg-surface-elevated border border-border-subtle rounded-xl p-3 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
+          <span class="text-[10px] text-content-muted mt-1 block">Este perfil nacerá limpio (0 historias) para que agregues sus propias credenciales.</span>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-content-primary mb-1">Rol Profesional Principal</label>
+          <input type="text"
+                 [ngModel]="newPersonRole()"
+                 (ngModelChange)="newPersonRole.set($event)"
+                 placeholder="Ej: Senior Fullstack Engineer, UX Research Lead..."
+                 class="w-full bg-surface-elevated border border-border-subtle rounded-xl p-3 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-border-subtle">
+        <button (click)="isCreateProfileModalOpen.set(false)"
+                class="px-4 py-2 rounded-xl text-content-muted hover:text-content-primary text-xs font-semibold">
+          Cancelar
+        </button>
+        <button (click)="confirmCreateProfile()"
+                [disabled]="!newPersonName().trim()"
+                class="px-5 py-2 rounded-xl bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold shadow-md disabled:opacity-50 transition-all">
+          Crear y Calibrar de Cero
+        </button>
+      </div>
+    </div>
+  </div>
+}

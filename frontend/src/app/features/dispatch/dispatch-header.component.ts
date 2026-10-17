@@ -1,6 +1,7 @@
-import { Component, ChangeDetectionStrategy, inject, input, output } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ThemeService } from '../../core/services/theme.service';
+import { FormsModule } from '@angular/forms';
+import { PipelineStateService } from '../../core/services/pipeline-state.service';
 import { ReportService } from '../../core/services/report.service';
 
 export type AppViewMode = 'TERMINAL' | 'EXPLORER';
@@ -8,15 +9,63 @@ export type AppViewMode = 'TERMINAL' | 'EXPLORER';
 @Component({
   selector: 'app-dispatch-header',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './dispatch-header.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DispatchHeaderComponent {
-  public readonly theme = inject(ThemeService);
+  public readonly pipeline = inject(PipelineStateService);
   public readonly report = inject(ReportService);
 
-  public readonly activeView = input<AppViewMode>('TERMINAL');
+  public readonly activeView = input.required<AppViewMode>();
   public readonly viewModeChange = output<AppViewMode>();
   public readonly openSettings = output<void>();
+
+  public readonly highFitCount = computed(() => {
+    return this.report.jobs().filter(j => j.fitScore >= 75).length;
+  });
+
+  // Profile Switcher Dropdown & Modal State
+  public readonly isProfileDropdownOpen = signal<boolean>(false);
+  public readonly isCreateProfileModalOpen = signal<boolean>(false);
+  public readonly newPersonName = signal<string>('');
+  public readonly newPersonRole = signal<string>('');
+
+  public switchView(mode: AppViewMode): void {
+    this.viewModeChange.emit(mode);
+  }
+
+  public toggleProfileDropdown(): void {
+    this.isProfileDropdownOpen.update(v => !v);
+  }
+
+  public selectProfile(id: string): void {
+    this.pipeline.selectProfile(id);
+    this.isProfileDropdownOpen.set(false);
+    this.openSettings.emit(); // Open settings drawer to see/calibrate the selected profile
+  }
+
+  public openCreateModal(): void {
+    this.isProfileDropdownOpen.set(false);
+    this.newPersonName.set('');
+    this.newPersonRole.set('');
+    this.isCreateProfileModalOpen.set(true);
+  }
+
+  public confirmCreateProfile(): void {
+    const name = this.newPersonName().trim();
+    const role = this.newPersonRole().trim() || 'Consultor / Especialista';
+    if (!name) return;
+
+    this.pipeline.createBlankProfile(name, role);
+    this.isCreateProfileModalOpen.set(false);
+    this.openSettings.emit(); // Open calibration drawer immediately so user can fill in their details
+  }
+
+  public deleteProfile(id: string, event: Event): void {
+    event.stopPropagation();
+    if (confirm('¿Eliminar este perfil de calibración?')) {
+      this.pipeline.deleteProfile(id);
+    }
+  }
 }
