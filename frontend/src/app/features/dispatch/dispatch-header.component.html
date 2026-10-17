@@ -6,15 +6,27 @@
     </div>
     <div>
       <span class="font-bold text-sm tracking-tight text-content-primary">Proposal Autopilot</span>
-      <span class="text-[11px] text-content-muted ml-2 font-mono">Cabina de Despacho</span>
+      <span class="text-[11px] text-content-muted ml-2 font-mono">v1.0</span>
     </div>
-    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 ml-2">
-      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-      Motor Activo
-    </span>
   </div>
 
-  <!-- Quick Actions -->
+  <!-- CENTER VIEW SWITCHER: [ ⚡ Cabina de Despacho ] | [ 🔍 Motor de Búsqueda ] -->
+  <div class="flex items-center bg-surface-elevated p-1 rounded-xl border border-border-subtle text-xs font-semibold">
+    <button (click)="viewModeChange.emit('TERMINAL')"
+            class="px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5"
+            [ngClass]="activeView() === 'TERMINAL' ? 'bg-surface text-content-primary font-bold shadow-sm' : 'text-content-secondary hover:text-content-primary'">
+      <span>⚡</span>
+      <span>Cabina de Despacho</span>
+    </button>
+    <button (click)="viewModeChange.emit('EXPLORER')"
+            class="px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5"
+            [ngClass]="activeView() === 'EXPLORER' ? 'bg-surface text-content-primary font-bold shadow-sm' : 'text-content-secondary hover:text-content-primary'">
+      <span>🔍</span>
+      <span>Motor de Búsqueda ({{ report.jobs().length }})</span>
+    </button>
+  </div>
+
+  <!-- Right Actions -->
   <div class="flex items-center gap-3">
     <!-- Run Morning Scrape -->
     <button (click)="report.triggerLiveScrape(25)"
@@ -25,16 +37,10 @@
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
         </svg>
-        <span>Scrapeando 25 empleos...</span>
+        <span>Scrapeando...</span>
       } @else {
         <span>⚡ Scrapear Ahora</span>
       }
-    </button>
-
-    <!-- Export CSV -->
-    <button (click)="report.downloadCsv()"
-            class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-surface-elevated hover:bg-surface-hover text-content-secondary border border-border-subtle transition-all">
-      <span>Exportar CSV</span>
     </button>
 
     <!-- Engine Settings Button -->
