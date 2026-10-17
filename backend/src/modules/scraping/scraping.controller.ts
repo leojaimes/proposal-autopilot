@@ -402,4 +402,23 @@ export class ScrapingController {
     return [headers.join(','), ...rows].join('\n');
   }
 
+  /**
+   * Endpoint de pruebas para reiniciar la base de datos a Estado Cero
+   */
+  @Post('reset')
+  async resetDatabase() {
+    await this.prisma.$executeRawUnsafe('TRUNCATE TABLE proposals, fit_evaluations, job_posts, batch_runs CASCADE;');
+    this.logger.log('Base de datos reseteada a Estado Cero para pruebas E2E');
+    return { success: true, message: 'Base de datos limpia: 0 empleos.' };
+  }
+
+  /**
+   * Endpoint de pruebas para restaurar el Preset de Demostración de Bo
+   */
+  @Post('restore-preset')
+  async restorePreset() {
+    const tenantId = this.tenantContext.getTenantId();
+    await this.triggerBatch({ maxResults: 15 });
+    return { success: true, message: 'Preset restaurado con éxito.' };
+  }
 }

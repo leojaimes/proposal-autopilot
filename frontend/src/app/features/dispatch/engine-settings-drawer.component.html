@@ -45,6 +45,27 @@
 
   <!-- Drawer Body -->
   <div class="flex-1 overflow-y-auto p-5 space-y-5">
+    <!-- ZONA DE PRUEBAS & ESTADO CERO -->
+    <div class="p-4 rounded-xl bg-surface-elevated border border-border-subtle space-y-3">
+      <div class="text-xs font-bold text-content-primary uppercase tracking-wider flex items-center gap-1.5">
+        <span>🧪</span>
+        <span>Zona de Pruebas (Test Harness)</span>
+      </div>
+      <p class="text-xs text-content-muted">
+        Limpia la base de datos para probar el flujo de Onboarding desde cero, o restaura los datos de prueba.
+      </p>
+      <div class="flex items-center gap-3">
+        <button (click)="resetDatabase()"
+                class="px-3 py-2 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 font-bold text-xs border border-rose-500/30 transition-all">
+          🧹 Resetear Base a Cero
+        </button>
+        <button (click)="restorePreset()"
+                class="px-3 py-2 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 font-bold text-xs border border-emerald-500/30 transition-all">
+          📦 Restaurar Preset de Bo
+        </button>
+      </div>
+    </div>
+  
     @switch (activeTab()) {
       @case ('POSITIONING') {
         <!-- Specific Offer -->

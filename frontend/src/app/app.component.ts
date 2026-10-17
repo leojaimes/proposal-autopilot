@@ -1,9 +1,11 @@
-import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DispatchHeaderComponent, AppViewMode } from './features/dispatch/dispatch-header.component';
 import { DispatchTerminalComponent } from './features/dispatch/dispatch-terminal.component';
 import { JobExplorerComponent } from './features/explorer/job-explorer.component';
 import { EngineSettingsDrawerComponent } from './features/dispatch/engine-settings-drawer.component';
+import { ZeroStateOnboardingComponent } from './features/onboarding/zero-state-onboarding.component';
+import { ReportService } from './core/services/report.service';
 
 @Component({
   selector: 'app-root',
@@ -14,6 +16,7 @@ import { EngineSettingsDrawerComponent } from './features/dispatch/engine-settin
     DispatchTerminalComponent,
     JobExplorerComponent,
     EngineSettingsDrawerComponent,
+    ZeroStateOnboardingComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -25,14 +28,22 @@ import { EngineSettingsDrawerComponent } from './features/dispatch/engine-settin
         (openSettings)="isSettingsOpen.set(true)">
       </app-dispatch-header>
 
-      <!-- Dynamic View: Terminal vs Full Search Explorer -->
+      <!-- Main Body: Conditional on Empty State vs Active Data -->
       <div class="flex-1 overflow-hidden flex">
-        @if (currentView() === 'TERMINAL') {
-          <app-dispatch-terminal class="flex-1 flex overflow-hidden"></app-dispatch-terminal>
-        } @else {
+        @if (report.jobs().length === 0 && !report.isLoading()) {
+          <!-- ZERO STATE / GREENFIELD ONBOARDING -->
           <main class="flex-1 overflow-y-auto bg-app">
-            <app-job-explorer></app-job-explorer>
+            <app-zero-state-onboarding></app-zero-state-onboarding>
           </main>
+        } @else {
+          <!-- ACTIVE APPLICATION -->
+          @if (currentView() === 'TERMINAL') {
+            <app-dispatch-terminal class="flex-1 flex overflow-hidden"></app-dispatch-terminal>
+          } @else {
+            <main class="flex-1 overflow-y-auto bg-app">
+              <app-job-explorer></app-job-explorer>
+            </main>
+          }
         }
       </div>
 
@@ -45,6 +56,7 @@ import { EngineSettingsDrawerComponent } from './features/dispatch/engine-settin
   `
 })
 export class AppComponent {
-  public readonly currentView = signal<AppViewMode>('EXPLORER'); // Default to Explorer as requested by user!
+  public readonly report = inject(ReportService);
+  public readonly currentView = signal<AppViewMode>('TERMINAL');
   public readonly isSettingsOpen = signal<boolean>(false);
 }

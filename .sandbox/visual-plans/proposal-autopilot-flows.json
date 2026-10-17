@@ -1,0 +1,134 @@
+{
+  "version": 2,
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "maxDiffPixels": 1000,
+  "stepTimeoutMs": 15000,
+  "scenarioTimeoutMs": 60000,
+  "scenarios": [
+    {
+      "id": "01-zero-state-onboarding",
+      "checkpoint": "Estado Cero: Pantalla de activación limpia sin datos previos, asistiendo en 3 pasos.",
+      "targetUrl": "http://localhost:7001",
+      "steps": [
+        {
+          "action": "goto",
+          "path": "/"
+        },
+        {
+          "action": "waitFor",
+          "selector": "app-zero-state-onboarding",
+          "state": "visible"
+        },
+        {
+          "action": "screenshot",
+          "id": "01-zero-state-onboarding",
+          "fullPage": true
+        }
+      ]
+    },
+    {
+      "id": "02-restore-demo-preset",
+      "checkpoint": "Carga de Preset: Se cargan los empleos de demostración y transiciona al panel operativo.",
+      "targetUrl": "http://localhost:7001",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "button:has-text('Cargar Preset de Demostración')"
+        },
+        {
+          "action": "waitFor",
+          "selector": "app-dispatch-terminal, app-job-explorer",
+          "state": "visible"
+        },
+        {
+          "action": "screenshot",
+          "id": "02-preset-restored-feed",
+          "fullPage": true
+        }
+      ]
+    },
+    {
+      "id": "03-dispatch-deck-high-fit",
+      "checkpoint": "Cabina de Despacho: Inspección de lead High Fit, carta de 35 palabras y feedback de copiado.",
+      "targetUrl": "http://localhost:7001",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "button:has-text('Cabina de Despacho')"
+        },
+        {
+          "action": "waitFor",
+          "selector": "button:has-text('Copiar Carta para Upwork')",
+          "state": "visible"
+        },
+        {
+          "action": "click",
+          "selector": "button:has-text('Copiar Carta para Upwork')"
+        },
+        {
+          "action": "waitFor",
+          "selector": "span:has-text('¡Copiado al Portapapeles!')",
+          "state": "visible"
+        },
+        {
+          "action": "screenshot",
+          "id": "03-dispatch-action-copied",
+          "fullPage": false
+        }
+      ]
+    },
+    {
+      "id": "04-search-engine-and-filters",
+      "checkpoint": "Motor de Búsqueda: Búsqueda multicampo con query 'AI' y filtro High Fit activo.",
+      "targetUrl": "http://localhost:7001",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "button:has-text('Motor de Búsqueda')"
+        },
+        {
+          "action": "fill",
+          "selector": "input[placeholder*='Buscar']",
+          "value": "AI"
+        },
+        {
+          "action": "click",
+          "selector": "button:has-text('High Fit')"
+        },
+        {
+          "action": "screenshot",
+          "id": "04-search-engine-filtered",
+          "fullPage": true
+        }
+      ]
+    },
+    {
+      "id": "05-calibration-drawer",
+      "checkpoint": "Calibrador del Motor: Drawer lateral abierto mostrando sliders de pesos 40/25/20/15.",
+      "targetUrl": "http://localhost:7001",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "button:has-text('Calibrar')"
+        },
+        {
+          "action": "waitFor",
+          "selector": "app-engine-settings-drawer",
+          "state": "visible"
+        },
+        {
+          "action": "click",
+          "selector": "button:has-text('Pesos Matemáticos')"
+        },
+        {
+          "action": "screenshot",
+          "id": "05-calibration-drawer-weights",
+          "fullPage": false
+        }
+      ]
+    }
+  ]
+}

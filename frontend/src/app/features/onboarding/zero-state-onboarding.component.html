@@ -1,0 +1,90 @@
+<div class="min-h-full flex flex-col items-center justify-center p-8 max-w-3xl mx-auto space-y-8 select-none">
+  
+  <!-- Welcome Hero Badge -->
+  <div class="text-center space-y-3">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-primary/10 border border-brand-primary/30 text-brand-primary text-xs font-mono font-bold">
+      <span class="w-2 h-2 rounded-full bg-brand-primary animate-pulse"></span>
+      Estado Cero: Sin Datos Previos
+    </div>
+    <h1 class="text-3xl font-extrabold tracking-tight text-content-primary">
+      Bienvenido a Proposal Autopilot
+    </h1>
+    <p class="text-sm text-content-secondary max-w-xl mx-auto leading-relaxed">
+      Configuremos tu motor de postulación en 3 minutos antes de extraer tus primeros empleos de Upwork.
+    </p>
+  </div>
+
+  <!-- 3-Step Guided Setup Card -->
+  <div class="w-full bg-surface border border-border-subtle rounded-3xl p-8 shadow-xl space-y-6">
+    
+    <!-- Step 1: Offer -->
+    <div class="space-y-3">
+      <div class="flex items-center justify-between">
+        <label class="text-xs font-bold text-content-primary uppercase tracking-wider flex items-center gap-2">
+          <span class="w-5 h-5 rounded-full bg-brand-primary text-white flex items-center justify-center text-[11px] font-mono">1</span>
+          <span>Tu Oferta Específica (Transformación)</span>
+        </label>
+        <span class="text-xs text-content-muted font-mono">{{ pipeline.offerText().length }} caracteres</span>
+      </div>
+      <textarea [ngModel]="pipeline.offerText()"
+                (ngModelChange)="pipeline.offerText.set($event)"
+                rows="3"
+                class="w-full bg-surface-elevated border border-border-subtle rounded-xl p-3.5 text-xs text-content-primary focus:outline-none focus:border-brand-primary leading-relaxed"></textarea>
+      <p class="text-xs text-content-muted">
+        Ejemplo recomendado: <em>"AI-native UX para equipos de producto entregado a velocidad de agencia combinando 10+ años de craft en Meta/Google con flujos de IA."</em>
+      </p>
+    </div>
+
+    <!-- Step 2: Proof Story Quick Check -->
+    <div class="space-y-3 pt-2 border-t border-border-subtle">
+      <label class="text-xs font-bold text-content-primary uppercase tracking-wider flex items-center gap-2">
+        <span class="w-5 h-5 rounded-full bg-brand-primary text-white flex items-center justify-center text-[11px] font-mono">2</span>
+        <span>Historia de Autoridad Principal (Métrica que cierra llamadas)</span>
+      </label>
+      <div class="p-4 rounded-xl bg-surface-elevated border border-border-subtle space-y-1">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-content-primary">Cisco Commerce</span>
+          <span class="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">$40B en reservas anuales</span>
+        </div>
+        <p class="text-xs text-content-secondary mt-1">
+          Construcción del sistema de diseño para 15,000+ usuarios empresariales.
+        </p>
+      </div>
+    </div>
+
+    <!-- Step 3: Trigger First Scraping or Load Demo Preset -->
+    <div class="space-y-3 pt-2 border-t border-border-subtle">
+      <label class="text-xs font-bold text-content-primary uppercase tracking-wider flex items-center gap-2">
+        <span class="w-5 h-5 rounded-full bg-brand-primary text-white flex items-center justify-center text-[11px] font-mono">3</span>
+        <span>Activación del Motor</span>
+      </label>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+        <!-- Live Scrape Button -->
+        <button (click)="triggerLiveScrape()"
+                [disabled]="report.isScrapingInProgress()"
+                class="p-4 rounded-2xl bg-brand-primary hover:bg-brand-hover text-white font-bold text-xs flex flex-col items-center justify-center gap-2 transition-all shadow-lg disabled:opacity-50 group">
+          @if (report.isScrapingInProgress()) {
+            <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <span>Extrayendo con tu Token de Apify...</span>
+          } @else {
+            <span class="text-lg">🚀</span>
+            <span class="text-sm font-extrabold">Extraer Empleos Reales de Upwork</span>
+            <span class="text-[11px] font-normal opacity-80">15 empleos frescos evaluados en vivo</span>
+          }
+        </button>
+
+        <!-- Restore Demo Preset Button -->
+        <button (click)="restoreBoPreset()"
+                [disabled]="isLoadingPreset()"
+                class="p-4 rounded-2xl bg-surface-elevated hover:bg-surface-hover text-content-primary font-bold text-xs flex flex-col items-center justify-center gap-2 border border-border-subtle transition-all group">
+          <span class="text-lg">📦</span>
+          <span class="text-sm font-extrabold">Cargar Preset de Demostración (Bo)</span>
+          <span class="text-[11px] font-normal text-content-muted">Restaura las 6 historias y los 15 empleos de prueba</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
