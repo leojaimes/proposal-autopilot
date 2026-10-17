@@ -1,0 +1,222 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../core/database/prisma.service';
+
+export interface UpdatePositioningDto {
+  offerHeadline: string;
+  targetAudience: string;
+  voiceRules?: string[];
+}
+
+export interface CreateProofStoryDto {
+  keyCode: string;
+  companyOrProduct: string;
+  impactMetric: string;
+  domainTags?: string[];
+}
+
+export interface UpdateScrapeConfigDto {
+  searchKeywords: string[];
+  minBudgetFixed?: number;
+  minHourlyRate?: number;
+  recencyDays?: number;
+  verifiedPaymentOnly?: boolean;
+}
+
+export interface SaveCredentialDto {
+  provider: 'APIFY' | 'ANTHROPIC' | 'OPENAI' | 'GEMINI' | 'BEDROCK';
+  apiKey: string;
+}
+
+@Injectable()
+export class TenantsService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Obtiene la configuración completa del Workspace (Perfil, Historias, Filtros de Scrape, Llaves)
+   */
+  async getTenantConfig(tenantId: string) {
+    let tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: {
+        positioningProfiles: {
+          include: { proofStories: true },
+        },
+        scrapeConfigs: true,
+        credentials: {
+          select: { id: true, provider: true, isHealthy: true, lastValidatedAt: true },
+        },
+      },
+    });
+
+    // Si el workspace aún no existe en DB, creamos su perfil base automáticamente
+    if (!tenant) {
+      tenant = await this.prisma.tenant.create({
+        data: {
+          id: tenantId,
+          name: 'Personal Workspace',
+          slug: 'personal-workspace',
+          baseHourlyRate: 65.00,
+          positioningProfiles: {
+            create: {
+              offerHeadline: 'AI-native UX for product teams: senior design-system, prototyping, and research.',
+              targetAudience: 'Seed-to-Series B SaaS founders and product leads.',
+              voiceRules: ['First person peer-to-peer', 'No em dashes anywhere', 'Sell result before tool'],
+            },
+          },
+          scrapeConfigs: {
+            create: {
+              searchKeywords: [
+                'UX research', 'design system', 'Figma design system', 
+                'AI product design', 'usability testing', 'AI prototyping', 
+                'vibe coding', 'agentic workflow design', 'N8N automation design', 'GenAI UX'
+              ],
+              minBudgetFixed: 1000.00,
+              minHourlyRate: 40.00,
+              recencyDays: 3,
+              verifiedPaymentOnly: true,
+            },
+          },
+        },
+        include: {
+          positioningProfiles: {
+            include: { proofStories: true },
+          },
+          scrapeConfigs: true,
+          credentials: {
+            select: { id: true, provider: true, isHealthy: true, lastValidatedAt: true },
+          },
+        },
+      });
+    }
+
+    return tenant;
+  }
+
+  /**
+   * Actualiza el perfil de posicionamiento (Oferta, Audiencia y Reglas de Voz)
+   */
+  async updatePositioning(tenantId: string, dto: UpdatePositioningDto) {
+    const tenant = await this.getTenantConfig(tenantId);
+    let profile = tenant.positioningProfiles[0];
+
+    if (profile) {
+      return this.prisma.positioningProfile.update({
+        where: { id: profile.id },
+        data: {
+          offerHeadline: dto.offerHeadline,
+          targetAudience: dto.targetAudience,
+          voiceRules: dto.voiceRules || profile.voiceRules,
+        },
+      });
+    }
+
+    return this.prisma.positioningProfile.create({
+      data: {
+        tenantId,
+        offerHeadline: dto.offerHeadline,
+        targetAudience: dto.targetAudience,
+        voiceRules: dto.voiceRules || [],
+      },
+    });
+  }
+
+  /**
+   * Crea una nueva Proof Story para el generador de propuestas
+   */
+  async createProofStory(tenantId: string, dto: CreateProofStoryDto) {
+    const tenant = await this.getTenantConfig(tenantId);
+    let profile = tenant.positioningProfiles[0];
+
+    return this.prisma.proofStory.create({
+      data: {
+        positioningProfileId: profile.id,
+        keyCode: dto.keyCode.toUpperCase().replace(/\s+/g, '_'),
+        companyOrProduct: dto.companyOrProduct,
+        impactMetric: dto.impactMetric,
+        domainTags: dto.domainTags || [],
+      },
+    });
+  }
+
+  /**
+   * Actualiza una Proof Story existente
+   */
+  async updateProofStory(id: string, dto: Partial<CreateProofStoryDto>) {
+    return this.prisma.proofStory.update({
+      where: { id },
+      data: {
+        ...(dto.keyCode && { keyCode: dto.keyCode.toUpperCase().replace(/\s+/g, '_') }),
+        ...(dto.companyOrProduct && { companyOrProduct: dto.companyOrProduct }),
+        ...(dto.impactMetric && { impactMetric: dto.impactMetric }),
+        ...(dto.domainTags && { domainTags: dto.domainTags }),
+      },
+    });
+  }
+
+  /**
+   * Elimina una Proof Story
+   */
+  async deleteProofStory(id: string) {
+    return this.prisma.proofStory.delete({
+      where: { id },
+    });
+  }
+
+  /**
+   * Actualiza la configuración de filtros de scraping
+   */
+  async updateScrapeConfig(tenantId: string, dto: UpdateScrapeConfigDto) {
+    const tenant = await this.getTenantConfig(tenantId);
+    let config = tenant.scrapeConfigs[0];
+
+    if (config) {
+      return this.prisma.scrapeConfig.update({
+        where: { id: config.id },
+        data: {
+          searchKeywords: dto.searchKeywords,
+          ...(dto.minBudgetFixed !== undefined && { minBudgetFixed: dto.minBudgetFixed }),
+          ...(dto.minHourlyRate !== undefined && { minHourlyRate: dto.minHourlyRate }),
+          ...(dto.recencyDays !== undefined && { recencyDays: dto.recencyDays }),
+          ...(dto.verifiedPaymentOnly !== undefined && { verifiedPaymentOnly: dto.verifiedPaymentOnly }),
+        },
+      });
+    }
+
+    return this.prisma.scrapeConfig.create({
+      data: {
+        tenantId,
+        searchKeywords: dto.searchKeywords,
+        minBudgetFixed: dto.minBudgetFixed ?? 1000.00,
+        minHourlyRate: dto.minHourlyRate ?? 40.00,
+        recencyDays: dto.recencyDays ?? 3,
+        verifiedPaymentOnly: dto.verifiedPaymentOnly ?? true,
+      },
+    });
+  }
+
+  /**
+   * Guarda o actualiza credenciales de LLM o Scraper (Apify, Anthropic, OpenAI, Gemini, Bedrock)
+   */
+  async saveCredential(tenantId: string, dto: SaveCredentialDto) {
+    return this.prisma.tenantCredential.upsert({
+      where: {
+        uq_tenant_provider: {
+          tenantId,
+          provider: dto.provider,
+        },
+      },
+      create: {
+        tenantId,
+        provider: dto.provider,
+        encryptedPayload: dto.apiKey,
+        isHealthy: true,
+        lastValidatedAt: new Date(),
+      },
+      update: {
+        encryptedPayload: dto.apiKey,
+        isHealthy: true,
+        lastValidatedAt: new Date(),
+      },
+    });
+  }
+}

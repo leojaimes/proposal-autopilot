@@ -1,0 +1,222 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum StrategicLane {
+  CORE_AI_UX
+  PRODUCT_STRATEGY
+  INTERFACE_BUILD
+  UX_RESEARCH
+  DISQUALIFIED_NOISE
+}
+
+enum DeliveryArchetype {
+  PRODUCT_DEFINITION_0_TO_1
+  DESIGN_SYSTEM_ARCHITECTURE
+  HEURISTIC_AUDIT_RESEARCH
+  AD_HOC_EXECUTION
+  TEACHING_OR_CONTENT
+}
+
+enum FitTier {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum JobStatus {
+  NEEDS_REVIEW
+  APPROVED
+  APPLIED
+  SKIPPED
+}
+
+enum BudgetType {
+  HOURLY
+  FIXED
+  NOT_SHOWN
+}
+
+model Tenant {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  name                  String                 @db.VarChar(100)
+  slug                  String                 @unique @db.VarChar(50)
+  upworkProfileUrl      String?                @map("upwork_profile_url")
+  baseHourlyRate        Decimal?               @default(65.00) @map("base_hourly_rate") @db.Decimal(10, 2)
+  monthlyConnectsBudget Int                    @default(150) @map("monthly_connects_budget")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+
+  users                 TenantUser[]
+  credentials           TenantCredential[]
+  positioningProfiles   PositioningProfile[]
+  scrapeConfigs         ScrapeConfig[]
+  batchRuns             BatchRun[]
+  jobPosts              JobPost[]
+
+  @@map("tenants")
+}
+
+model TenantUser {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  email     String   @unique @db.VarChar(150)
+  role      String   @default("OWNER") @db.VarChar(30)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_users")
+}
+
+model TenantCredential {
+  id               String    @id @default(uuid()) @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  provider         String    @db.VarChar(30) // APIFY, ANTHROPIC, GOOGLE_DOCS
+  encryptedPayload String    @map("encrypted_payload") @db.Text
+  isHealthy        Boolean   @default(true) @map("is_healthy")
+  lastValidatedAt  DateTime? @map("last_validated_at")
+
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, provider], name: "uq_tenant_provider")
+  @@map("tenant_credentials")
+}
+
+model PositioningProfile {
+  id             String       @id @default(uuid()) @db.Uuid
+  tenantId       String       @map("tenant_id") @db.Uuid
+  offerHeadline  String       @map("offer_headline") @db.VarChar(255)
+  targetAudience String       @map("target_audience") @db.Text
+  voiceRules     Json         @default("[]") @map("voice_rules")
+  isActive       Boolean      @default(true) @map("is_active")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  proofStories   ProofStory[]
+
+  @@map("positioning_profiles")
+}
+
+model ProofStory {
+  id                   String             @id @default(uuid()) @db.Uuid
+  positioningProfileId String             @map("positioning_profile_id") @db.Uuid
+  keyCode              String             @map("key_code") @db.VarChar(50) // PEPPER_AI, META_FINTECH, CISCO
+  companyOrProduct     String             @map("company_or_product") @db.VarChar(100)
+  impactMetric         String             @map("impact_metric") @db.Text
+  domainTags           String[]           @map("domain_tags")
+
+  positioningProfile   PositioningProfile @relation(fields: [positioningProfileId], references: [id], onDelete: Cascade)
+
+  @@map("proof_stories")
+}
+
+model ScrapeConfig {
+  id                   String    @id @default(uuid()) @db.Uuid
+  tenantId             String    @map("tenant_id") @db.Uuid
+  searchKeywords       String[]  @map("search_keywords")
+  minBudgetFixed       Decimal?  @default(500.00) @map("min_budget_fixed") @db.Decimal(10, 2)
+  minHourlyRate        Decimal?  @default(40.00) @map("min_hourly_rate") @db.Decimal(10, 2)
+  recencyDays          Int       @default(3) @map("recency_days")
+  verifiedPaymentOnly  Boolean   @default(true) @map("verified_payment_only")
+
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("scrape_configs")
+}
+
+model BatchRun {
+  id             String    @id @default(uuid()) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  startedAt      DateTime  @default(now()) @map("started_at")
+  finishedAt     DateTime? @map("finished_at")
+  jobsFound      Int       @default(0) @map("jobs_found")
+  highFitCount   Int       @default(0) @map("high_fit_count")
+  mediumFitCount Int       @default(0) @map("medium_fit_count")
+  status         String    @default("RUNNING") @db.VarChar(20)
+
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  jobPosts       JobPost[]
+
+  @@map("batch_runs")
+}
+
+model JobPost {
+  id                String         @id @default(uuid()) @db.Uuid
+  tenantId          String         @map("tenant_id") @db.Uuid
+  batchRunId        String?        @map("batch_run_id") @db.Uuid
+  externalUpworkId  String         @map("external_upwork_id") @db.VarChar(100)
+  title             String         @db.VarChar(255)
+  description       String         @db.Text
+  budgetType        BudgetType     @default(NOT_SHOWN) @map("budget_type")
+  budgetFixed       Decimal?       @map("budget_fixed") @db.Decimal(10, 2)
+  hourlyMin         Decimal?       @map("hourly_min") @db.Decimal(10, 2)
+  hourlyMax         Decimal?       @map("hourly_max") @db.Decimal(10, 2)
+  rawBudgetText     String?        @map("raw_budget_text") @db.VarChar(100)
+  clientCountry     String?        @map("client_country") @db.VarChar(100)
+  clientRating      Decimal?       @default(0) @map("client_rating") @db.Decimal(3, 2)
+  clientTotalSpend  Decimal?       @default(0) @map("client_total_spend") @db.Decimal(12, 2)
+  proposalsCount    Int            @default(0) @map("proposals_count")
+  isPaymentVerified Boolean        @default(false) @map("is_payment_verified")
+  jobUrl            String         @map("job_url") @db.Text
+  postedAt          DateTime       @map("posted_at")
+  status            JobStatus      @default(NEEDS_REVIEW)
+  rawApifyPayload   Json?          @map("raw_apify_payload")
+  createdAt         DateTime       @default(now()) @map("created_at")
+
+  tenant            Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  batchRun          BatchRun?      @relation(fields: [batchRunId], references: [id], onDelete: SetNull)
+  fitEvaluation     FitEvaluation?
+  proposal          Proposal?
+
+  @@unique([tenantId, externalUpworkId], name: "uq_tenant_external_job")
+  @@index([tenantId, postedAt(sort: Desc)])
+  @@map("job_posts")
+}
+
+model FitEvaluation {
+  id                   String        @id @default(uuid()) @db.Uuid
+  jobPostId            String        @unique @map("job_post_id") @db.Uuid
+  overallScore         Int           @map("overall_score")
+  fitTier              FitTier       @map("fit_tier")
+  strategicLane        StrategicLane @default(DISQUALIFIED_NOISE) @map("strategic_lane")
+  normalizedRole       String        @map("normalized_role") @db.VarChar(100)
+  skillScore           Int           @map("skill_score") // 40%
+  aiFeasibilityScore   Int           @map("ai_feasibility_score") // 25%
+  clientQualityScore   Int           @map("client_quality_score") // 20%
+  recencyScore         Int           @map("recency_score") // 15%
+  isCapped             Boolean       @default(false) @map("is_capped")
+  capReason            String?       @map("cap_reason") @db.VarChar(255)
+  summaryRationale     String        @map("summary_rationale") @db.Text
+  detectedGaps         String?       @map("detected_gaps") @db.Text
+  suggestedProofStory  String?       @map("suggested_proof_story") @db.VarChar(50)
+  evaluatedAt          DateTime      @default(now()) @map("evaluated_at")
+
+  jobPost              JobPost       @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+
+  @@index([overallScore(sort: Desc)])
+  @@map("fit_evaluations")
+}
+
+model Proposal {
+  id                    String    @id @default(uuid()) @db.Uuid
+  jobPostId             String    @unique @map("job_post_id") @db.Uuid
+  contactName           String?   @map("contact_name") @db.VarChar(100)
+  coverLetter35Words    String    @map("cover_letter_35_words") @db.VarChar(350)
+  technicalProposalBody String    @map("technical_proposal_body") @db.Text
+  mermaidDiagramCode    String?   @map("mermaid_diagram_code") @db.Text
+  publicWalkthroughSlug String?   @unique @map("public_walkthrough_slug") @db.VarChar(100)
+  googleDocUrl          String?   @map("google_doc_url") @db.Text
+  appliedAt             DateTime? @map("applied_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+
+  jobPost               JobPost   @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+
+  @@map("proposals")
+}
