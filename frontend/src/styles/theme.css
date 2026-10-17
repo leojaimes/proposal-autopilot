@@ -1,0 +1,71 @@
+/* ==========================================================================
+   PROPOSAL AUTOPILOT - CENTRALIZED DESIGN SYSTEM THEME TOKENS
+   Impeccable Operate Mode: Low-Cognitive Load, High Density, Zero Slop
+   ========================================================================== */
+
+/* 1. DARK THEME (Default) */
+:root,
+[data-theme="dark"] {
+  --bg-app: #09090b;             /* Zinc 950 deep canvas */
+  --bg-surface: #121215;         /* Zinc 900 panel canvas */
+  --bg-surface-elevated: #1a1a20; /* Floating toolbars and active cards */
+  --bg-surface-hover: #22222a;   /* Interactive item hover */
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-focus: #6366f1;
+
+  --text-primary: #f4f4f5;       /* Zinc 100 headings & primary body */
+  --text-secondary: #a1a1aa;     /* Zinc 400 descriptions & labels */
+  --text-muted: #71717a;         /* Zinc 500 metadata, timestamps */
+
+  /* Fit Score Semantics */
+  --badge-high-bg: rgba(16, 185, 129, 0.14);
+  --badge-high-text: #34d399;    /* Emerald 400 */
+
+  --badge-med-bg: rgba(245, 158, 11, 0.14);
+  --badge-med-text: #fbbf24;     /* Amber 400 */
+
+  --badge-low-bg: rgba(239, 68, 68, 0.14);
+  --badge-low-text: #f87171;     /* Rose 400 */
+
+  /* Brand Accents */
+  --brand-primary: #6366f1;      /* Indigo 500 */
+  --brand-hover: #4f46e5;        /* Indigo 600 */
+
+  /* Browser Chrome Tint */
+  --scrollbar-track: #09090b;
+  --scrollbar-thumb: #27272a;
+}
+
+/* 2. LIGHT THEME */
+[data-theme="light"] {
+  --bg-app: #f8fafc;             /* Slate 50 crisp background */
+  --bg-surface: #ffffff;         /* Pure white cards */
+  --bg-surface-elevated: #f1f5f9;/* Slate 100 panels */
+  --bg-surface-hover: #e2e8f0;   /* Slate 200 hover */
+
+  --border-subtle: #e2e8f0;      /* Slate 200 border */
+  --border-focus: #4f46e5;
+
+  --text-primary: #0f172a;       /* Slate 900 */
+  --text-secondary: #475569;     /* Slate 600 */
+  --text-muted: #94a3b8;         /* Slate 400 */
+
+  /* Fit Score Semantics (High contrast against white) */
+  --badge-high-bg: #ecfdf5;
+  --badge-high-text: #059669;
+
+  --badge-med-bg: #fffbeb;
+  --badge-med-text: #d97706;
+
+  --badge-low-bg: #fef2f2;
+  --badge-low-text: #dc2626;
+
+  /* Brand Accents */
+  --brand-primary: #4f46e5;      /* Indigo 600 */
+  --brand-hover: #4338ca;        /* Indigo 700 */
+
+  /* Browser Chrome Tint */
+  --scrollbar-track: #f8fafc;
+  --scrollbar-thumb: #cbd5e1;
+}

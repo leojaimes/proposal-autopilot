@@ -1,0 +1,239 @@
+<div class="flex-1 flex overflow-hidden">
+  
+  <!-- LEFT PANE: Triage Queue (35% Width) -->
+  <aside class="w-[380px] flex-shrink-0 border-r border-border-subtle bg-surface flex flex-col h-full select-none">
+    
+    <!-- Triage Filter Bar -->
+    <div class="p-4 border-b border-border-subtle space-y-3">
+      <!-- Search Input -->
+      <div class="relative">
+        <input type="text"
+               [ngModel]="searchTerm()"
+               (ngModelChange)="searchTerm.set($event)"
+               placeholder="Buscar leads por título, país..."
+               class="w-full bg-surface-elevated border border-border-subtle rounded-lg px-3 py-1.5 text-xs text-content-primary placeholder:text-content-muted focus:outline-none focus:border-brand-primary">
+      </div>
+
+      <!-- Tier Filter Tabs -->
+      <div class="flex items-center gap-1 p-1 bg-surface-elevated rounded-lg border border-border-subtle">
+        <button (click)="selectedTier.set('High')"
+                class="flex-1 py-1 text-center rounded-md text-xs font-semibold transition-all"
+                [ngClass]="selectedTier() === 'High' ? 'bg-emerald-500/20 text-emerald-300 shadow-sm' : 'text-content-secondary hover:text-emerald-400'">
+          High Fit ({{ highFitCount() }})
+        </button>
+        <button (click)="selectedTier.set('ALL')"
+                class="flex-1 py-1 text-center rounded-md text-xs font-medium transition-all"
+                [ngClass]="selectedTier() === 'ALL' ? 'bg-surface text-content-primary shadow-sm font-semibold' : 'text-content-secondary hover:text-content-primary'">
+          Todos ({{ report.jobs().length }})
+        </button>
+        <button (click)="selectedTier.set('Low')"
+                class="flex-1 py-1 text-center rounded-md text-xs font-medium transition-all"
+                [ngClass]="selectedTier() === 'Low' ? 'bg-rose-500/20 text-rose-300 shadow-sm' : 'text-content-secondary hover:text-rose-400'">
+          Capped ({{ lowFitCount() }})
+        </button>
+      </div>
+    </div>
+
+    <!-- Lead Cards List -->
+    <div class="flex-1 overflow-y-auto divide-y divide-border-subtle/60 p-2 space-y-1">
+      @for (job of filteredJobs(); track job.id) {
+        <div (click)="selectJob(job)"
+             class="p-3.5 rounded-xl cursor-pointer transition-all duration-150 relative group"
+             [ngClass]="selectedJob()?.id === job.id ? 'bg-[#1e2238] border border-brand-primary/60 shadow-md' : 'hover:bg-surface-elevated/70 border border-transparent'">
+          
+          <!-- Top Row: Score + Budget -->
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono font-bold text-xs"
+                  [ngClass]="{
+                    'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30': job.fitLabel === 'High',
+                    'bg-amber-500/15 text-amber-400 border border-amber-500/30': job.fitLabel === 'Medium',
+                    'bg-rose-500/15 text-rose-400 border border-rose-500/30': job.fitLabel === 'Low'
+                  }">
+              <span class="w-1.5 h-1.5 rounded-full"
+                    [ngClass]="job.fitLabel === 'High' ? 'bg-emerald-400' : (job.fitLabel === 'Medium' ? 'bg-amber-400' : 'bg-rose-400')"></span>
+              {{ job.fitScore }} {{ job.fitLabel }}
+            </span>
+
+            <span class="font-mono text-xs font-semibold text-content-primary">{{ job.budget }}</span>
+          </div>
+
+          <!-- Job Title -->
+          <h3 class="text-xs font-semibold text-content-primary line-clamp-2 leading-snug group-hover:text-brand-primary transition-colors">
+            {{ job.jobTitle }}
+          </h3>
+
+          <!-- Client Meta -->
+          <div class="flex items-center justify-between mt-2 text-[11px] text-content-muted font-mono">
+            <span>{{ job.clientCountry }} · ★ {{ job.clientRating.toFixed(1) }}</span>
+            <span class="text-content-secondary font-medium">{{ job.proposalsAlreadyIn }} bids</span>
+          </div>
+        </div>
+      } @empty {
+        <div class="p-8 text-center text-xs text-content-muted">
+          No hay empleos en esta categoría.
+        </div>
+      }
+    </div>
+
+    <!-- Bottom Connects Saved Bar -->
+    <div class="p-3 border-t border-border-subtle bg-surface-elevated/40 flex items-center justify-between text-xs text-content-muted">
+      <span>Connects ahorrados: <strong class="text-emerald-400 font-mono">{{ lowFitCount() * 16 }}</strong></span>
+      <span class="font-mono text-[11px]">~ ${{ (lowFitCount() * 16 * 0.15).toFixed(2) }} USD</span>
+    </div>
+  </aside>
+
+  <!-- RIGHT PANE: Dispatch Terminal (65% Width) -->
+  <main class="flex-1 overflow-y-auto bg-app p-8">
+    @if (selectedJob(); as current) {
+      <div class="max-w-3xl mx-auto space-y-6">
+        
+        <!-- Job Header Banner -->
+        <div class="p-6 rounded-2xl bg-surface border border-border-subtle shadow-sm space-y-4">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-brand-primary/10 text-brand-primary border border-brand-primary/30">
+                  {{ current.normalizedRole }}
+                </span>
+                <span class="text-xs text-content-muted font-mono">{{ current.laneCategory }}</span>
+                @if (current.verifiedPayment === 'Yes') {
+                  <span class="text-emerald-400 text-xs font-semibold flex items-center gap-1">
+                    ✓ Pago Verificado
+                  </span>
+                }
+              </div>
+              <h1 class="text-xl font-bold text-content-primary leading-tight tracking-tight">
+                {{ current.jobTitle }}
+              </h1>
+            </div>
+
+            <!-- Big Fit Score -->
+            <div class="flex flex-col items-center justify-center p-3 rounded-xl min-w-[70px] border"
+                 [ngClass]="{
+                   'bg-emerald-500/10 border-emerald-500/30 text-emerald-400': current.fitLabel === 'High',
+                   'bg-amber-500/10 border-amber-500/30 text-amber-400': current.fitLabel === 'Medium',
+                   'bg-rose-500/10 border-rose-500/30 text-rose-400': current.fitLabel === 'Low'
+                 }">
+              <span class="text-3xl font-extrabold font-mono leading-none">{{ current.fitScore }}</span>
+              <span class="text-[10px] font-bold uppercase tracking-wider mt-1">{{ current.fitLabel }} Fit</span>
+            </div>
+          </div>
+
+          <!-- Rationale & Proof Story Injected -->
+          <div class="p-3 rounded-lg bg-surface-elevated/70 border border-border-subtle text-xs space-y-1.5">
+            <div class="flex items-center justify-between text-content-secondary">
+              <span><strong>Diagnóstico:</strong> {{ current.scoreNotes }}</span>
+            </div>
+            @if (current.suggestedProofStory && current.suggestedProofStory !== 'NONE') {
+              <div class="flex items-center gap-1.5 text-emerald-400 text-[11px] pt-1">
+                <span>🎯 <strong>Historia Inyectada:</strong></span>
+                <span class="font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  {{ current.suggestedProofStory }}
+                </span>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- THE 35-WORD HERO DISPATCH BOX -->
+        @if (current.coverLetter) {
+          <div class="p-6 rounded-2xl bg-surface border-2 border-brand-primary/40 shadow-lg space-y-4 relative overflow-hidden">
+            <!-- Accent Top Line -->
+            <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-primary via-indigo-400 to-emerald-400"></div>
+
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-content-primary">Propuesta Optimizada</span>
+                <span class="text-[10px] font-mono font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  Exactamente 35 Palabras · 0 Guiones Largos
+                </span>
+              </div>
+              <span class="text-xs text-content-muted">Contacto: <strong class="text-content-primary">{{ current.contactNameFound }}</strong></span>
+            </div>
+
+            <!-- The Letter Content -->
+            <div class="p-4 rounded-xl bg-surface-elevated text-sm leading-relaxed text-content-primary font-medium border border-border-subtle select-all">
+              {{ current.coverLetter }}
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center gap-3 pt-1">
+              <!-- Copy Button -->
+              <button (click)="copyLetter(current)"
+                      class="flex-1 py-3 px-5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md"
+                      [ngClass]="copied() ? 'bg-emerald-500 text-white' : 'bg-brand-primary hover:bg-brand-hover text-white'">
+                @if (copied()) {
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                  </svg>
+                  <span>✓ ¡Copiado al Portapapeles!</span>
+                } @else {
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+                  </svg>
+                  <span>📋 Copiar Carta para Upwork</span>
+                }
+              </button>
+
+              <!-- Apply Direct Link -->
+              <a [href]="current.applyLink" target="_blank"
+                 class="py-3 px-5 rounded-xl bg-surface-elevated hover:bg-surface-hover text-content-primary font-bold text-xs flex items-center gap-1.5 border border-border-subtle transition-all">
+                <span>🚀 Abrir en Upwork</span>
+                <svg class="w-4 h-4 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                </svg>
+              </a>
+
+              <!-- Walkthrough Link -->
+              @if (current.proposalDocLink) {
+                <a [href]="current.proposalDocLink" target="_blank"
+                   class="py-3 px-4 rounded-xl bg-surface-elevated hover:bg-surface-hover text-content-secondary hover:text-content-primary text-xs font-medium border border-border-subtle transition-all"
+                   title="Ver Walkthrough Público">
+                  Ver Walkthrough ↗
+                </a>
+              }
+            </div>
+          </div>
+        } @else {
+          <!-- Skipped / Capped Notice -->
+          <div class="p-6 rounded-2xl bg-surface border border-border-subtle text-center space-y-2">
+            <span class="text-2xl">🛡️</span>
+            <h3 class="text-sm font-bold text-content-primary">Propuesta no generada</h3>
+            <p class="text-xs text-content-muted max-w-md mx-auto">
+              Este empleo fue catalogado como {{ current.fitLabel }} Fit. El sistema no generó propuesta para proteger tus tokens de IA y tus Connects.
+            </p>
+          </div>
+        }
+
+        <!-- Roadmap Architecture Accordion -->
+        <div class="p-5 rounded-2xl bg-surface border border-border-subtle space-y-3">
+          <div class="flex items-center justify-between cursor-pointer" (click)="toggleRoadmap()">
+            <span class="text-xs font-bold uppercase tracking-wider text-content-primary flex items-center gap-2">
+              <span>🗺️</span>
+              <span>Roadmap de Ejecución (Diagrama Técnico del Walkthrough)</span>
+            </span>
+            <span class="text-xs text-content-muted">{{ showRoadmap() ? 'Ocultar ▲' : 'Mostrar ▼' }}</span>
+          </div>
+
+          @if (showRoadmap()) {
+            <div class="p-4 rounded-xl bg-surface-elevated font-mono text-xs text-indigo-300 leading-relaxed border border-border-subtle overflow-x-auto">
+              flowchart TD<br/>
+              &nbsp;&nbsp;A[Auditoría de Requerimientos] --&gt; B[Figma Tokens & Sistema de Diseño]<br/>
+              &nbsp;&nbsp;B --&gt; C[Librería de Componentes Autolayout & Variantes]<br/>
+              &nbsp;&nbsp;C --&gt; D[Zero-Friction Developer Handoff]
+            </div>
+          }
+        </div>
+      </div>
+    } @else {
+      <!-- Empty State -->
+      <div class="h-full flex flex-col items-center justify-center text-center p-8 text-content-muted">
+        <span class="text-4xl mb-3">⚡</span>
+        <h3 class="text-base font-bold text-content-primary">Selecciona un lead de la lista</h3>
+        <p class="text-xs mt-1 max-w-sm">
+          Haz clic en cualquier empleo del panel izquierdo para inspeccionar su diagnóstico y despachar la propuesta.
+        </p>
+      </div>
+    }
+  </main>
+</div>

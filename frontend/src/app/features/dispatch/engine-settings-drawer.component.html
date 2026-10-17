@@ -1,0 +1,173 @@
+<!-- Drawer Backdrop -->
+@if (isOpen()) {
+  <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity"
+       (click)="close()"></div>
+}
+
+<!-- Slide-over Drawer Panel -->
+<div class="fixed inset-y-0 right-0 w-full max-w-xl bg-surface border-l border-border-subtle z-50 shadow-2xl flex flex-col transform transition-transform duration-300 ease-out"
+     [ngClass]="isOpen() ? 'translate-x-0' : 'translate-x-full'">
+  
+  <!-- Header -->
+  <div class="p-5 border-b border-border-subtle flex items-center justify-between bg-surface-elevated/40">
+    <div>
+      <h2 class="text-base font-bold text-content-primary flex items-center gap-2">
+        <span>⚙️</span>
+        <span>Calibración del Motor (Engine Settings)</span>
+      </h2>
+      <p class="text-xs text-content-muted mt-0.5">Ajusta tu posicionamiento, historias de autoridad y pesos matemáticos.</p>
+    </div>
+    <button (click)="close()" class="p-1.5 rounded-lg hover:bg-surface-elevated text-content-secondary hover:text-content-primary">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="flex border-b border-border-subtle px-5 bg-surface text-xs font-semibold">
+    <button (click)="activeTab.set('POSITIONING')"
+            class="py-3 px-3 border-b-2 transition-all"
+            [ngClass]="activeTab() === 'POSITIONING' ? 'border-brand-primary text-brand-primary' : 'border-transparent text-content-secondary hover:text-content-primary'">
+      Oferta & Historias
+    </button>
+    <button (click)="activeTab.set('WEIGHTS')"
+            class="py-3 px-3 border-b-2 transition-all"
+            [ngClass]="activeTab() === 'WEIGHTS' ? 'border-brand-primary text-brand-primary' : 'border-transparent text-content-secondary hover:text-content-primary'">
+      Pesos Matemáticos (40/25/20/15)
+    </button>
+    <button (click)="activeTab.set('SCRAPING')"
+            class="py-3 px-3 border-b-2 transition-all"
+            [ngClass]="activeTab() === 'SCRAPING' ? 'border-brand-primary text-brand-primary' : 'border-transparent text-content-secondary hover:text-content-primary'">
+      Keywords & Filtros
+    </button>
+  </div>
+
+  <!-- Drawer Body -->
+  <div class="flex-1 overflow-y-auto p-5 space-y-5">
+    @switch (activeTab()) {
+      @case ('POSITIONING') {
+        <!-- Specific Offer -->
+        <div class="space-y-2">
+          <label class="text-xs font-bold text-content-primary uppercase tracking-wider">Tu Oferta Específica (Transformación)</label>
+          <textarea [ngModel]="pipeline.offerText()"
+                    (ngModelChange)="pipeline.offerText.set($event)"
+                    rows="3"
+                    class="w-full bg-surface-elevated border border-border-subtle rounded-lg p-3 text-xs text-content-primary focus:outline-none focus:border-brand-primary leading-relaxed"></textarea>
+        </div>
+
+        <!-- Target Audience -->
+        <div class="space-y-2">
+          <label class="text-xs font-bold text-content-primary uppercase tracking-wider">Perfil Cliente Objetivo</label>
+          <input type="text"
+                 [ngModel]="pipeline.targetAudience()"
+                 (ngModelChange)="pipeline.targetAudience.set($event)"
+                 class="w-full bg-surface-elevated border border-border-subtle rounded-lg p-3 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
+        </div>
+
+        <!-- Proof Stories -->
+        <div class="space-y-2">
+          <label class="text-xs font-bold text-content-primary uppercase tracking-wider">Las 6 Historias de Autoridad</label>
+          <div class="space-y-2.5">
+            @for (story of pipeline.proofStories(); track story.id) {
+              <div class="p-3 rounded-lg bg-surface-elevated border border-border-subtle">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-content-primary">{{ story.company }}</span>
+                  <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">{{ story.metric }}</span>
+                </div>
+                <p class="text-[11px] text-content-secondary mt-1.5 leading-relaxed">{{ story.description }}</p>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      @case ('WEIGHTS') {
+        <div class="space-y-4">
+          <div class="p-4 rounded-xl bg-surface-elevated border border-border-subtle space-y-2">
+            <div class="flex justify-between text-xs font-bold">
+              <span class="text-content-primary">Skill Match</span>
+              <span class="font-mono text-brand-primary">{{ pipeline.weightSkill() }}%</span>
+            </div>
+            <input type="range" min="10" max="60"
+                   [ngModel]="pipeline.weightSkill()"
+                   (ngModelChange)="pipeline.weightSkill.set($event)"
+                   class="w-full accent-indigo-500">
+            <p class="text-[10px] text-content-muted">Comprobado contra tus 16 skills verificadas de UX y Research.</p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-surface-elevated border border-border-subtle space-y-2">
+            <div class="flex justify-between text-xs font-bold">
+              <span class="text-content-primary">AI Feasibility</span>
+              <span class="font-mono text-brand-primary">{{ pipeline.weightAi() }}%</span>
+            </div>
+            <input type="range" min="10" max="40"
+                   [ngModel]="pipeline.weightAi()"
+                   (ngModelChange)="pipeline.weightAi.set($event)"
+                   class="w-full accent-indigo-500">
+            <p class="text-[10px] text-content-muted">Capacidad de entrega ultra-rápida con Figma Make y Agentes.</p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-surface-elevated border border-border-subtle space-y-2">
+            <div class="flex justify-between text-xs font-bold">
+              <span class="text-content-primary">Client Quality</span>
+              <span class="font-mono text-brand-primary">{{ pipeline.weightClient() }}%</span>
+            </div>
+            <input type="range" min="10" max="40"
+                   [ngModel]="pipeline.weightClient()"
+                   (ngModelChange)="pipeline.weightClient.set($event)"
+                   class="w-full accent-indigo-500">
+            <p class="text-[10px] text-content-muted">Gasto histórico, método de pago verificado y pocas propuestas.</p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-surface-elevated border border-border-subtle space-y-2">
+            <div class="flex justify-between text-xs font-bold">
+              <span class="text-content-primary">Recency</span>
+              <span class="font-mono text-brand-primary">{{ pipeline.weightRecency() }}%</span>
+            </div>
+            <input type="range" min="5" max="30"
+                   [ngModel]="pipeline.weightRecency()"
+                   (ngModelChange)="pipeline.weightRecency.set($event)"
+                   class="w-full accent-indigo-500">
+            <p class="text-[10px] text-content-muted">Ventana de prioridad para propuestas tempranas (&lt; 3h).</p>
+          </div>
+
+          <!-- Cap at 44 card -->
+          <div class="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 leading-relaxed">
+            🛡️ <strong>Regla del CAP en 44</strong>: Si el empleo es de soporte, QA manual o dar clases (Skill &lt; 40), el puntaje se congela automáticamente en 44 para no quemar Connects.
+          </div>
+        </div>
+      }
+
+      @case ('SCRAPING') {
+        <div class="space-y-4">
+          <div class="space-y-2">
+            <label class="text-xs font-bold text-content-primary uppercase tracking-wider">Keywords Activas</label>
+            <div class="p-3 rounded-lg bg-surface-elevated border border-border-subtle text-xs font-mono text-content-secondary leading-relaxed">
+              UX research, design system, Figma design system, AI product design, usability testing, AI prototyping, vibe coding, agentic workflow design, N8N automation design, GenAI UX
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 text-xs">
+            <div class="p-3 rounded-lg bg-surface-elevated border border-border-subtle">
+              <span class="text-content-muted block mb-1">Presupuesto Mínimo</span>
+              <strong class="text-content-primary font-mono text-sm">$1,000 USD</strong>
+            </div>
+            <div class="p-3 rounded-lg bg-surface-elevated border border-border-subtle">
+              <span class="text-content-muted block mb-1">Tarifa Horaria Mínima</span>
+              <strong class="text-content-primary font-mono text-sm">$40.00 / hr</strong>
+            </div>
+          </div>
+        </div>
+      }
+    }
+  </div>
+
+  <!-- Footer Actions -->
+  <div class="p-4 border-t border-border-subtle bg-surface-elevated/60 flex justify-end">
+    <button (click)="close()"
+            class="px-5 py-2 rounded-xl bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold transition-all shadow-md">
+      Guardar y Cerrar
+    </button>
+  </div>
+</div>
