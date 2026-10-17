@@ -8,20 +8,60 @@
 <div class="fixed inset-y-0 right-0 w-full max-w-xl bg-surface border-l border-border-subtle z-50 shadow-2xl flex flex-col transform transition-transform duration-300 ease-out"
      [ngClass]="isOpen() ? 'translate-x-0' : 'translate-x-full'">
   
-  <!-- Header -->
-  <div class="p-5 border-b border-border-subtle flex items-center justify-between bg-surface-elevated/40">
-    <div>
-      <h2 class="text-base font-bold text-content-primary flex items-center gap-2">
-        <span>⚙️</span>
-        <span>Calibración del Motor (Engine Settings)</span>
-      </h2>
-      <p class="text-xs text-content-muted mt-0.5">Ajusta tu posicionamiento, historias de autoridad y pesos matemáticos.</p>
+  <!-- Header with Profile Selector -->
+  <div class="p-5 border-b border-border-subtle bg-surface-elevated/40 space-y-3">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-lg">⚙️</span>
+        <h2 class="text-base font-bold text-content-primary">Calibrador del Motor</h2>
+      </div>
+      <button (click)="close()" class="p-1.5 rounded-lg hover:bg-surface-elevated text-content-secondary hover:text-content-primary">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
     </div>
-    <button (click)="close()" class="p-1.5 rounded-lg hover:bg-surface-elevated text-content-secondary hover:text-content-primary">
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-      </svg>
-    </button>
+
+    <!-- PROFILE SELECTOR BAR: Allows switching or creating from zero! -->
+    <div class="p-3 rounded-xl bg-surface border border-border-subtle space-y-2">
+      <div class="flex items-center justify-between">
+        <label class="text-[11px] font-bold text-content-muted uppercase tracking-wider">Perfil de Calibración Activo</label>
+        @if (!showNewProfileInput()) {
+          <button (click)="showNewProfileInput.set(true)"
+                  class="text-xs text-brand-primary hover:underline font-bold flex items-center gap-1">
+            <span>➕</span>
+            <span>Crear Calibración de Cero</span>
+          </button>
+        }
+      </div>
+
+      @if (showNewProfileInput()) {
+        <!-- Input to create a brand new profile from scratch -->
+        <div class="flex items-center gap-2 pt-1">
+          <input type="text"
+                 [ngModel]="newProfileName()"
+                 (ngModelChange)="newProfileName.set($event)"
+                 placeholder="Nombre del nuevo perfil (ej: Fullstack Dev, UX Auditor...)"
+                 class="flex-1 bg-surface-elevated border border-border-subtle rounded-lg px-3 py-1.5 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
+          <button (click)="createNewProfile()"
+                  class="px-3 py-1.5 rounded-lg bg-brand-primary text-white text-xs font-bold shadow-sm">
+            Crear
+          </button>
+          <button (click)="showNewProfileInput.set(false)" class="text-xs text-content-muted">
+            ✕
+          </button>
+        </div>
+      } @else {
+        <!-- Profile dropdown select -->
+        <select [ngModel]="pipeline.activeProfileId()"
+                (ngModelChange)="pipeline.selectProfile($event)"
+                class="w-full bg-surface-elevated border border-border-subtle rounded-lg px-3 py-2 text-xs font-bold text-content-primary focus:outline-none focus:border-brand-primary">
+          @for (p of pipeline.profiles(); track p.id) {
+            <option [value]="p.id">{{ p.name }}</option>
+          }
+        </select>
+      }
+    </div>
   </div>
 
   <!-- Navigation Tabs -->
@@ -29,76 +69,222 @@
     <button (click)="activeTab.set('POSITIONING')"
             class="py-3 px-3 border-b-2 transition-all"
             [ngClass]="activeTab() === 'POSITIONING' ? 'border-brand-primary text-brand-primary' : 'border-transparent text-content-secondary hover:text-content-primary'">
-      Oferta & Historias
-    </button>
-    <button (click)="activeTab.set('WEIGHTS')"
-            class="py-3 px-3 border-b-2 transition-all"
-            [ngClass]="activeTab() === 'WEIGHTS' ? 'border-brand-primary text-brand-primary' : 'border-transparent text-content-secondary hover:text-content-primary'">
-      Pesos Matemáticos (40/25/20/15)
+      1. Oferta & Historias ({{ pipeline.proofStories().length }})
     </button>
     <button (click)="activeTab.set('SCRAPING')"
             class="py-3 px-3 border-b-2 transition-all"
             [ngClass]="activeTab() === 'SCRAPING' ? 'border-brand-primary text-brand-primary' : 'border-transparent text-content-secondary hover:text-content-primary'">
-      Keywords & Filtros
+      2. Keywords & Filtros
+    </button>
+    <button (click)="activeTab.set('WEIGHTS')"
+            class="py-3 px-3 border-b-2 transition-all"
+            [ngClass]="activeTab() === 'WEIGHTS' ? 'border-brand-primary text-brand-primary' : 'border-transparent text-content-secondary hover:text-content-primary'">
+      3. Pesos Matemáticos
     </button>
   </div>
 
   <!-- Drawer Body -->
-  <div class="flex-1 overflow-y-auto p-5 space-y-5">
-    <!-- ZONA DE PRUEBAS & ESTADO CERO -->
-    <div class="p-4 rounded-xl bg-surface-elevated border border-border-subtle space-y-3">
-      <div class="text-xs font-bold text-content-primary uppercase tracking-wider flex items-center gap-1.5">
-        <span>🧪</span>
-        <span>Zona de Pruebas (Test Harness)</span>
-      </div>
-      <p class="text-xs text-content-muted">
-        Limpia la base de datos para probar el flujo de Onboarding desde cero, o restaura los datos de prueba.
-      </p>
-      <div class="flex items-center gap-3">
-        <button (click)="resetDatabase()"
-                class="px-3 py-2 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 font-bold text-xs border border-rose-500/30 transition-all">
-          🧹 Resetear Base a Cero
-        </button>
-        <button (click)="restorePreset()"
-                class="px-3 py-2 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 font-bold text-xs border border-emerald-500/30 transition-all">
-          📦 Restaurar Preset de Bo
-        </button>
-      </div>
-    </div>
-  
+  <div class="flex-1 overflow-y-auto p-5 space-y-6">
+
     @switch (activeTab()) {
       @case ('POSITIONING') {
-        <!-- Specific Offer -->
+        <!-- 1. EDITABLE SPECIFIC OFFER -->
         <div class="space-y-2">
-          <label class="text-xs font-bold text-content-primary uppercase tracking-wider">Tu Oferta Específica (Transformación)</label>
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-bold text-content-primary uppercase tracking-wider">Tu Oferta Específica (Transformación)</label>
+            <span class="text-[11px] text-content-muted font-mono">{{ pipeline.offerText().length }} caracteres</span>
+          </div>
           <textarea [ngModel]="pipeline.offerText()"
                     (ngModelChange)="pipeline.offerText.set($event)"
                     rows="3"
-                    class="w-full bg-surface-elevated border border-border-subtle rounded-lg p-3 text-xs text-content-primary focus:outline-none focus:border-brand-primary leading-relaxed"></textarea>
+                    placeholder="Escribe la transformación concreta que vendes (ej: Construyo arquitecturas cloud y frontends en Angular con entrega en 2 semanas...)"
+                    class="w-full bg-surface-elevated border border-border-subtle rounded-xl p-3 text-xs text-content-primary focus:outline-none focus:border-brand-primary leading-relaxed"></textarea>
         </div>
 
-        <!-- Target Audience -->
+        <!-- 2. EDITABLE TARGET AUDIENCE -->
         <div class="space-y-2">
           <label class="text-xs font-bold text-content-primary uppercase tracking-wider">Perfil Cliente Objetivo</label>
           <input type="text"
                  [ngModel]="pipeline.targetAudience()"
                  (ngModelChange)="pipeline.targetAudience.set($event)"
-                 class="w-full bg-surface-elevated border border-border-subtle rounded-lg p-3 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
+                 placeholder="Ej: Startups B2B de EE.UU. y Europa con presupuesto validado..."
+                 class="w-full bg-surface-elevated border border-border-subtle rounded-xl p-3 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
         </div>
 
-        <!-- Proof Stories -->
-        <div class="space-y-2">
-          <label class="text-xs font-bold text-content-primary uppercase tracking-wider">Las 6 Historias de Autoridad</label>
-          <div class="space-y-2.5">
-            @for (story of pipeline.proofStories(); track story.id) {
-              <div class="p-3 rounded-lg bg-surface-elevated border border-border-subtle">
-                <div class="flex items-center justify-between">
-                  <span class="text-xs font-bold text-content-primary">{{ story.company }}</span>
-                  <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">{{ story.metric }}</span>
+        <!-- 3. INTERACTIVE PROOF STORIES (ADD / REMOVE) -->
+        <div class="space-y-3 pt-3 border-t border-border-subtle">
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="text-xs font-bold text-content-primary uppercase tracking-wider block">Historias de Autoridad</label>
+              <span class="text-[11px] text-content-muted">{{ pipeline.proofStories().length }} historias configuradas en este perfil</span>
+            </div>
+            
+            @if (!showAddStoryForm()) {
+              <button (click)="toggleAddStoryForm()"
+                      class="px-3 py-1.5 rounded-lg bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm">
+                <span>➕</span>
+                <span>Agregar Historia</span>
+              </button>
+            }
+          </div>
+
+          <!-- FORMULARIO PARA AGREGAR HISTORIA -->
+          @if (showAddStoryForm()) {
+            <div class="p-4 rounded-xl bg-surface border-2 border-brand-primary/50 space-y-3 shadow-lg">
+              <div class="flex items-center justify-between border-b border-border-subtle pb-2">
+                <span class="text-xs font-bold text-content-primary flex items-center gap-1.5">
+                  <span>✨</span>
+                  <span>Nueva Historia de Autoridad</span>
+                </span>
+                <button (click)="toggleAddStoryForm()" class="text-xs text-content-muted hover:text-content-primary">✕ Cancelar</button>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-[11px] font-medium text-content-muted mb-1">Empresa o Cliente</label>
+                  <input type="text"
+                         [ngModel]="newCompany()"
+                         (ngModelChange)="newCompany.set($event)"
+                         placeholder="Ej: Rappi, Stripe, Mi Cliente X..."
+                         class="w-full bg-surface-elevated border border-border-subtle rounded-lg px-3 py-1.5 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
                 </div>
-                <p class="text-[11px] text-content-secondary mt-1.5 leading-relaxed">{{ story.description }}</p>
+                <div>
+                  <label class="block text-[11px] font-medium text-content-muted mb-1">Métrica de Impacto</label>
+                  <input type="text"
+                         [ngModel]="newMetric()"
+                         (ngModelChange)="newMetric.set($event)"
+                         placeholder="Ej: +35% conversión, $1M facturado..."
+                         class="w-full bg-surface-elevated border border-border-subtle rounded-lg px-3 py-1.5 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-medium text-content-muted mb-1">Descripción Breve (1 oración)</label>
+                <input type="text"
+                       [ngModel]="newDescription()"
+                       (ngModelChange)="newDescription.set($event)"
+                       placeholder="Ej: Rediseño completo de interfaz y arquitectura de componentes para 100k usuarios."
+                       class="w-full bg-surface-elevated border border-border-subtle rounded-lg px-3 py-1.5 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-medium text-content-muted mb-1">Tags (separados por coma)</label>
+                <input type="text"
+                       [ngModel]="newTags()"
+                       (ngModelChange)="newTags.set($event)"
+                       placeholder="Fullstack, Angular, AI, Performance"
+                       class="w-full bg-surface-elevated border border-border-subtle rounded-lg px-3 py-1.5 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
+              </div>
+
+              <div class="flex justify-end gap-2 pt-1 border-t border-border-subtle">
+                <button (click)="toggleAddStoryForm()" class="px-3 py-1.5 rounded-lg bg-surface-elevated text-content-muted hover:text-content-primary text-xs">
+                  Cancelar
+                </button>
+                <button (click)="saveNewStory()"
+                        [disabled]="!newCompany() || !newMetric()"
+                        class="px-4 py-1.5 rounded-lg bg-brand-primary hover:bg-brand-hover text-white font-bold text-xs shadow-md disabled:opacity-50">
+                  Guardar Historia
+                </button>
+              </div>
+            </div>
+          }
+
+          <!-- LISTA DE HISTORIAS CON BOTÓN QUITAR -->
+          <div class="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+            @for (story of pipeline.proofStories(); track story.id) {
+              <div class="p-3.5 rounded-xl bg-surface-elevated border border-border-subtle flex items-start justify-between gap-3 group hover:border-border-focus transition-all">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-content-primary">{{ story.company }}</span>
+                    <span class="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      {{ story.metric }}
+                    </span>
+                  </div>
+                  <p class="text-xs text-content-secondary leading-relaxed">{{ story.description }}</p>
+                  <div class="flex flex-wrap gap-1 pt-1">
+                    @for (tag of story.tags; track tag) {
+                      <span class="text-[10px] font-mono text-content-muted bg-surface px-1.5 py-0.5 rounded">
+                        #{{ tag }}
+                      </span>
+                    }
+                  </div>
+                </div>
+
+                <!-- BOTÓN QUITAR HISTORIA -->
+                <button (click)="removeStory(story.id)"
+                        class="p-1.5 rounded-lg text-content-muted hover:text-rose-400 hover:bg-rose-500/10 transition-colors flex items-center gap-1 text-xs font-medium"
+                        title="Quitar esta historia">
+                  <span>🗑️</span>
+                  <span class="text-[11px]">Quitar</span>
+                </button>
+              </div>
+            } @empty {
+              <div class="p-8 text-center text-xs text-content-muted bg-surface-elevated rounded-xl">
+                No tienes historias en este perfil. Haz clic en "➕ Agregar Historia" arriba para crear la tuya.
               </div>
             }
+          </div>
+        </div>
+      }
+
+      @case ('SCRAPING') {
+        <!-- 100% EDITABLE KEYWORDS & BUDGET FILTERS -->
+        <div class="space-y-5">
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-content-primary uppercase tracking-wider">Palabras Clave de Búsqueda (Keywords)</label>
+              <span class="text-[11px] text-content-muted">Separadas por comas</span>
+            </div>
+            <!-- TEXTAREA EDITABLE: Cambia las keywords a voluntad! -->
+            <textarea [ngModel]="pipeline.keywordsText()"
+                      (ngModelChange)="pipeline.keywordsText.set($event)"
+                      rows="4"
+                      placeholder="Escribe tus propias palabras clave (ej: Angular, NestJS, TypeScript, Fullstack, AI Agents, Microservices...)"
+                      class="w-full bg-surface-elevated border border-border-subtle rounded-xl p-3.5 text-xs text-content-primary font-mono focus:outline-none focus:border-brand-primary leading-relaxed"></textarea>
+            <p class="text-[11px] text-content-muted">
+              Apify usará exactamente estas palabras clave para extraer empleos de Upwork cuando ejecutes la corrida.
+            </p>
+          </div>
+
+          <!-- INPUTS EDITABLES: Cambia $1,000 y $40/h a lo que quieras! -->
+          <div class="grid grid-cols-2 gap-4">
+            <div class="p-4 rounded-xl bg-surface-elevated border border-border-subtle space-y-1.5">
+              <label class="text-[11px] font-bold text-content-muted uppercase tracking-wider block">Presupuesto Fijo Mínimo</label>
+              <div class="flex items-center gap-1.5">
+                <span class="text-sm font-bold text-content-muted">$</span>
+                <input type="number"
+                       [ngModel]="pipeline.minBudgetFixed()"
+                       (ngModelChange)="pipeline.minBudgetFixed.set($event)"
+                       class="w-full bg-surface border border-border-subtle rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-content-primary focus:outline-none focus:border-brand-primary">
+                <span class="text-xs text-content-muted font-mono">USD</span>
+              </div>
+              <span class="text-[10px] text-content-muted">Descarta proyectos por debajo de este monto.</span>
+            </div>
+
+            <div class="p-4 rounded-xl bg-surface-elevated border border-border-subtle space-y-1.5">
+              <label class="text-[11px] font-bold text-content-muted uppercase tracking-wider block">Tarifa Horaria Mínima</label>
+              <div class="flex items-center gap-1.5">
+                <span class="text-sm font-bold text-content-muted">$</span>
+                <input type="number"
+                       [ngModel]="pipeline.minHourlyRate()"
+                       (ngModelChange)="pipeline.minHourlyRate.set($event)"
+                       class="w-full bg-surface border border-border-subtle rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-content-primary focus:outline-none focus:border-brand-primary">
+                <span class="text-xs text-content-muted font-mono">/ hr</span>
+              </div>
+              <span class="text-[10px] text-content-muted">Filtra clientes con presupuestos por hora menores.</span>
+            </div>
+          </div>
+
+          <!-- VERIFIED PAYMENT ONLY TOGGLE -->
+          <div class="p-4 rounded-xl bg-surface-elevated border border-border-subtle flex items-center justify-between">
+            <div>
+              <span class="text-xs font-bold text-content-primary block">Solo Clientes con Pago Verificado</span>
+              <span class="text-[11px] text-content-muted">Descarta clientes sin método de pago registrado en Upwork</span>
+            </div>
+            <input type="checkbox"
+                   [ngModel]="pipeline.verifiedPaymentOnly()"
+                   (ngModelChange)="pipeline.verifiedPaymentOnly.set($event)"
+                   class="w-4 h-4 rounded border-border-subtle accent-indigo-500 cursor-pointer">
           </div>
         </div>
       }
@@ -114,7 +300,7 @@
                    [ngModel]="pipeline.weightSkill()"
                    (ngModelChange)="pipeline.weightSkill.set($event)"
                    class="w-full accent-indigo-500">
-            <p class="text-[10px] text-content-muted">Comprobado contra tus 16 skills verificadas de UX y Research.</p>
+            <p class="text-[10px] text-content-muted">Comprobado contra las skills que requiere el cliente.</p>
           </div>
 
           <div class="p-4 rounded-xl bg-surface-elevated border border-border-subtle space-y-2">
@@ -126,7 +312,7 @@
                    [ngModel]="pipeline.weightAi()"
                    (ngModelChange)="pipeline.weightAi.set($event)"
                    class="w-full accent-indigo-500">
-            <p class="text-[10px] text-content-muted">Capacidad de entrega ultra-rápida con Figma Make y Agentes.</p>
+            <p class="text-[10px] text-content-muted">Capacidad de entrega asistida por agentes o automatización.</p>
           </div>
 
           <div class="p-4 rounded-xl bg-surface-elevated border border-border-subtle space-y-2">
@@ -138,7 +324,7 @@
                    [ngModel]="pipeline.weightClient()"
                    (ngModelChange)="pipeline.weightClient.set($event)"
                    class="w-full accent-indigo-500">
-            <p class="text-[10px] text-content-muted">Gasto histórico, método de pago verificado y pocas propuestas.</p>
+            <p class="text-[10px] text-content-muted">Gasto histórico, rating de estrellas y número de propuestas.</p>
           </div>
 
           <div class="p-4 rounded-xl bg-surface-elevated border border-border-subtle space-y-2">
@@ -150,45 +336,47 @@
                    [ngModel]="pipeline.weightRecency()"
                    (ngModelChange)="pipeline.weightRecency.set($event)"
                    class="w-full accent-indigo-500">
-            <p class="text-[10px] text-content-muted">Ventana de prioridad para propuestas tempranas (&lt; 3h).</p>
+            <p class="text-[10px] text-content-muted">Prioridad para postulaciones tempranas (&lt; 3 horas de publicado).</p>
           </div>
 
-          <!-- Cap at 44 card -->
           <div class="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 leading-relaxed">
-            🛡️ <strong>Regla del CAP en 44</strong>: Si el empleo es de soporte, QA manual o dar clases (Skill &lt; 40), el puntaje se congela automáticamente en 44 para no quemar Connects.
-          </div>
-        </div>
-      }
-
-      @case ('SCRAPING') {
-        <div class="space-y-4">
-          <div class="space-y-2">
-            <label class="text-xs font-bold text-content-primary uppercase tracking-wider">Keywords Activas</label>
-            <div class="p-3 rounded-lg bg-surface-elevated border border-border-subtle text-xs font-mono text-content-secondary leading-relaxed">
-              UX research, design system, Figma design system, AI product design, usability testing, AI prototyping, vibe coding, agentic workflow design, N8N automation design, GenAI UX
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3 text-xs">
-            <div class="p-3 rounded-lg bg-surface-elevated border border-border-subtle">
-              <span class="text-content-muted block mb-1">Presupuesto Mínimo</span>
-              <strong class="text-content-primary font-mono text-sm">$1,000 USD</strong>
-            </div>
-            <div class="p-3 rounded-lg bg-surface-elevated border border-border-subtle">
-              <span class="text-content-muted block mb-1">Tarifa Horaria Mínima</span>
-              <strong class="text-content-primary font-mono text-sm">$40.00 / hr</strong>
-            </div>
+            🛡️ <strong>Regla del CAP en 44</strong>: Si el empleo es de soporte manual o tareas fuera de nicho (Skill &lt; 40), el puntaje se congela automáticamente en 44 para no quemar Connects.
           </div>
         </div>
       }
     }
+
+    <!-- ZONA AVANZADA DISCRETA AL FONDO (TEST HARNESS) -->
+    <div class="pt-4 border-t border-border-subtle">
+      <details class="text-xs text-content-muted group">
+        <summary class="cursor-pointer font-bold hover:text-content-primary select-none flex items-center justify-between">
+          <span>🛠️ Opciones Avanzadas de Demostración</span>
+          <span class="group-open:rotate-180 transition-transform">▼</span>
+        </summary>
+        <div class="mt-3 p-3 bg-surface-elevated rounded-xl border border-border-subtle space-y-2">
+          <p class="text-[11px]">Controla la base de datos para pruebas:</p>
+          <div class="flex items-center gap-2">
+            <button (click)="resetDatabase()" class="px-2.5 py-1 rounded bg-rose-500/20 text-rose-300 text-[11px] font-bold">
+              🧹 Resetear Base a 0
+            </button>
+            <button (click)="restorePreset()" class="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 text-[11px] font-bold">
+              📦 Restaurar Preset de Bo
+            </button>
+          </div>
+        </div>
+      </details>
+    </div>
   </div>
 
   <!-- Footer Actions -->
-  <div class="p-4 border-t border-border-subtle bg-surface-elevated/60 flex justify-end">
-    <button (click)="close()"
-            class="px-5 py-2 rounded-xl bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold transition-all shadow-md">
-      Guardar y Cerrar
+  <div class="p-4 border-t border-border-subtle bg-surface-elevated/60 flex items-center justify-between">
+    <button (click)="close()" class="px-4 py-2 rounded-xl text-content-secondary hover:text-content-primary text-xs font-semibold">
+      Cerrar
+    </button>
+    <button (click)="triggerScrapeWithActiveProfile()"
+            class="px-5 py-2 rounded-xl bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5">
+      <span>🚀</span>
+      <span>Guardar y Extraer Empleos con este Perfil</span>
     </button>
   </div>
 </div>

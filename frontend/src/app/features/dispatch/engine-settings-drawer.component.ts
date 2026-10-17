@@ -20,10 +20,56 @@ export class EngineSettingsDrawerComponent {
   public readonly isOpen = input<boolean>(false);
   public readonly closeDrawer = output<void>();
 
-  public readonly activeTab = signal<'POSITIONING' | 'WEIGHTS' | 'SCRAPING'>('POSITIONING');
+  public readonly activeTab = signal<'POSITIONING' | 'SCRAPING' | 'WEIGHTS'>('POSITIONING');
+
+  // Creating New Profile Modal/State
+  public readonly showNewProfileInput = signal<boolean>(false);
+  public readonly newProfileName = signal<string>('');
+
+  // Form State for Adding New Story
+  public readonly showAddStoryForm = signal<boolean>(false);
+  public readonly newCompany = signal<string>('');
+  public readonly newMetric = signal<string>('');
+  public readonly newDescription = signal<string>('');
+  public readonly newTags = signal<string>('SaaS, Fullstack, AI');
 
   public close(): void {
     this.closeDrawer.emit();
+  }
+
+  public createNewProfile(): void {
+    const name = this.newProfileName().trim() || 'Mi Nueva Calibración';
+    this.pipeline.createBlankProfile(name);
+    this.newProfileName.set('');
+    this.showNewProfileInput.set(false);
+  }
+
+  public toggleAddStoryForm(): void {
+    this.showAddStoryForm.update(v => !v);
+  }
+
+  public saveNewStory(): void {
+    const company = this.newCompany().trim();
+    const metric = this.newMetric().trim();
+    const desc = this.newDescription().trim() || `Caso de éxito de alto impacto en ${company} (${metric}).`;
+    const tags = this.newTags().split(',').map(t => t.trim()).filter(Boolean);
+
+    if (company && metric) {
+      this.pipeline.addProofStory({ company, metric, description: desc, tags });
+      this.newCompany.set('');
+      this.newMetric.set('');
+      this.newDescription.set('');
+      this.showAddStoryForm.set(false);
+    }
+  }
+
+  public removeStory(id: string): void {
+    this.pipeline.deleteProofStory(id);
+  }
+
+  public triggerScrapeWithActiveProfile(): void {
+    this.report.triggerLiveScrape(15);
+    this.close();
   }
 
   public resetDatabase(): void {
