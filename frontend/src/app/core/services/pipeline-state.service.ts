@@ -89,31 +89,7 @@ export class PipelineStateService {
   public readonly weightRecency = signal<number>(this.activeProfile().weightRecency);
   public readonly proofStories = signal<ProofStory[]>(this.activeProfile().proofStories);
 
-  constructor() {
-    // Auto-save active profile changes back to profiles list and localStorage
-    effect(() => {
-      const activeId = this.activeProfileId();
-      const updated: CalibrationProfile = {
-        id: activeId,
-        name: this.activeProfile().name,
-        roleTitle: this.activeProfile().roleTitle,
-        offerText: this.offerText(),
-        targetAudience: this.targetAudience(),
-        keywords: this.keywordsText(),
-        minHourlyRate: this.minHourlyRate(),
-        minBudgetFixed: this.minBudgetFixed(),
-        verifiedPaymentOnly: this.verifiedPaymentOnly(),
-        weightSkill: this.weightSkill(),
-        weightAi: this.weightAi(),
-        weightClient: this.weightClient(),
-        weightRecency: this.weightRecency(),
-        proofStories: this.proofStories(),
-      };
-
-      this.profiles.update(list => list.map(p => p.id === activeId ? updated : p));
-      this.persist();
-    });
-  }
+  constructor() {}
 
   private loadProfiles(): CalibrationProfile[] {
     try {
