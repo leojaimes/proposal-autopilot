@@ -137,4 +137,22 @@ export class PipelineStateService {
   public deleteProofStory(id: string): void {
     this.proofStories.update(list => list.filter(s => s.id !== id));
   }
+  public updateProofStory(id: string, updated: { company: string; metric: string; description: string; tags: string[] }): void {
+    this.proofStories.update(list => list.map(s => s.id === id ? { ...s, ...updated } : s));
+  }
+
+  public moveProofStory(id: string, direction: 'UP' | 'DOWN'): void {
+    this.proofStories.update(list => {
+      const idx = list.findIndex(s => s.id === id);
+      if (idx === -1) return list;
+      const targetIdx = direction === 'UP' ? idx - 1 : idx + 1;
+      if (targetIdx < 0 || targetIdx >= list.length) return list;
+
+      const copy = [...list];
+      const temp = copy[idx];
+      copy[idx] = copy[targetIdx];
+      copy[targetIdx] = temp;
+      return copy;
+    });
+  }
 }

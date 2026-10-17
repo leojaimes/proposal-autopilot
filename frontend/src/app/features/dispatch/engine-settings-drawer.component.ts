@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { PipelineStateService } from '../../core/services/pipeline-state.service';
 import { ReportService } from '../../core/services/report.service';
+import { ProofStory } from '../../core/models/pipeline.model';
 
 @Component({
   selector: 'app-engine-settings-drawer',
@@ -26,8 +27,9 @@ export class EngineSettingsDrawerComponent {
   public readonly showNewProfileInput = signal<boolean>(false);
   public readonly newProfileName = signal<string>('');
 
-  // Form State for Adding New Story
-  public readonly showAddStoryForm = signal<boolean>(false);
+  // Form State for Adding / Editing Story
+  public readonly showStoryForm = signal<boolean>(false);
+  public readonly editingStoryId = signal<string | null>(null);
   public readonly newCompany = signal<string>('');
   public readonly newMetric = signal<string>('');
   public readonly newDescription = signal<string>('');
@@ -44,27 +46,63 @@ export class EngineSettingsDrawerComponent {
     this.showNewProfileInput.set(false);
   }
 
-  public toggleAddStoryForm(): void {
-    this.showAddStoryForm.update(v => !v);
+  public openAddStoryForm(): void {
+    this.editingStoryId.set(null);
+    this.newCompany.set('');
+    this.newMetric.set('');
+    this.newDescription.set('');
+    this.newTags.set('SaaS, AI, Mobile UX');
+    this.showStoryForm.set(true);
   }
 
-  public saveNewStory(): void {
+  public openEditStoryForm(story: ProofStory): void {
+    this.editingStoryId.set(story.id);
+    this.newCompany.set(story.company);
+    this.newMetric.set(story.metric);
+    this.newDescription.set(story.description);
+    this.newTags.set(story.tags.join(', '));
+    this.showStoryForm.set(true);
+  }
+
+  public cancelStoryForm(): void {
+    this.showStoryForm.set(false);
+    this.editingStoryId.set(null);
+  }
+
+  public saveStory(): void {
     const company = this.newCompany().trim();
     const metric = this.newMetric().trim();
     const desc = this.newDescription().trim() || `Caso de éxito de alto impacto en ${company} (${metric}).`;
     const tags = this.newTags().split(',').map(t => t.trim()).filter(Boolean);
 
-    if (company && metric) {
+    if (!company || !metric) return;
+
+    if (this.editingStoryId()) {
+      // EDIT EXISTING
+      this.pipeline.updateProofStory(this.editingStoryId()!, {
+        company,
+        metric,
+        description: desc,
+        tags
+      });
+    } else {
+      // ADD NEW
       this.pipeline.addProofStory({ company, metric, description: desc, tags });
-      this.newCompany.set('');
-      this.newMetric.set('');
-      this.newDescription.set('');
-      this.showAddStoryForm.set(false);
     }
+
+    this.cancelStoryForm();
   }
 
   public removeStory(id: string): void {
     this.pipeline.deleteProofStory(id);
+  }
+
+  public moveStoryUp(id: string): void {
+    this.pipeline.moveProofStory(id, 'UP');
+  }
+
+  public moveStoryDown(id: string): void {
+    this.pipeline.moveProofStory(id, 'DOWN');
   }
 
   public triggerScrapeWithActiveProfile(): void {
