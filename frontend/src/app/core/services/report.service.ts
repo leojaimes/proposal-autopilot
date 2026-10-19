@@ -6,7 +6,9 @@ import { JobReportItem } from '../models/pipeline.model';
 @Injectable({ providedIn: 'root' })
 export class ReportService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = 'http://localhost:7000/api/scraping';
+  private readonly baseUrl = (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
+    ? '/api/scraping'
+    : 'http://localhost:7000/api/scraping';
 
   // Signals for state
   private readonly _jobs = signal<JobReportItem[]>([]);
@@ -20,6 +22,11 @@ export class ReportService {
 
   private readonly _lastRefreshed = signal<Date>(new Date());
   public readonly lastRefreshed = this._lastRefreshed.asReadonly();
+
+  // Tri-Factor Positioning State
+  public readonly offerHeadline = signal<string>('');
+  public readonly targetAudience = signal<string>('');
+  public readonly proofStories = signal<{ id: string; keyCode: string; companyOrProduct: string; impactMetric: string; domainTags: string[] }[]>([]);
 
   // Event streams
   private readonly refreshTrigger$ = new Subject<void>();
@@ -65,6 +72,47 @@ export class ReportService {
 
     // Initial load
     this.refresh();
+    this.fetchProofStories();
+  }
+
+  public fetchProofStories(): void {
+    this.http.get<{ offerHeadline: string; targetAudience: string; proofStories: any[] }>(this.baseUrl + '/proof-stories')
+      .pipe(
+        catchError((err) => {
+          console.error('Failed to fetch proof stories', err);
+          return of({ offerHeadline: '', targetAudience: '', proofStories: [] });
+        })
+      )
+      .subscribe((res) => {
+        this.offerHeadline.set(res.offerHeadline);
+        this.targetAudience.set(res.targetAudience);
+        this.proofStories.set(res.proofStories || []);
+      });
+  }
+
+  public regenerateProposal(jobId: string, proofStoryKey?: string) {
+    return this.http.post<any>(`${this.baseUrl}/jobs/${jobId}/regenerate-proposal`, { proofStoryKey }).pipe(
+      tap((res) => {
+        if (res.success) {
+          this._jobs.update((list) =>
+            list.map((j) => {
+              if (j.id === jobId) {
+                return {
+                  ...j,
+                  coverLetter: res.coverLetter,
+                  contactNameFound: res.contactNameFound,
+                  mermaidCode: res.mermaidCode,
+                  technicalProposal: res.technicalProposal,
+                  suggestedProofStory: res.suggestedProofStory,
+                  proposalDocLink: res.proposalDocLink,
+                };
+              }
+              return j;
+            })
+          );
+        }
+      })
+    );
   }
 
   public refresh(): void {
@@ -87,5 +135,25 @@ export class ReportService {
 
   public downloadCsv(): void {
     window.open(this.baseUrl + '/report/csv', '_blank');
+  }
+
+  public downloadTechnicalProposalPdf(jobId: string, jobTitle?: string) {
+    return this.http.get(`${this.baseUrl}/jobs/${jobId}/technical-proposal-pdf`, {
+      responseType: 'blob',
+    }).pipe(
+      tap((blob) => {
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        const cleanTitle = (jobTitle || 'Technical_Proposal')
+          .replace(/[^a-zA-Z0-9_-]/g, '_')
+          .substring(0, 45);
+        a.download = `Strategic_Proposal_${cleanTitle}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+      })
+    );
   }
 }

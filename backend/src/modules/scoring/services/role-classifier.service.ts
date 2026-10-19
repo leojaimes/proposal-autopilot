@@ -6,16 +6,9 @@ export class RoleClassifierService {
   classify(title: string, description: string, skills: string[] = []): RoleClassification {
     const text = `${title} ${description} ${skills.join(' ')}`.toLowerCase();
 
-    // 1. Detección de Ruido / Disqualified
-    if (
-      text.includes('course') || 
-      text.includes('instructor') || 
-      text.includes('tutor') || 
-      text.includes('qa checklist') || 
-      text.includes('graphic designer') || 
-      text.includes('influencer') || 
-      text.includes('avatar creator')
-    ) {
+    // 1. Detección de Ruido / Disqualified (Regex de palabra exacta para evitar falsos positivos con 'of course')
+    const noiseRegex = /\b(course instructor|tutoring|teach courses|qa checklist|graphic designer|influencer|avatar creator)\b/i;
+    if (noiseRegex.test(text)) {
       return {
         lane: StrategicLane.DISQUALIFIED_NOISE,
         normalizedRole: 'Disqualified / Off-Niche Task',
@@ -24,8 +17,9 @@ export class RoleClassifierService {
       };
     }
 
-    // 2. Familia Core: AI & Agentic UX
-    if (text.includes('ai') || text.includes('agent') || text.includes('copilot') || text.includes('llm') || text.includes('conversational')) {
+    // 2. Familia Core: AI & Agentic UX (Regex de palabra exacta para evitar 'email', 'paid', 'campaign')
+    const aiRegex = /\b(ai|agent|agents|copilot|llm|llms|genai|gpt|conversational)\b/i;
+    if (aiRegex.test(text)) {
       return {
         lane: StrategicLane.CORE_AI_UX,
         normalizedRole: 'AI Interaction & Agentic UX Designer',

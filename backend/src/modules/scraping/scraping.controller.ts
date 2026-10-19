@@ -1,7 +1,10 @@
-import { Controller, Post, Get, Patch, Body, Param, Logger } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Body, Param, Logger, NotFoundException, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { ApifyService } from './apify.service';
+import { ApifyJobAdapter } from './adapters/apify-job.adapter';
 import { FitCalculatorService } from '../scoring/services/fit-calculator.service';
 import { ClaudeProposalService } from '../proposals/claude-proposal.service';
+import { TechnicalProposalPdfService } from '../proposals/technical-proposal-pdf.service';
 import { PrismaService } from '../../core/database/prisma.service';
 import { TenantContextService } from '../../core/context/tenant-context.service';
 import { BudgetType, JobStatus, StrategicLane, FitTier } from '@prisma/client';
@@ -21,8 +24,10 @@ export class ScrapingController {
 
   constructor(
     private readonly apifyService: ApifyService,
+    private readonly apifyAdapter: ApifyJobAdapter,
     private readonly fitCalculator: FitCalculatorService,
     private readonly claudeProposal: ClaudeProposalService,
+    private readonly pdfService: TechnicalProposalPdfService,
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
   ) {}
@@ -69,77 +74,73 @@ export class ScrapingController {
     let mediumFitCount = 0;
     const processedJobs = [];
 
-    // 4. Procesar, puntuar y guardar cada empleo
+    // 4. Procesar, puntuar y guardar cada empleo usando el Normalizador Defensivo
     for (const raw of rawJobs) {
-      if (!raw.id) continue;
+      const normalized = this.apifyAdapter.normalizeRaw(raw);
+      if (!normalized.externalId) continue;
 
-      // Parseo de presupuesto
-      let budgetType: BudgetType = BudgetType.NOT_SHOWN;
-      let budgetFixed: number | null = null;
-      let hourlyMin: number | null = null;
-      let hourlyMax: number | null = null;
-
-      if (raw.budget?.type?.toUpperCase() === 'FIXED' || raw.budget?.amount) {
-        budgetType = BudgetType.FIXED;
-        budgetFixed = raw.budget.amount || null;
-      } else if (raw.budget?.type?.toUpperCase() === 'HOURLY' || raw.budget?.min || raw.budget?.max) {
-        budgetType = BudgetType.HOURLY;
-        hourlyMin = raw.budget.min || null;
-        hourlyMax = raw.budget.max || null;
-      }
-
-      // Upsert JobPost
+      // Upsert JobPost con datos reales normalizados
       const jobPost = await this.prisma.jobPost.upsert({
         where: {
           uq_tenant_external_job: {
             tenantId,
-            externalUpworkId: String(raw.id),
+            externalUpworkId: normalized.externalId,
           },
         },
         create: {
           tenantId,
           batchRunId: batchRun.id,
-          externalUpworkId: String(raw.id),
-          title: raw.title || 'Untitled Job',
-          description: raw.description || '',
-          budgetType,
-          budgetFixed,
-          hourlyMin,
-          hourlyMax,
-          clientCountry: raw.client?.country || null,
-          clientRating: raw.client?.rating || 0,
-          clientTotalSpend: raw.client?.totalSpent || 0,
-          proposalsCount: raw.proposals?.count || 0,
-          isPaymentVerified: !!raw.isPaymentVerified,
-          jobUrl: raw.url || `https://www.upwork.com/jobs/${raw.id}`,
-          postedAt: raw.postedDate ? new Date(raw.postedDate) : new Date(),
+          externalUpworkId: normalized.externalId,
+          title: normalized.title,
+          description: normalized.description,
+          budgetType: normalized.budgetType,
+          budgetFixed: normalized.budgetFixed,
+          hourlyMin: normalized.hourlyMin,
+          hourlyMax: normalized.hourlyMax,
+          clientCountry: normalized.clientCountry,
+          clientRating: normalized.clientRating,
+          clientTotalSpend: normalized.clientTotalSpend,
+          proposalsCount: normalized.proposalsCount,
+          isPaymentVerified: normalized.isPaymentVerified,
+          jobUrl: normalized.jobUrl,
+          postedAt: normalized.postedAt,
           status: JobStatus.NEEDS_REVIEW,
-          rawApifyPayload: raw as any,
+          rawApifyPayload: normalized.rawPayload as any,
         },
         update: {
-          title: raw.title || 'Untitled Job',
-          description: raw.description || '',
-          budgetType,
-          budgetFixed,
-          hourlyMin,
-          hourlyMax,
-          clientCountry: raw.client?.country || null,
-          clientRating: raw.client?.rating || 0,
-          clientTotalSpend: raw.client?.totalSpent || 0,
-          isPaymentVerified: !!raw.isPaymentVerified,
+          title: normalized.title,
+          description: normalized.description,
+          budgetType: normalized.budgetType,
+          budgetFixed: normalized.budgetFixed,
+          hourlyMin: normalized.hourlyMin,
+          hourlyMax: normalized.hourlyMax,
+          clientCountry: normalized.clientCountry,
+          clientRating: normalized.clientRating,
+          clientTotalSpend: normalized.clientTotalSpend,
+          proposalsCount: normalized.proposalsCount,
+          isPaymentVerified: normalized.isPaymentVerified,
+          jobUrl: normalized.jobUrl,
+          postedAt: normalized.postedAt,
+          rawApifyPayload: normalized.rawPayload as any,
         },
       });
 
-      // 5. Cálculo Matemático del FitScore (40/25/20/15 + CAP en 44)
+      // 5. Cálculo Matemático del FitScore (40/25/20/15 + CAP en 44 + Geo Targeting)
+      const scrapeConfig = await this.prisma.scrapeConfig.findFirst({ where: { tenantId } });
       const evaluation = this.fitCalculator.calculate({
         title: jobPost.title,
         description: jobPost.description,
-        skills: raw.skills,
+        skills: normalized.skills,
         clientTotalSpend: Number(jobPost.clientTotalSpend),
         clientRating: Number(jobPost.clientRating),
+        clientCountry: jobPost.clientCountry || undefined,
         proposalsCount: jobPost.proposalsCount,
         isPaymentVerified: jobPost.isPaymentVerified,
         postedDate: jobPost.postedAt,
+        targetCountries: scrapeConfig?.targetCountries || [],
+        targetRegions: scrapeConfig?.targetRegions || [],
+        excludedCountries: scrapeConfig?.excludedCountries || [],
+        geoFilterMode: scrapeConfig?.geoFilterMode || 'WEIGHTED_PREFERENCE',
       });
 
       if (evaluation.fitTier === 'HIGH') highFitCount++;
@@ -278,23 +279,225 @@ export class ScrapingController {
   }
 
   /**
+   * GET /api/scraping/proof-stories
+   * Retorna las Historias de Autoridad disponibles y la Oferta Específica (Headline) del Tenant
+   */
+  @Get('proof-stories')
+  async getAvailableProofStories() {
+    const tenantId = this.tenantContext.getTenantId();
+    const profile = await this.prisma.positioningProfile.findFirst({
+      where: { tenantId, isActive: true },
+      include: { proofStories: true },
+    });
+
+    return {
+      offerHeadline: profile?.offerHeadline || 'AI-native UX & High-Scale Product Architecture',
+      targetAudience: profile?.targetAudience || 'Seed-to-Series B SaaS founders and product leads',
+      proofStories: profile?.proofStories.map(ps => ({
+        id: ps.id,
+        keyCode: ps.keyCode,
+        companyOrProduct: ps.companyOrProduct,
+        impactMetric: ps.impactMetric,
+        domainTags: ps.domainTags,
+      })) || [],
+    };
+  }
+
+  /**
+   * POST /api/scraping/jobs/:id/regenerate-proposal
+   * Cruce Tri-Factor: Vacante (Job) + Historia de Autoridad (ProofStory) + Oferta Específica (Transformación)
+   * Genera en tiempo real con IA (Google Gemini 3.8 Flash) aplicando Humanizer (0 guiones largos, 30-35 palabras).
+   */
+  @Post('jobs/:id/regenerate-proposal')
+  async regenerateProposal(
+    @Param('id') jobId: string,
+    @Body() body: { proofStoryKey?: string },
+  ) {
+    const tenantId = this.tenantContext.getTenantId();
+    const job = await this.prisma.jobPost.findFirst({
+      where: { id: jobId, tenantId },
+      include: {
+        fitEvaluation: true,
+        proposal: true,
+      },
+    });
+
+    if (!job) {
+      throw new NotFoundException(`Job con ID ${jobId} no encontrado`);
+    }
+
+    const profile = await this.prisma.positioningProfile.findFirst({
+      where: { tenantId, isActive: true },
+      include: { proofStories: true },
+    });
+
+    // 1. Seleccionar la historia de autoridad solicitada o la sugerida
+    const requestedKey = body.proofStoryKey || job.fitEvaluation?.suggestedProofStory;
+    let selectedStory = profile?.proofStories.find(
+      s => s.keyCode === requestedKey || s.id === requestedKey
+    );
+    if (!selectedStory && profile?.proofStories && profile.proofStories.length > 0) {
+      selectedStory = profile.proofStories[0];
+    }
+
+    this.logger.log(`🤖 Regenerando propuesta Tri-Factor con IA para Job ${job.id} usando ProofStory ${selectedStory?.keyCode}`);
+
+    // 2. Invocar ClaudeProposalService (Gemini 3.8 Flash)
+    const proposalResult = await this.claudeProposal.generate({
+      jobTitle: job.title,
+      jobDescription: job.description,
+      clientCountry: job.clientCountry || undefined,
+      proofStoryKey: selectedStory?.keyCode || 'PEPPER_AI',
+      proofStoryCompany: selectedStory?.companyOrProduct || 'Pepper AI',
+      proofStoryMetric: selectedStory?.impactMetric || '17,000+ users and seed funding',
+      offerHeadline: profile?.offerHeadline || 'AI-native UX & High-Scale Product Architecture',
+      targetAudience: profile?.targetAudience || 'Seed-to-Series B SaaS founders and product leads',
+      voiceRules: (profile?.voiceRules as string[]) || [],
+      normalizedRole: job.fitEvaluation?.normalizedRole || 'Senior Product Specialist',
+    });
+
+    // 3. Upsert en base de datos
+    const proposal = await this.prisma.proposal.upsert({
+      where: { jobPostId: job.id },
+      create: {
+        jobPostId: job.id,
+        contactName: proposalResult.contactName,
+        coverLetter35Words: proposalResult.coverLetter35Words,
+        technicalProposalBody: proposalResult.technicalProposalBody,
+        mermaidDiagramCode: proposalResult.mermaidDiagramCode,
+        publicWalkthroughSlug: `p-${job.id.substring(0, 8)}`,
+      },
+      update: {
+        contactName: proposalResult.contactName,
+        coverLetter35Words: proposalResult.coverLetter35Words,
+        technicalProposalBody: proposalResult.technicalProposalBody,
+        mermaidDiagramCode: proposalResult.mermaidDiagramCode,
+      },
+    });
+
+    // 4. Actualizar suggestedProofStory si fue alterada
+    if (selectedStory && job.fitEvaluation) {
+      await this.prisma.fitEvaluation.update({
+        where: { jobPostId: job.id },
+        data: { suggestedProofStory: selectedStory.keyCode },
+      });
+    }
+
+    return {
+      success: true,
+      jobId: job.id,
+      contactNameFound: proposal.contactName,
+      coverLetter: proposal.coverLetter35Words,
+      technicalProposal: proposal.technicalProposalBody,
+      mermaidCode: proposal.mermaidDiagramCode,
+      suggestedProofStory: selectedStory?.keyCode,
+      proposalDocLink: `http://localhost:7001/walkthrough/${proposal.publicWalkthroughSlug}`,
+    };
+  }
+
+  /**
+   * GET /api/scraping/jobs/:id/technical-proposal-pdf
+   * Genera y descarga la propuesta técnica ejecutiva completa en PDF vía Gotenberg con diagramas Mermaid vectoriales.
+   */
+  @Get('jobs/:id/technical-proposal-pdf')
+  async downloadTechnicalProposalPdf(
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    const tenantId = this.tenantContext.getTenantId();
+    const job = await this.prisma.jobPost.findFirst({
+      where: { id, tenantId },
+      include: {
+        proposal: true,
+        fitEvaluation: true,
+      },
+    });
+
+    if (!job) {
+      throw new NotFoundException(`No se encontró el empleo con ID ${id}`);
+    }
+
+    if (!job.proposal?.technicalProposalBody) {
+      throw new NotFoundException(`El empleo no cuenta con propuesta técnica generada`);
+    }
+
+    // Datos del perfil activo
+    const profile = await this.prisma.positioningProfile.findFirst({
+      where: { tenantId, isActive: true },
+    });
+
+    let proofStoryCompany = 'Pepper AI';
+    let proofStoryMetric = '17,000+ users and seed funding';
+
+    if (job.fitEvaluation?.suggestedProofStory) {
+      const story = await this.prisma.proofStory.findFirst({
+        where: { keyCode: job.fitEvaluation.suggestedProofStory },
+      });
+      if (story) {
+        proofStoryCompany = story.companyOrProduct;
+        proofStoryMetric = story.impactMetric;
+      }
+    }
+
+    let budgetStr = 'Not Specified';
+    if (job.budgetType === BudgetType.HOURLY) {
+      budgetStr = `Hourly $${job.hourlyMin || 0} - $${job.hourlyMax || 0}/hr`;
+    } else if (job.budgetType === BudgetType.FIXED) {
+      budgetStr = `Fixed Price: $${job.budgetFixed || 0}`;
+    }
+
+    const pdfBuffer = await this.pdfService.generateTechnicalProposalPdf({
+      jobTitle: job.title,
+      clientCountry: job.clientCountry || undefined,
+      budget: budgetStr,
+      clientRating: Number(job.clientRating || 0),
+      clientTotalSpend: Number(job.clientTotalSpend || 0),
+      contactName: job.proposal.contactName || 'Hiring Team',
+      coverLetter35Words: job.proposal.coverLetter35Words || '',
+      technicalProposalBody: job.proposal.technicalProposalBody,
+      mermaidDiagramCode: job.proposal.mermaidDiagramCode || '',
+      proofStoryCompany,
+      proofStoryMetric,
+      profileHeadline: profile?.offerHeadline,
+    });
+
+    const sanitizedFilename = (job.title || 'Technical_Proposal')
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .substring(0, 45);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="Strategic_Proposal_${sanitizedFilename}.pdf"`,
+    );
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.end(pdfBuffer);
+  }
+
+  /**
    * GET /api/scraping/report
    * Genera el informe plano exacto con las 17 columnas de la tabla diaria de Upwork
    */
   @Get('report')
   async getDailyReport() {
     const tenantId = this.tenantContext.getTenantId();
-    const jobs = await this.prisma.jobPost.findMany({
-      where: { tenantId },
-      include: {
-        fitEvaluation: true,
-        proposal: true,
-      },
-      orderBy: [
-        { fitEvaluation: { overallScore: 'desc' } },
-        { postedAt: 'desc' },
-      ],
-    });
+    const [jobs, scrapeConfig] = await Promise.all([
+      this.prisma.jobPost.findMany({
+        where: { tenantId },
+        include: {
+          fitEvaluation: true,
+          proposal: true,
+        },
+        orderBy: [
+          { fitEvaluation: { overallScore: 'desc' } },
+          { postedAt: 'desc' },
+        ],
+      }),
+      this.prisma.scrapeConfig.findFirst({ where: { tenantId } }),
+    ]);
+
+    const targetCountries = (scrapeConfig?.targetCountries || []).map((c: string) => c.trim().toLowerCase());
+    const excludedCountries = (scrapeConfig?.excludedCountries || []).map((c: string) => c.trim().toLowerCase());
 
     return jobs.map((job) => {
       // 1. Formateo de Presupuesto
@@ -329,7 +532,61 @@ export class ScrapingController {
         scoreNotes += ` Gaps: ${ev.detectedGaps}.`;
       }
 
-      // 5. Enlace al Documento de Propuesta
+      // 5. Drivers & Drags Decisionales
+      const drivers: string[] = [];
+      const drags: string[] = [];
+      const cCountry = (job.clientCountry || '').trim().toLowerCase();
+      const isTargetCountry = cCountry && targetCountries.some((t: string) => cCountry.includes(t) || t.includes(cCountry));
+      const isExcludedCountry = cCountry && excludedCountries.some((e: string) => cCountry.includes(e) || e.includes(cCountry));
+
+      if (ev) {
+        if (ev.skillScore >= 80) {
+          drivers.push(`🎯 Rol alineado: ${ev.normalizedRole} (${ev.skillScore} pts)`);
+        } else if (ev.skillScore <= 35) {
+          drags.push(`🚫 Rol fuera de nicho o baja afinidad (${ev.skillScore} pts)`);
+        }
+
+        if (Number(job.clientTotalSpend || 0) >= 20000) {
+          drivers.push(`💎 Cliente High-Ticket ($${Math.round(Number(job.clientTotalSpend)).toLocaleString()} USD gastados)`);
+        } else if (Number(job.clientTotalSpend || 0) < 500) {
+          drags.push(`⚠️ Cliente nuevo con baja inversión ($${Math.round(Number(job.clientTotalSpend))} USD)`);
+        }
+
+        if (Number(job.clientRating || 0) >= 4.8) {
+          drivers.push(`★ Excelente reputación (★ ${Number(job.clientRating).toFixed(1)}/5.0)`);
+        }
+
+        if (job.isPaymentVerified) {
+          drivers.push(`✓ Método de pago verificado`);
+        } else {
+          drags.push(`⚠️ Método de pago NO verificado (-20 pts)`);
+        }
+
+        if (isTargetCountry) {
+          drivers.push(`🌍 Mercado prioritario: ${job.clientCountry} (+15 pts)`);
+        }
+        if (isExcludedCountry) {
+          drags.push(`🚫 País en lista negra: ${job.clientCountry}`);
+        }
+
+        if (job.proposalsCount <= 5) {
+          drivers.push(`⚡ Ventaja primer postor: Solo ${job.proposalsCount} propuestas`);
+        } else if (job.proposalsCount > 20) {
+          drags.push(`⚠️ Alta competencia: ${job.proposalsCount} propuestas ya enviadas`);
+        }
+
+        if (ev.recencyScore >= 85) {
+          drivers.push(`🔥 Vacante ultra fresca (<6h)`);
+        } else if (ev.recencyScore <= 50) {
+          drags.push(`⏳ Vacante antigua (>24h)`);
+        }
+
+        if (ev.isCapped && ev.capReason) {
+          drags.push(`🛡️ Techo de seguridad: ${ev.capReason}`);
+        }
+      }
+
+      // 6. Enlace al Documento de Propuesta
       const proposalDocLink = job.proposal?.googleDocUrl 
         || (job.proposal?.publicWalkthroughSlug ? `http://localhost:7001/walkthrough/${job.proposal.publicWalkthroughSlug}` : '');
 
@@ -353,7 +610,18 @@ export class ScrapingController {
         laneCategory: ev?.strategicLane || 'DISQUALIFIED_NOISE',
         normalizedRole: ev?.normalizedRole || '',
         suggestedProofStory: ev?.suggestedProofStory || '',
+        mermaidCode: job.proposal?.mermaidDiagramCode || 'flowchart TD\n  A[Auditoría de Requerimientos] --> B[Figma Tokens & Sistema de Diseño]\n  B --> C[Librería de Componentes Autolayout & Variantes]\n  C --> D[Zero-Friction Developer Handoff]',
+        technicalProposal: job.proposal?.technicalProposalBody || '',
         id: job.id,
+        // Scorecard Desglosado & Decisional
+        skillScore: ev?.skillScore ?? 0,
+        aiFeasibilityScore: ev?.aiFeasibilityScore ?? 0,
+        clientQualityScore: ev?.clientQualityScore ?? 0,
+        recencyScore: ev?.recencyScore ?? 0,
+        isCapped: ev?.isCapped ?? false,
+        capReason: ev?.capReason ?? null,
+        drivers,
+        drags,
       };
     });
   }
@@ -400,6 +668,111 @@ export class ScrapingController {
     ].join(','));
 
     return [headers.join(','), ...rows].join('\n');
+  }
+
+  /**
+   * POST /api/scraping/reprocess
+   * Re-procesa todas las vacantes existentes en la base de datos a costo $0 USD,
+   * extrayendo sus descripciones reales y métricas completas desde el JSON guardado.
+   */
+  @Post('reprocess')
+  async reprocessExistingJobs() {
+    const tenantId = this.tenantContext.getTenantId();
+    const existingJobs = await this.prisma.jobPost.findMany({
+      where: {
+        tenantId,
+        rawApifyPayload: { not: null as any },
+      },
+    });
+
+    this.logger.log(`Iniciando re-procesamiento en frío para ${existingJobs.length} empleos de tenant ${tenantId}`);
+
+    let updatedCount = 0;
+    for (const job of existingJobs) {
+      if (!job.rawApifyPayload) continue;
+
+      const normalized = this.apifyAdapter.normalizeRaw(job.rawApifyPayload as Record<string, any>);
+
+      // 1. Actualizar JobPost con los datos reales completos
+      await this.prisma.jobPost.update({
+        where: { id: job.id },
+        data: {
+          title: normalized.title,
+          description: normalized.description,
+          budgetType: normalized.budgetType,
+          budgetFixed: normalized.budgetFixed,
+          hourlyMin: normalized.hourlyMin,
+          hourlyMax: normalized.hourlyMax,
+          clientCountry: normalized.clientCountry,
+          clientRating: normalized.clientRating,
+          clientTotalSpend: normalized.clientTotalSpend,
+          proposalsCount: normalized.proposalsCount,
+          isPaymentVerified: normalized.isPaymentVerified,
+          postedAt: normalized.postedAt,
+        },
+      });
+
+      // 2. Re-calcular Fit con datos reales y preferencias geográficas
+      const scrapeConfig = await this.prisma.scrapeConfig.findFirst({ where: { tenantId } });
+      const evaluation = this.fitCalculator.calculate({
+        title: normalized.title,
+        description: normalized.description,
+        skills: normalized.skills,
+        clientTotalSpend: Number(normalized.clientTotalSpend),
+        clientRating: Number(normalized.clientRating),
+        clientCountry: normalized.clientCountry || undefined,
+        proposalsCount: normalized.proposalsCount,
+        isPaymentVerified: normalized.isPaymentVerified,
+        postedDate: normalized.postedAt,
+        targetCountries: scrapeConfig?.targetCountries || [],
+        targetRegions: scrapeConfig?.targetRegions || [],
+        excludedCountries: scrapeConfig?.excludedCountries || [],
+        geoFilterMode: scrapeConfig?.geoFilterMode || 'WEIGHTED_PREFERENCE',
+      });
+
+      await this.prisma.fitEvaluation.upsert({
+        where: { jobPostId: job.id },
+        create: {
+          jobPostId: job.id,
+          overallScore: evaluation.overallScore,
+          fitTier: evaluation.fitTier as FitTier,
+          strategicLane: evaluation.strategicLane as StrategicLane,
+          normalizedRole: evaluation.normalizedRole,
+          skillScore: evaluation.skillScore,
+          aiFeasibilityScore: evaluation.aiFeasibilityScore,
+          clientQualityScore: evaluation.clientQualityScore,
+          recencyScore: evaluation.recencyScore,
+          isCapped: evaluation.isCapped,
+          capReason: evaluation.capReason,
+          summaryRationale: evaluation.summaryRationale,
+          detectedGaps: evaluation.detectedGaps,
+          suggestedProofStory: evaluation.suggestedProofStory,
+        },
+        update: {
+          overallScore: evaluation.overallScore,
+          fitTier: evaluation.fitTier as FitTier,
+          strategicLane: evaluation.strategicLane as StrategicLane,
+          normalizedRole: evaluation.normalizedRole,
+          skillScore: evaluation.skillScore,
+          aiFeasibilityScore: evaluation.aiFeasibilityScore,
+          clientQualityScore: evaluation.clientQualityScore,
+          recencyScore: evaluation.recencyScore,
+          isCapped: evaluation.isCapped,
+          capReason: evaluation.capReason,
+          summaryRationale: evaluation.summaryRationale,
+          detectedGaps: evaluation.detectedGaps,
+          suggestedProofStory: evaluation.suggestedProofStory,
+        },
+      });
+
+      updatedCount++;
+    }
+
+    return {
+      success: true,
+      reprocessedCount: updatedCount,
+      message: `Se re-procesaron ${updatedCount} empleos con sus descripciones y métricas reales a costo $0.`,
+    };
   }
 
   /**

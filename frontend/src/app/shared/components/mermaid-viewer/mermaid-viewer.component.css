@@ -1,0 +1,40 @@
+:host {
+  display: block;
+}
+
+.mermaid-canvas-container {
+  max-width: 100%;
+  user-select: none;
+}
+
+.mermaid-canvas-container ::ng-deep svg {
+  max-width: 100%;
+  height: auto;
+  overflow: visible;
+  filter: drop-shadow(0 10px 25px rgba(0, 0, 0, 0.4));
+}
+
+.mermaid-canvas-container ::ng-deep .node rect,
+.mermaid-canvas-container ::ng-deep .node circle,
+.mermaid-canvas-container ::ng-deep .node ellipse,
+.mermaid-canvas-container ::ng-deep .node polygon {
+  rx: 8px !important;
+  ry: 8px !important;
+  stroke-width: 1.5px !important;
+  transition: all 0.2s ease;
+}
+
+.mermaid-canvas-container ::ng-deep .edgePath .path {
+  stroke-width: 1.8px !important;
+  stroke-dasharray: 4, 2;
+  animation: edgeDash 25s linear infinite;
+}
+
+@keyframes edgeDash {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}

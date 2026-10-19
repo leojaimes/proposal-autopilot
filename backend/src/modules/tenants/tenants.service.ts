@@ -20,6 +20,10 @@ export interface UpdateScrapeConfigDto {
   minHourlyRate?: number;
   recencyDays?: number;
   verifiedPaymentOnly?: boolean;
+  targetCountries?: string[];
+  targetRegions?: string[];
+  excludedCountries?: string[];
+  geoFilterMode?: string;
 }
 
 export interface SaveCredentialDto {
@@ -178,6 +182,10 @@ export class TenantsService {
           ...(dto.minHourlyRate !== undefined && { minHourlyRate: dto.minHourlyRate }),
           ...(dto.recencyDays !== undefined && { recencyDays: dto.recencyDays }),
           ...(dto.verifiedPaymentOnly !== undefined && { verifiedPaymentOnly: dto.verifiedPaymentOnly }),
+          ...(dto.targetCountries !== undefined && { targetCountries: dto.targetCountries }),
+          ...(dto.targetRegions !== undefined && { targetRegions: dto.targetRegions }),
+          ...(dto.excludedCountries !== undefined && { excludedCountries: dto.excludedCountries }),
+          ...(dto.geoFilterMode !== undefined && { geoFilterMode: dto.geoFilterMode }),
         },
       });
     }
@@ -190,6 +198,10 @@ export class TenantsService {
         minHourlyRate: dto.minHourlyRate ?? 40.00,
         recencyDays: dto.recencyDays ?? 3,
         verifiedPaymentOnly: dto.verifiedPaymentOnly ?? true,
+        targetCountries: dto.targetCountries ?? [],
+        targetRegions: dto.targetRegions ?? [],
+        excludedCountries: dto.excludedCountries ?? [],
+        geoFilterMode: dto.geoFilterMode ?? 'WEIGHTED_PREFERENCE',
       },
     });
   }

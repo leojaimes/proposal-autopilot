@@ -76,10 +76,17 @@
             [ngClass]="activeTab() === 'SCRAPING' ? 'border-brand-primary text-brand-primary' : 'border-transparent text-content-secondary hover:text-content-primary'">
       2. Keywords & Filtros
     </button>
+    <button (click)="activeTab.set('GEO')"
+            class="py-3 px-3 border-b-2 transition-all flex items-center gap-1"
+            [ngClass]="activeTab() === 'GEO' ? 'border-brand-primary text-brand-primary' : 'border-transparent text-content-secondary hover:text-content-primary'">
+      <span>🌍</span>
+      <span>3. Mercados & Países</span>
+      <span class="text-[10px] bg-indigo-500/10 text-indigo-400 px-1.5 py-0.5 rounded-full font-mono font-bold">{{ pipeline.targetCountries().length }}</span>
+    </button>
     <button (click)="activeTab.set('WEIGHTS')"
             class="py-3 px-3 border-b-2 transition-all"
             [ngClass]="activeTab() === 'WEIGHTS' ? 'border-brand-primary text-brand-primary' : 'border-transparent text-content-secondary hover:text-content-primary'">
-      3. Pesos Matemáticos
+      4. Pesos
     </button>
   </div>
 
@@ -311,6 +318,176 @@
                    [ngModel]="pipeline.verifiedPaymentOnly()"
                    (ngModelChange)="pipeline.verifiedPaymentOnly.set($event)"
                    class="w-4 h-4 rounded border-border-subtle accent-indigo-500 cursor-pointer">
+          </div>
+        </div>
+      }
+
+      @case ('GEO') {
+        <!-- GEOGRAPHIC TARGETING & REGIONS -->
+        <div class="space-y-6">
+          <!-- Modo de Filtrado -->
+          <div class="space-y-3 p-4 rounded-2xl bg-surface-elevated border border-border-subtle">
+            <label class="text-xs font-bold text-content-primary uppercase tracking-wider block">
+              Comportamiento del Filtro Geográfico
+            </label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <label class="flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition-all"
+                     [ngClass]="pipeline.geoFilterMode() === 'WEIGHTED_PREFERENCE' ? 'bg-indigo-500/10 border-indigo-500/40 text-content-primary' : 'bg-surface border-border-subtle text-content-muted'">
+                <input type="radio" 
+                       name="geoMode" 
+                       value="WEIGHTED_PREFERENCE"
+                       [checked]="pipeline.geoFilterMode() === 'WEIGHTED_PREFERENCE'"
+                       (change)="pipeline.setGeoFilterMode('WEIGHTED_PREFERENCE')"
+                       class="mt-0.5 accent-indigo-500">
+                <div>
+                  <span class="font-bold block text-indigo-400">⚡ Prioridad Ponderada</span>
+                  <span class="text-[11px] leading-tight block mt-0.5">Otorga +15 pts en calidad a clientes de tus países objetivo sin descartar el resto.</span>
+                </div>
+              </label>
+
+              <label class="flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition-all"
+                     [ngClass]="pipeline.geoFilterMode() === 'STRICT_EXCLUDE' ? 'bg-rose-500/10 border-rose-500/40 text-content-primary' : 'bg-surface border-border-subtle text-content-muted'">
+                <input type="radio" 
+                       name="geoMode" 
+                       value="STRICT_EXCLUDE"
+                       [checked]="pipeline.geoFilterMode() === 'STRICT_EXCLUDE'"
+                       (change)="pipeline.setGeoFilterMode('STRICT_EXCLUDE')"
+                       class="mt-0.5 accent-rose-500">
+                <div>
+                  <span class="font-bold block text-rose-400">🚫 Filtro Estricto</span>
+                  <span class="text-[11px] leading-tight block mt-0.5">Descalifica automáticamente (Score = 15) cualquier vacante fuera de tu lista permitida.</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Presets Rápidos de Región -->
+          <div class="space-y-2">
+            <label class="text-xs font-bold text-content-primary uppercase tracking-wider block">
+              Presets Rápidos de Región (Un Clic)
+            </label>
+            <div class="flex flex-wrap gap-2 text-xs">
+              <button type="button"
+                      (click)="pipeline.toggleTargetCountry('United States'); pipeline.toggleTargetCountry('Canada')"
+                      class="px-3 py-1.5 rounded-xl border border-border-subtle bg-surface hover:bg-surface-elevated text-content-secondary hover:text-content-primary transition flex items-center gap-1.5 font-medium">
+                <span>🇺🇸/🇨🇦</span>
+                <span>Norteamérica</span>
+              </button>
+              <button type="button"
+                      (click)="pipeline.toggleTargetCountry('United Kingdom'); pipeline.toggleTargetCountry('Germany'); pipeline.toggleTargetCountry('Ireland'); pipeline.toggleTargetCountry('Switzerland')"
+                      class="px-3 py-1.5 rounded-xl border border-border-subtle bg-surface hover:bg-surface-elevated text-content-secondary hover:text-content-primary transition flex items-center gap-1.5 font-medium">
+                <span>🇬🇧/🇪🇺</span>
+                <span>Europa Occidental</span>
+              </button>
+              <button type="button"
+                      (click)="pipeline.toggleTargetCountry('Australia'); pipeline.toggleTargetCountry('New Zealand')"
+                      class="px-3 py-1.5 rounded-xl border border-border-subtle bg-surface hover:bg-surface-elevated text-content-secondary hover:text-content-primary transition flex items-center gap-1.5 font-medium">
+                <span>🇦🇺/🇳🇿</span>
+                <span>Oceanía</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Países Objetivo Permitidos -->
+          <div class="space-y-3 p-4 rounded-2xl bg-surface-elevated border border-border-subtle">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-content-primary uppercase tracking-wider">
+                🎯 Países Objetivo Permitidos ({{ pipeline.targetCountries().length }})
+              </label>
+              <span class="text-[11px] text-content-muted">Clientes prioritarios</span>
+            </div>
+
+            <!-- Chips de Países Activos -->
+            <div class="flex flex-wrap gap-2 min-h-[36px] p-2 bg-surface rounded-xl border border-border-subtle">
+              @for (c of pipeline.targetCountries(); track c) {
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 text-xs font-medium animate-in fade-in">
+                  <span>{{ c }}</span>
+                  <button type="button" 
+                          (click)="pipeline.toggleTargetCountry(c)"
+                          class="hover:text-white transition text-xs font-bold leading-none">
+                    ✕
+                  </button>
+                </span>
+              } @empty {
+                <span class="text-xs text-content-muted p-1">No hay países definidos (Acepta cualquier país mundial).</span>
+              }
+            </div>
+
+            <!-- Input para Agregar País -->
+            <div class="flex gap-2">
+              <input type="text"
+                     [ngModel]="newCountryInput()"
+                     (ngModelChange)="newCountryInput.set($event)"
+                     (keyup.enter)="addCountry()"
+                     placeholder="Escribe un país (ej: Ireland, Singapore, Spain)..."
+                     class="flex-1 bg-surface border border-border-subtle rounded-xl px-3 py-2 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
+              <button type="button"
+                      (click)="addCountry()"
+                      [disabled]="!newCountryInput().trim()"
+                      class="px-4 py-2 rounded-xl bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold disabled:opacity-40 transition">
+                + Agregar
+              </button>
+            </div>
+          </div>
+
+          <!-- Lista Negra de Países Excluidos -->
+          <div class="space-y-3 p-4 rounded-2xl bg-surface-elevated border border-rose-500/20">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span>🚫</span>
+                <span>Lista Negra de Países Excluidos ({{ pipeline.excludedCountries().length }})</span>
+              </label>
+              <span class="text-[11px] text-rose-400/70">Descalificar siempre</span>
+            </div>
+
+            <!-- Chips de Países Excluidos -->
+            <div class="flex flex-wrap gap-2 min-h-[36px] p-2 bg-surface rounded-xl border border-rose-500/20">
+              @for (c of pipeline.excludedCountries(); track c) {
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/30 text-xs font-medium animate-in fade-in">
+                  <span>{{ c }}</span>
+                  <button type="button" 
+                          (click)="pipeline.removeExcludedCountry(c)"
+                          class="hover:text-white transition text-xs font-bold leading-none">
+                    ✕
+                  </button>
+                </span>
+              } @empty {
+                <span class="text-xs text-content-muted p-1">No hay países en la lista negra.</span>
+              }
+            </div>
+
+            <!-- Input para Agregar Exclusión -->
+            <div class="flex gap-2">
+              <input type="text"
+                     [ngModel]="newExcludedCountryInput()"
+                     (ngModelChange)="newExcludedCountryInput.set($event)"
+                     (keyup.enter)="addExcluded()"
+                     placeholder="País a excluir de raíz..."
+                     class="flex-1 bg-surface border border-border-subtle rounded-xl px-3 py-2 text-xs text-content-primary focus:outline-none focus:border-rose-500">
+              <button type="button"
+                      (click)="addExcluded()"
+                      [disabled]="!newExcludedCountryInput().trim()"
+                      class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold disabled:opacity-40 transition">
+                + Excluir
+              </button>
+            </div>
+          </div>
+
+          <!-- Guardar y Recalcular Ranking -->
+          <div class="pt-2 border-t border-border-subtle flex flex-col gap-2">
+            <button type="button"
+                    (click)="saveGeoAndRecalculate()"
+                    [disabled]="isSavingGeo()"
+                    class="w-full py-3 px-5 rounded-xl bg-gradient-to-r from-brand-primary to-indigo-600 hover:opacity-95 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 transition-all">
+              <span>{{ isSavingGeo() ? '⏳' : '💾' }}</span>
+              <span>{{ isSavingGeo() ? 'Guardando y Recalculando Ranking...' : 'Aplicar Filtros Geográficos y Recalcular Ranking' }}</span>
+            </button>
+
+            @if (geoSavedMessage()) {
+              <div class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs text-center font-medium animate-in fade-in">
+                ✓ {{ geoSavedMessage() }}
+              </div>
+            }
           </div>
         </div>
       }

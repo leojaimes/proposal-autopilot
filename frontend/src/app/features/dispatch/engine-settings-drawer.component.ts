@@ -21,7 +21,13 @@ export class EngineSettingsDrawerComponent {
   public readonly isOpen = input<boolean>(false);
   public readonly closeDrawer = output<void>();
 
-  public readonly activeTab = signal<'POSITIONING' | 'SCRAPING' | 'WEIGHTS'>('POSITIONING');
+  public readonly activeTab = signal<'POSITIONING' | 'SCRAPING' | 'GEO' | 'WEIGHTS'>('POSITIONING');
+
+  // Geo Settings Form State
+  public readonly newCountryInput = signal<string>('');
+  public readonly newExcludedCountryInput = signal<string>('');
+  public readonly isSavingGeo = signal<boolean>(false);
+  public readonly geoSavedMessage = signal<string>('');
 
   // Creating New Profile Modal/State
   public readonly showNewProfileInput = signal<boolean>(false);
@@ -124,5 +130,47 @@ export class EngineSettingsDrawerComponent {
         this.report.refresh();
         this.close();
       });
+  }
+
+  public addCountry(): void {
+    const val = this.newCountryInput().trim();
+    if (!val) return;
+    this.pipeline.toggleTargetCountry(val);
+    this.newCountryInput.set('');
+  }
+
+  public addExcluded(): void {
+    const val = this.newExcludedCountryInput().trim();
+    if (!val) return;
+    this.pipeline.addExcludedCountry(val);
+    this.newExcludedCountryInput.set('');
+  }
+
+  public async saveGeoAndRecalculate(): Promise<void> {
+    this.isSavingGeo.set(true);
+    this.geoSavedMessage.set('');
+    try {
+      const keywords = this.pipeline.keywordsText().split(',').map(k => k.trim()).filter(Boolean);
+      await this.http.put('http://localhost:7000/api/config/scrape', {
+        searchKeywords: keywords.length > 0 ? keywords : ['UX Designer', 'Figma'],
+        minBudgetFixed: this.pipeline.minBudgetFixed(),
+        minHourlyRate: this.pipeline.minHourlyRate(),
+        verifiedPaymentOnly: this.pipeline.verifiedPaymentOnly(),
+        targetCountries: this.pipeline.targetCountries(),
+        targetRegions: this.pipeline.targetRegions(),
+        excludedCountries: this.pipeline.excludedCountries(),
+        geoFilterMode: this.pipeline.geoFilterMode(),
+      }).toPromise();
+
+      await this.http.post('http://localhost:7000/api/scraping/reprocess', {}).toPromise();
+      this.report.refresh();
+      this.geoSavedMessage.set('¡Preferencias geográficas aplicadas y ranking recalculado!');
+      setTimeout(() => this.geoSavedMessage.set(''), 3500);
+    } catch (err) {
+      console.error('Error guardando configuración geográfica:', err);
+      this.geoSavedMessage.set('Error guardando configuración.');
+    } finally {
+      this.isSavingGeo.set(false);
+    }
   }
 }

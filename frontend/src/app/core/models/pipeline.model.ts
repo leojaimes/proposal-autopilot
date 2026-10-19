@@ -29,6 +29,16 @@ export interface JobReportItem {
   laneCategory: string;
   normalizedRole: string;
   suggestedProofStory: string;
+  mermaidCode?: string;
+  technicalProposal?: string;
+  skillScore?: number;
+  aiFeasibilityScore?: number;
+  clientQualityScore?: number;
+  recencyScore?: number;
+  isCapped?: boolean;
+  capReason?: string | null;
+  drivers?: string[];
+  drags?: string[];
 }
 
 export interface ProofStory {

@@ -1,8 +1,10 @@
 export interface RawApifyUpworkJob {
-  id: string;
+  id?: string | number;
+  upwork_job_id?: string;
   title: string;
   description: string;
-  url: string;
+  url?: string;
+  link?: string;
   postedDate?: string;
   budget?: {
     type?: string;

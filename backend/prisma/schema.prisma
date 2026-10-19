@@ -125,6 +125,10 @@ model ScrapeConfig {
   minHourlyRate        Decimal?  @default(40.00) @map("min_hourly_rate") @db.Decimal(10, 2)
   recencyDays          Int       @default(3) @map("recency_days")
   verifiedPaymentOnly  Boolean   @default(true) @map("verified_payment_only")
+  targetCountries      String[]  @default([]) @map("target_countries")
+  targetRegions        String[]  @default([]) @map("target_regions")
+  excludedCountries    String[]  @default([]) @map("excluded_countries")
+  geoFilterMode        String    @default("WEIGHTED_PREFERENCE") @map("geo_filter_mode") @db.VarChar(30)
 
   tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 

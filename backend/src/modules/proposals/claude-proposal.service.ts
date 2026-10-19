@@ -1,11 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
-import Anthropic from '@anthropic-ai/sdk';
 
 export interface GenerateProposalInput {
   jobTitle: string;
   jobDescription: string;
+  clientCountry?: string;
   proofStoryKey: string;
-  normalizedRole: string;
+  proofStoryCompany?: string;
+  proofStoryMetric?: string;
+  offerHeadline?: string;
+  targetAudience?: string;
+  voiceRules?: string[];
+  normalizedRole?: string;
 }
 
 export interface ProposalOutput {
@@ -18,56 +23,165 @@ export interface ProposalOutput {
 @Injectable()
 export class ClaudeProposalService {
   private readonly logger = new Logger(ClaudeProposalService.name);
-  private anthropic: Anthropic;
+  private readonly geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_KEY || process.env.AI_STUDIO_API_KEY;
+  private readonly geminiModel = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
   constructor() {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey || apiKey.includes('REPLACE_WITH_YOUR')) {
-      this.logger.warn('ANTHROPIC_API_KEY no configurada. Generador de propuestas operará en modo template.');
+    if (this.geminiApiKey) {
+      this.logger.log(`🚀 Motor de Inteligencia activado con Google Gemini (${this.geminiModel})`);
+    } else {
+      this.logger.warn('Ni GEMINI_API_KEY ni ANTHROPIC_API_KEY configuradas. Generador operará en modo template.');
     }
-    this.anthropic = new Anthropic({ apiKey });
   }
 
   /**
    * Genera la propuesta con la regla estricta: ~35 palabras, hook de autoridad con ProofStory, y diagrama Mermaid.
+   * Aplica Humanizer: 0 guiones largos (—), 0 clichés de IA, tono senior Slack direct-to-point.
    */
   async generate(input: GenerateProposalInput): Promise<ProposalOutput> {
-    // Si no hay key configurada, entrega el template de producción calibrado
-    if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.includes('REPLACE_WITH_YOUR')) {
-      return {
-        contactName: 'Hiring Team',
-        coverLetter35Words: `Hi, I design the screens myself and have owned a B2C product end to end (Pepper AI, 17,000+ users). I mapped your first 90 days and roadmap breakdown. Walkthrough link inside.`,
-        technicalProposalBody: `# Roadmap & Strategic Proposal for ${input.jobTitle}\n\n## 1. Executive Summary\nReview of requirements and 90-day execution milestone plan.\n\n## 2. Technical Architecture\nComponent breakdown and token-based design architecture.`,
-        mermaidDiagramCode: `graph TD\n  A[Requirements Audit] --> B[90-Day Roadmap]\n  B --> C[Figma Interactive Prototype]\n  C --> D[Dev Handoff]`
-      };
+    // 1. Prioridad: Gemini 3.8 Flash
+    if (this.geminiApiKey && !this.geminiApiKey.includes('REPLACE_WITH_YOUR')) {
+      try {
+        return await this.generateWithGemini(input);
+      } catch (error) {
+        this.logger.error('Error invocando Gemini API. Activando fallback seguro a template:', error);
+      }
     }
 
-    try {
-      const response = await this.anthropic.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 1500,
-        messages: [
-          {
-            role: 'user',
-            content: `You are an elite product designer and fractional operator. 
+    // 2. Fallback Template calibrado si no hay API o si falló
+    const company = input.proofStoryCompany || input.proofStoryKey;
+    const metric = input.proofStoryMetric || '17,000+ users and high availability';
+    return {
+      contactName: 'Hiring Team',
+      coverLetter35Words: `Hi, I built and scaled ${company} (${metric}). I reviewed your requirements and designed the complete system architecture for ${input.jobTitle}. I mapped your first 90 days and roadmap breakdown. Walkthrough link inside.`,
+      technicalProposalBody: `# Roadmap & Strategic Proposal for ${input.jobTitle}\n\n## 1. Executive Summary & Problem Diagnosis\nStrategic diagnosis and 90-day execution roadmap tailored for ${input.jobTitle}. Focusing on direct transformation, architecture clarity, and rapid execution.\n\n## 2. Technical Architecture & Recommended Approach\nModular system design, token-based architecture, and developer-ready specifications.\n\n## 3. 90-Day Execution Milestones\n- Phase 1: Requirements Audit & Architecture Blueprint\n- Phase 2: Core Implementation & Interactive Prototype\n- Phase 3: QA, Performance Hardening & Production Delivery\n\n## 4. Deliverables & Acceptance Criteria\nComplete production source files, responsive components, documentation, and handover walk-through.`,
+      mermaidDiagramCode: `flowchart TD\n  A[Requirements Audit] --> B[Architecture Blueprint]\n  B --> C[Interactive Prototype]\n  C --> D[QA & Validation]\n  D --> E[Production Delivery]`
+    };
+  }
+
+  private async generateWithGemini(input: GenerateProposalInput): Promise<ProposalOutput> {
+    const prompt = `You are a world-class fractional technical operator, senior product specialist, and elite Upwork proposal strategist.
+Analyze the following client job post and synthesize a hyper-personalized, high-converting proposal by crossing THREE strict inputs:
+1. CLIENT VACANCY (Real client need, pain points, technical context)
+2. AUTHORITY PROOF STORY (Real metric and audited accomplishment)
+3. SPECIFIC OFFER / TRANSFORMATION (Value proposition and role promise)
+
+[1. CLIENT VACANCY]
 Job Title: ${input.jobTitle}
 Description: ${input.jobDescription}
-Proof Story to reference: ${input.proofStoryKey}
+Client Country: ${input.clientCountry || 'International'}
 
-Return a JSON with:
-1. "contactName": Name found in description or "Hiring Team"
-2. "coverLetter35Words": EXACTLY 30 to 35 words. Formula: Hook of authority referencing ${input.proofStoryKey} + direct solution to their problem + "Walkthrough: [LINK]"
-3. "technicalProposalBody": Clean 4-section markdown proposal.
-4. "mermaidDiagramCode": 5-node Mermaid flowchart showing execution steps.`
-          }
-        ]
-      });
+[2. AUTHORITY PROOF STORY]
+Key: ${input.proofStoryKey}
+Project / Company: ${input.proofStoryCompany || input.proofStoryKey}
+Audited Metric: ${input.proofStoryMetric || 'Scaled production platform with proven uptime'}
 
-      const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
-      return JSON.parse(text);
-    } catch (error) {
-      this.logger.error('Error invocando Claude API:', error);
-      throw error;
+[3. SPECIFIC OFFER / TRANSFORMATION]
+Role: ${input.normalizedRole || 'Senior Product Specialist'}
+Offer Headline: ${input.offerHeadline || 'AI-native UX & High-Scale Product Architecture'}
+Target Audience: ${input.targetAudience || 'Seed-to-Series B SaaS founders and product leads'}
+Voice Guidelines: ${input.voiceRules?.join(', ') || 'First person peer-to-peer, zero filler, no em dashes'}
+
+[CRITICAL PSYCHOLOGICAL INBOX DYNAMICS - THE 2-LINE SCREEN TRAP]
+- The client skims 30 to 50 proposals in their Upwork inbox. They only read the first 2 lines (~150 characters) before deciding whether to archive or click.
+- IF YOUR FIRST SENTENCE IS A STATIC DISCONNECTED FACT IN A VACUUM (e.g. "Contributed to Google Project Kennedy design system" for a non-UI job), THE CLIENT ASSUMES IT IS GENERIC BOT SPAM AND ARCHIVES IMMEDIATELY.
+- THEREFORE, YOU MUST CONSTRUCT A "TRANSFERABLE AUTHORITY BRIDGE":
+  The very first sentence MUST bridge your proof story metric directly into the client's primary deliverable.
+  Extract the transferable core (e.g., automation, user scale, conversion, latency reduction, high-volume workflows) and connect it immediately into an active compound statement.
+  Winning sentence-1 patterns:
+  * "Having [scaled/built/automated X metric at ProofStoryCompany], I will [solve client deliverable/bottleneck]..."
+  * "At [ProofStoryCompany], I [achieved X metric], and I will apply that same system to [solve client bottleneck]..."
+
+[STRICT HUMANIZER REQUIREMENTS - ZERO AI WRITING TELLS]
+- NO em dashes (—) anywhere. Zero. Use commas, periods, or standard hyphens (-).
+- NO conversational filler: Never say "I hope this finds you well", "I am thrilled to apply", "I would love to help", "Look no further", "Are you looking for...".
+- NO stock AI buzzwords: Do NOT use "delve", "testament", "tapestry", "seamless", "cutting-edge", "game-changer", "elevate", "pivotal", "beacon", "in today's fast-paced world".
+- NO "Not X but Y" artificial contrasts ("It's not just a design, it's an experience").
+- NO dramatic one-line closers ("That is the real win.", "Let that sink in.").
+- TONE: Direct, authoritative, peer-to-peer practitioner. Sounds like a principal engineer or founder responding concisely on Slack.
+
+[OUTPUT REQUIREMENTS - VALID JSON ONLY]
+Return a strictly valid JSON object without markdown formatting wrappers or conversational commentary:
+{
+  "contactName": "string",
+  "coverLetter35Words": "string",
+  "technicalProposalBody": "string",
+  "mermaidDiagramCode": "string"
+}
+
+[STRICT GUIDELINES FOR EACH FIELD]
+1. "contactName":
+   - Detect the hiring manager's first name if mentioned in the job description or client reviews (e.g. "Hi, I'm David", "- Sarah").
+   - If not explicitly mentioned, return "Hiring Team".
+
+2. "coverLetter35Words":
+   - STRICT CONSTRAINT: Word count MUST be between 30 and 35 words total.
+   - Follow this proven 3-part conversion structure:
+     a) Transferable Authority Hook: Lead with your proof story and exact metric bridged directly to their problem ("Having [metric at ProofStoryCompany], I will [solve core deliverable]...").
+     b) Immediate, punchy solution addressing the client's secondary bottleneck or technical requirement.
+     c) Action CTA pointing to the walkthrough: "I mapped your first 90 days and technical roadmap. Walkthrough link inside."
+
+3. "technicalProposalBody":
+   - Comprehensive, professional 4-section Markdown proposal customized specifically to this job:
+     # Strategic Proposal & Roadmap: ${input.jobTitle}
+     ## 1. Executive Summary & Problem Diagnosis
+     ## 2. Technical Architecture & Recommended Approach
+     ## 3. 90-Day Execution Milestones (Phase 1, Phase 2, Phase 3)
+     ## 4. Deliverables & Acceptance Criteria
+   - STRICT NEGATIVE CONSTRAINT: NEVER write ASCII diagrams, box drawings, backtick flowchart blocks, or text pipelines (like '[Call] -> [Audio] | ▼') inside "technicalProposalBody". All architecture diagrams and visual workflows MUST be placed exclusively in "mermaidDiagramCode".
+   - When stating validation benchmarks or metrics, format them clearly as bold bullet headers, for example:
+     - **Concrete Metric**: [Result, e.g. Reduced operational time from X to Y]
+     - **Testing & Validation**: [Audit details, benchmark scope]
+
+4. "mermaidDiagramCode":
+   - Valid, clean Mermaid syntax for a 5-node flowchart (flowchart TD) illustrating the project's execution phases.
+   - Example format:
+flowchart TD
+  A[Discovery & Audit] --> B[Core Architecture]
+  B --> C[Interactive Prototype]
+  C --> D[QA & Validation]
+  D --> E[Production Delivery]`;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.geminiModel}:generateContent?key=${this.geminiApiKey}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.3,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Gemini HTTP Error ${response.status}: ${errText}`);
     }
+
+    const data = await response.json();
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+    const parsed = JSON.parse(rawText);
+
+    // Sanitize Humanizer rules: Strip any em dashes, clean up mermaid code fences
+    let letter = (parsed.coverLetter35Words || '')
+      .replace(/—/g, ', ')
+      .replace(/–/g, '-')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    let mermaid = (parsed.mermaidDiagramCode || 'flowchart TD\n  A[Discovery & Audit] --> B[Architecture & Prototype] --> C[QA & Delivery]')
+      .replace(/^```(mermaid)?/im, '')
+      .replace(/```$/im, '')
+      .trim();
+
+    return {
+      contactName: parsed.contactName || 'Hiring Team',
+      coverLetter35Words: letter,
+      technicalProposalBody: parsed.technicalProposalBody || '',
+      mermaidDiagramCode: mermaid,
+    };
   }
 }

@@ -8,9 +8,14 @@ export interface FitCalculationInput {
   skills?: string[];
   clientTotalSpend?: number;
   clientRating?: number;
+  clientCountry?: string;
   proposalsCount?: number;
   isPaymentVerified?: boolean;
   postedDate?: Date;
+  targetCountries?: string[];
+  targetRegions?: string[];
+  excludedCountries?: string[];
+  geoFilterMode?: string;
 }
 
 export interface FitScoreOutput {
@@ -61,8 +66,44 @@ export class FitCalculatorService {
     if (rating >= 4.8) clientQualityScore = Math.min(100, clientQualityScore + 10);
     if (!input.isPaymentVerified) clientQualityScore = Math.max(20, clientQualityScore - 20);
 
-    // 4. Recency Score (Weight 15%)
-    const recencyScore = 98; // Freshly scraped jobs
+    // Evaluación Geográfica (Mercados Objetivo y Lista Negra)
+    const country = (input.clientCountry || '').trim().toLowerCase();
+    const excluded = (input.excludedCountries || []).map(c => c.trim().toLowerCase()).filter(Boolean);
+    const targets = (input.targetCountries || []).map(c => c.trim().toLowerCase()).filter(Boolean);
+
+    const isExcluded = country && excluded.some(exc => country.includes(exc) || exc.includes(country));
+    const isTarget = country && targets.length > 0 && targets.some(t => 
+      country.includes(t) || t.includes(country) || 
+      (t.includes('united states') && (country === 'us' || country === 'usa'))
+    );
+
+    // Bono Geográfico (+15 pts si es mercado objetivo)
+    if (isTarget) {
+      clientQualityScore = Math.min(100, clientQualityScore + 15);
+    }
+
+    // 4. Recency Score (Weight 15%) - Basado en la fecha real de publicación
+    let recencyScore = 80;
+    if (input.postedDate) {
+      const diffHours = Math.max(0, (Date.now() - new Date(input.postedDate).getTime()) / (1000 * 60 * 60));
+      if (diffHours <= 2) recencyScore = 100;
+      else if (diffHours <= 6) recencyScore = 90;
+      else if (diffHours <= 12) recencyScore = 80;
+      else if (diffHours <= 24) recencyScore = 70;
+      else if (diffHours <= 48) recencyScore = 55;
+      else recencyScore = 35;
+    }
+
+    // Factor Competencia: Premiar <5 aplicantes y castigar saturación >20-50
+    if (typeof input.proposalsCount === 'number') {
+      if (input.proposalsCount > 50) {
+        aiFeasibilityScore = Math.max(20, aiFeasibilityScore - 25);
+      } else if (input.proposalsCount > 20) {
+        aiFeasibilityScore = Math.max(30, aiFeasibilityScore - 15);
+      } else if (input.proposalsCount <= 5) {
+        aiFeasibilityScore = Math.min(100, aiFeasibilityScore + 10);
+      }
+    }
 
     // Cálculo Ponderado
     const weighted = Math.round(
@@ -81,6 +122,19 @@ export class FitCalculatorService {
       overallScore = 44;
       isCapped = true;
       capReason = 'CAPPED at 44: skill match under 40';
+    }
+
+    // Cap Geográfico Estricto (si modo es STRICT_EXCLUDE)
+    if (input.geoFilterMode === 'STRICT_EXCLUDE') {
+      if (isExcluded) {
+        overallScore = 15;
+        isCapped = true;
+        capReason = `GEO DISQUALIFIED: Cliente en país excluido (${input.clientCountry})`;
+      } else if (targets.length > 0 && !isTarget) {
+        overallScore = 25;
+        isCapped = true;
+        capReason = `GEO FILTERED: Fuera de países objetivo (${input.clientCountry || 'Desconocido'})`;
+      }
     }
 
     const fitTier = overallScore >= 75 ? 'HIGH' : overallScore >= 45 ? 'MEDIUM' : 'LOW';

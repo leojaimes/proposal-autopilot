@@ -15,6 +15,10 @@ export interface CalibrationProfile {
   weightAi: number;
   weightClient: number;
   weightRecency: number;
+  targetCountries?: string[];
+  targetRegions?: string[];
+  excludedCountries?: string[];
+  geoFilterMode?: 'WEIGHTED_PREFERENCE' | 'STRICT_EXCLUDE';
   proofStories: ProofStory[];
 }
 
@@ -33,6 +37,10 @@ const DEFAULT_PROFILES: CalibrationProfile[] = [
     weightAi: 25,
     weightClient: 20,
     weightRecency: 15,
+    targetCountries: ['United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'Ireland'],
+    targetRegions: ['North America', 'Western Europe'],
+    excludedCountries: [],
+    geoFilterMode: 'WEIGHTED_PREFERENCE',
     proofStories: [
       {
         id: 'META_FINTECH',
@@ -87,6 +95,10 @@ export class PipelineStateService {
   public readonly weightAi = signal<number>(this.activeProfile().weightAi);
   public readonly weightClient = signal<number>(this.activeProfile().weightClient);
   public readonly weightRecency = signal<number>(this.activeProfile().weightRecency);
+  public readonly targetCountries = signal<string[]>(this.activeProfile().targetCountries || ['United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'Ireland']);
+  public readonly targetRegions = signal<string[]>(this.activeProfile().targetRegions || ['North America', 'Western Europe']);
+  public readonly excludedCountries = signal<string[]>(this.activeProfile().excludedCountries || []);
+  public readonly geoFilterMode = signal<'WEIGHTED_PREFERENCE' | 'STRICT_EXCLUDE'>(this.activeProfile().geoFilterMode || 'WEIGHTED_PREFERENCE');
   public readonly proofStories = signal<ProofStory[]>(this.activeProfile().proofStories);
 
   constructor() {}
@@ -129,7 +141,80 @@ export class PipelineStateService {
     this.weightAi.set(profile.weightAi);
     this.weightClient.set(profile.weightClient);
     this.weightRecency.set(profile.weightRecency);
+    this.targetCountries.set(profile.targetCountries || ['United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'Ireland']);
+    this.targetRegions.set(profile.targetRegions || ['North America', 'Western Europe']);
+    this.excludedCountries.set(profile.excludedCountries || []);
+    this.geoFilterMode.set(profile.geoFilterMode || 'WEIGHTED_PREFERENCE');
     this.proofStories.set(profile.proofStories);
+    this.persist();
+  }
+
+  public toggleTargetCountry(country: string): void {
+    this.targetCountries.update(list => {
+      const exists = list.some(c => c.toLowerCase() === country.toLowerCase());
+      const next = exists ? list.filter(c => c.toLowerCase() !== country.toLowerCase()) : [...list, country];
+      this.syncActiveProfile();
+      return next;
+    });
+  }
+
+  public toggleTargetRegion(region: string): void {
+    this.targetRegions.update(list => {
+      const exists = list.includes(region);
+      const next = exists ? list.filter(r => r !== region) : [...list, region];
+      this.syncActiveProfile();
+      return next;
+    });
+  }
+
+  public addExcludedCountry(country: string): void {
+    const trimmed = country.trim();
+    if (!trimmed) return;
+    this.excludedCountries.update(list => {
+      if (list.some(c => c.toLowerCase() === trimmed.toLowerCase())) return list;
+      const next = [...list, trimmed];
+      this.syncActiveProfile();
+      return next;
+    });
+  }
+
+  public removeExcludedCountry(country: string): void {
+    this.excludedCountries.update(list => {
+      const next = list.filter(c => c.toLowerCase() !== country.toLowerCase());
+      this.syncActiveProfile();
+      return next;
+    });
+  }
+
+  public setGeoFilterMode(mode: 'WEIGHTED_PREFERENCE' | 'STRICT_EXCLUDE'): void {
+    this.geoFilterMode.set(mode);
+    this.syncActiveProfile();
+  }
+
+  public syncActiveProfile(): void {
+    this.profiles.update(list => list.map(p => {
+      if (p.id === this.activeProfileId()) {
+        return {
+          ...p,
+          offerText: this.offerText(),
+          targetAudience: this.targetAudience(),
+          keywords: this.keywordsText(),
+          minHourlyRate: this.minHourlyRate(),
+          minBudgetFixed: this.minBudgetFixed(),
+          verifiedPaymentOnly: this.verifiedPaymentOnly(),
+          weightSkill: this.weightSkill(),
+          weightAi: this.weightAi(),
+          weightClient: this.weightClient(),
+          weightRecency: this.weightRecency(),
+          targetCountries: this.targetCountries(),
+          targetRegions: this.targetRegions(),
+          excludedCountries: this.excludedCountries(),
+          geoFilterMode: this.geoFilterMode(),
+          proofStories: this.proofStories(),
+        };
+      }
+      return p;
+    }));
     this.persist();
   }
 

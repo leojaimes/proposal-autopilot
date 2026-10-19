@@ -6,10 +6,19 @@ import { ProposalsModule } from '../proposals/proposals.module';
 import { PrismaService } from '../../core/database/prisma.service';
 import { TenantContextService } from '../../core/context/tenant-context.service';
 
+import { ApifyJobAdapter } from './adapters/apify-job.adapter';
+import { OfficialUpworkApiAdapter } from './adapters/official-upwork.adapter';
+
 @Module({
   imports: [ScoringModule, ProposalsModule],
   controllers: [ScrapingController],
-  providers: [ApifyService, PrismaService, TenantContextService],
-  exports: [ApifyService],
+  providers: [
+    ApifyService, 
+    ApifyJobAdapter, 
+    OfficialUpworkApiAdapter, 
+    PrismaService, 
+    TenantContextService
+  ],
+  exports: [ApifyService, ApifyJobAdapter, OfficialUpworkApiAdapter],
 })
 export class ScrapingModule {}

@@ -1,0 +1,197 @@
+<div class="w-72 bg-[#161926] border border-border-subtle rounded-2xl shadow-2xl p-4 text-xs select-none space-y-3 z-50 animate-in fade-in zoom-in-95 duration-150">
+  
+  <!-- Popover Header -->
+  <div class="flex items-center justify-between border-b border-border-subtle/70 pb-2.5">
+    <div class="flex items-center gap-1.5 font-semibold text-content-primary">
+      <span class="text-brand-primary">⚡</span>
+      <span class="line-clamp-1">Filtro: {{ column().header }}</span>
+    </div>
+    <button (click)="close.emit()" class="text-content-muted hover:text-content-primary text-sm p-1 rounded-md">
+      ✕
+    </button>
+  </div>
+
+  <!-- Sort Actions Bar -->
+  @if (column().sortable !== false) {
+    <div class="space-y-1">
+      <div class="flex items-center gap-1">
+        <button (click)="setSort('ASC')"
+                class="flex-1 py-1.5 px-2 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1.5 transition-all border border-border-subtle/60"
+                [ngClass]="currentSort()?.columnKey === column().key && currentSort()?.direction === 'ASC' ? 'bg-brand-primary text-white font-semibold' : 'bg-surface-elevated text-content-secondary hover:text-content-primary'">
+          <span>▲</span>
+          <span>{{ column().type === 'number' ? '1 → 100' : 'A → Z' }}</span>
+        </button>
+
+        <button (click)="setSort('DESC')"
+                class="flex-1 py-1.5 px-2 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1.5 transition-all border border-border-subtle/60"
+                [ngClass]="currentSort()?.columnKey === column().key && currentSort()?.direction === 'DESC' ? 'bg-brand-primary text-white font-semibold' : 'bg-surface-elevated text-content-secondary hover:text-content-primary'">
+          <span>▼</span>
+          <span>{{ column().type === 'number' ? '100 → 1' : 'Z → A' }}</span>
+        </button>
+      </div>
+
+      @if (currentSort()?.columnKey === column().key && currentSort()?.direction) {
+        <button (click)="clearSort()" class="w-full text-[10px] text-content-muted hover:text-rose-400 py-0.5 text-center transition-colors">
+          Quitar orden
+        </button>
+      }
+    </div>
+  }
+
+  <!-- Tab Switcher (Valores vs Regla) -->
+  @if (column().type === 'number' || column().type === 'string') {
+    <div class="flex items-center p-0.5 bg-surface-elevated rounded-lg border border-border-subtle/60 text-[11px]">
+      <button (click)="activeTab.set('values')"
+              class="flex-1 py-1 text-center rounded-md font-medium transition-all"
+              [ngClass]="activeTab() === 'values' ? 'bg-surface text-content-primary shadow-sm font-semibold' : 'text-content-muted hover:text-content-primary'">
+        Por Valores
+      </button>
+      <button (click)="activeTab.set('condition')"
+              class="flex-1 py-1 text-center rounded-md font-medium transition-all"
+              [ngClass]="activeTab() === 'condition' ? 'bg-surface text-content-primary shadow-sm font-semibold' : 'text-content-muted hover:text-content-primary'">
+        Por Regla
+      </button>
+    </div>
+  }
+
+  <!-- TAB 1: Por Valores (Checkboxes con Búsqueda) -->
+  @if (activeTab() === 'values') {
+    <div class="space-y-2">
+      <!-- Mini Search in Values -->
+      <div class="relative">
+        <input type="text"
+               [ngModel]="searchInValues()"
+               (ngModelChange)="searchInValues.set($event)"
+               placeholder="Buscar en valores..."
+               class="w-full bg-surface-elevated border border-border-subtle rounded-lg px-2.5 py-1 text-[11px] text-content-primary placeholder:text-content-muted focus:outline-none focus:border-brand-primary">
+      </div>
+
+      <!-- Quick Action Links (Seleccionar todo / Deseleccionar todo) -->
+      <div class="flex items-center justify-between px-1 py-0.5 text-[11px] text-content-secondary border-b border-border-subtle/50">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox"
+                 [checked]="isAllSelected()"
+                 (change)="toggleSelectAll($any($event.target).checked)"
+                 class="rounded border-border-subtle accent-brand-primary">
+          <span class="font-medium text-content-primary">(Seleccionar Todo)</span>
+        </label>
+        
+        <div class="flex items-center gap-1.5 text-[10px]">
+          <button type="button"
+                  (click)="deselectAllValues()"
+                  class="text-rose-400 hover:underline cursor-pointer">
+            Deseleccionar
+          </button>
+          <span class="text-content-muted">·</span>
+          <button type="button"
+                  (click)="selectAllValues()"
+                  class="text-brand-primary hover:underline cursor-pointer">
+            Todos
+          </button>
+        </div>
+      </div>
+
+      <!-- Scrollable Checkboxes List -->
+      <div class="max-h-40 overflow-y-auto space-y-1 pr-1 custom-scroll">
+        @for (opt of distinctOptions(); track opt.label) {
+          <div class="flex items-center justify-between px-1.5 py-1 rounded-md hover:bg-surface-elevated/70 cursor-pointer text-[11px] transition-colors"
+               (click)="toggleValue(opt.value)">
+            <div class="flex items-center gap-2 min-w-0 pr-2">
+              <input type="checkbox"
+                     [checked]="opt.checked"
+                     (click)="$event.stopPropagation()"
+                     (change)="toggleValue(opt.value, $any($event.target).checked)"
+                     class="rounded border-border-subtle accent-brand-primary cursor-pointer">
+              <span class="truncate text-content-primary" [title]="opt.label">{{ opt.label }}</span>
+            </div>
+            <span class="font-mono text-[10px] text-content-muted bg-surface-elevated px-1.5 py-0.2 rounded border border-border-subtle/40">
+              {{ opt.count }}
+            </span>
+          </div>
+        } @empty {
+          <div class="p-3 text-center text-content-muted text-[11px]">
+            No se encontraron coincidencias.
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- TAB 2: Por Regla Condicional -->
+  @if (activeTab() === 'condition') {
+    <div class="space-y-2.5 pt-1">
+      @if (column().type === 'number') {
+        <div class="space-y-1.5">
+          <span class="text-[10px] uppercase font-bold text-content-muted">Condición Numérica:</span>
+          <select [ngModel]="numOperator()"
+                  (ngModelChange)="numOperator.set($event)"
+                  class="w-full bg-surface-elevated border border-border-subtle rounded-lg px-2 py-1 text-[11px] text-content-primary focus:outline-none">
+            <option value="GTE">Mayor o igual que (≥)</option>
+            <option value="GT">Estrictamente mayor que (&gt;)</option>
+            <option value="LTE">Menor o igual que (≤)</option>
+            <option value="LT">Estrictamente menor que (&lt;)</option>
+            <option value="EQUALS">Es exactamente igual a (=)</option>
+            <option value="BETWEEN">Está en el rango (Entre)</option>
+          </select>
+
+          <div class="flex items-center gap-2">
+            <input type="number"
+                   [ngModel]="numValue()"
+                   (ngModelChange)="numValue.set($event)"
+                   placeholder="Valor..."
+                   class="w-full bg-surface-elevated border border-border-subtle rounded-lg px-2.5 py-1 text-[11px] text-content-primary focus:outline-none focus:border-brand-primary">
+
+            @if (numOperator() === 'BETWEEN') {
+              <span class="text-content-muted">y</span>
+              <input type="number"
+                     [ngModel]="numValueTo()"
+                     (ngModelChange)="numValueTo.set($event)"
+                     placeholder="Hasta..."
+                     class="w-full bg-surface-elevated border border-border-subtle rounded-lg px-2.5 py-1 text-[11px] text-content-primary focus:outline-none focus:border-brand-primary">
+            }
+          </div>
+        </div>
+      }
+
+      @if (column().type === 'string') {
+        <div class="space-y-1.5">
+          <span class="text-[10px] uppercase font-bold text-content-muted">Condición de Texto:</span>
+          <select [ngModel]="strOperator()"
+                  (ngModelChange)="strOperator.set($event)"
+                  class="w-full bg-surface-elevated border border-border-subtle rounded-lg px-2 py-1 text-[11px] text-content-primary focus:outline-none">
+            <option value="CONTAINS">Contiene texto</option>
+            <option value="STARTS_WITH">Empieza por</option>
+            <option value="ENDS_WITH">Termina en</option>
+            <option value="EQUALS">Es exactamente igual a</option>
+            <option value="NOT_CONTAINS">No contiene</option>
+          </select>
+
+          <input type="text"
+                 [ngModel]="strValue()"
+                 (ngModelChange)="strValue.set($event)"
+                 placeholder="Escribe el criterio..."
+                 class="w-full bg-surface-elevated border border-border-subtle rounded-lg px-2.5 py-1 text-[11px] text-content-primary focus:outline-none focus:border-brand-primary">
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Footer Actions -->
+  <div class="flex items-center justify-between border-t border-border-subtle/70 pt-2.5">
+    <button (click)="onClear()"
+            class="text-[11px] text-content-muted hover:text-rose-400 font-medium py-1 px-2 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer">
+      Limpiar
+    </button>
+
+    <div class="flex items-center gap-2">
+      <button (click)="close.emit()"
+              class="text-[11px] text-content-secondary hover:text-content-primary py-1 px-2.5 rounded-lg hover:bg-surface-elevated transition-colors cursor-pointer">
+        Cancelar
+      </button>
+      <button (click)="onApply()"
+              class="text-[11px] bg-brand-primary hover:bg-brand-hover text-white font-bold py-1 px-3.5 rounded-lg shadow-sm transition-all cursor-pointer">
+        Aplicar
+      </button>
+    </div>
+  </div>
+</div>

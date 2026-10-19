@@ -1,49 +1,56 @@
-<div class="flex-1 flex overflow-hidden">
+<div class="flex-1 flex overflow-hidden bg-[#0a0d16]">
   
-  <!-- LEFT PANE: Triage Queue (35% Width) -->
-  <aside class="w-[380px] flex-shrink-0 border-r border-border-subtle bg-surface flex flex-col h-full select-none">
+  <!-- LEFT PANE: Triage Queue (380px) -->
+  <aside class="w-[380px] flex-shrink-0 border-r border-border-subtle bg-[#0e121d] flex flex-col h-full select-none">
     
     <!-- Triage Filter Bar -->
-    <div class="p-4 border-b border-border-subtle space-y-3">
+    <div class="p-4 border-b border-border-subtle/70 space-y-3 bg-[#111624]">
       <!-- Search Input -->
       <div class="relative">
+        <svg class="w-4 h-4 text-content-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
         <input type="text"
                [ngModel]="searchTerm()"
                (ngModelChange)="searchTerm.set($event)"
                placeholder="Buscar leads por título, país..."
-               class="w-full bg-surface-elevated border border-border-subtle rounded-lg px-3 py-1.5 text-xs text-content-primary placeholder:text-content-muted focus:outline-none focus:border-brand-primary">
+               class="w-full bg-[#0a0d16] border border-border-subtle/80 rounded-xl pl-9 pr-3 py-2 text-xs text-content-primary placeholder:text-content-muted focus:outline-none focus:border-brand-primary transition-colors">
       </div>
 
-      <!-- Tier Filter Tabs -->
-      <div class="flex items-center gap-1 p-1 bg-surface-elevated rounded-lg border border-border-subtle">
+      <!-- Segmented Tier Controller -->
+      <div class="flex items-center gap-1 p-1 bg-[#0a0d16] rounded-xl border border-border-subtle/60">
         <button (click)="selectedTier.set('High')"
-                class="flex-1 py-1 text-center rounded-md text-xs font-semibold transition-all"
-                [ngClass]="selectedTier() === 'High' ? 'bg-emerald-500/20 text-emerald-300 shadow-sm' : 'text-content-secondary hover:text-emerald-400'">
-          High Fit ({{ highFitCount() }})
+                class="flex-1 py-1.5 text-center rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                [ngClass]="selectedTier() === 'High' ? 'bg-emerald-500/20 text-emerald-300 shadow-sm border border-emerald-500/30' : 'text-content-muted hover:text-content-primary'">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span>High ({{ highFitCount() }})</span>
         </button>
         <button (click)="selectedTier.set('ALL')"
-                class="flex-1 py-1 text-center rounded-md text-xs font-medium transition-all"
-                [ngClass]="selectedTier() === 'ALL' ? 'bg-surface text-content-primary shadow-sm font-semibold' : 'text-content-secondary hover:text-content-primary'">
+                class="flex-1 py-1.5 text-center rounded-lg text-xs font-semibold transition-all"
+                [ngClass]="selectedTier() === 'ALL' ? 'bg-surface-elevated text-content-primary shadow-sm border border-border-subtle' : 'text-content-muted hover:text-content-primary'">
           Todos ({{ report.jobs().length }})
         </button>
         <button (click)="selectedTier.set('Low')"
-                class="flex-1 py-1 text-center rounded-md text-xs font-medium transition-all"
-                [ngClass]="selectedTier() === 'Low' ? 'bg-rose-500/20 text-rose-300 shadow-sm' : 'text-content-secondary hover:text-rose-400'">
-          Capped ({{ lowFitCount() }})
+                class="flex-1 py-1.5 text-center rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
+                [ngClass]="selectedTier() === 'Low' ? 'bg-rose-500/20 text-rose-300 shadow-sm border border-rose-500/30' : 'text-content-muted hover:text-rose-400'">
+          <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+          <span>Capped ({{ lowFitCount() }})</span>
         </button>
       </div>
     </div>
 
     <!-- Lead Cards List -->
-    <div class="flex-1 overflow-y-auto divide-y divide-border-subtle/60 p-2 space-y-1">
+    <div class="flex-1 overflow-y-auto divide-y divide-border-subtle/40 p-2 space-y-1">
       @for (job of filteredJobs(); track job.id) {
         <div (click)="selectJob(job)"
-             class="p-3.5 rounded-xl cursor-pointer transition-all duration-150 relative group"
-             [ngClass]="selectedJob()?.id === job.id ? 'bg-[#1e2238] border border-brand-primary/60 shadow-md' : 'hover:bg-surface-elevated/70 border border-transparent'">
+             class="p-3.5 rounded-xl cursor-pointer transition-all duration-150 relative group border"
+             [ngClass]="selectedJob()?.id === job.id 
+               ? 'bg-[#181f33] border-brand-primary/60 shadow-lg shadow-black/40 border-l-4 border-l-brand-primary' 
+               : 'bg-[#111522]/50 hover:bg-[#141a2b] border-transparent hover:border-border-subtle/50'">
           
-          <!-- Top Row: Score + Budget -->
-          <div class="flex items-center justify-between mb-1.5">
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono font-bold text-xs"
+          <!-- Top Row: Score Badge + Budget -->
+          <div class="flex items-center justify-between mb-2">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md font-mono font-bold text-xs"
                   [ngClass]="{
                     'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30': job.fitLabel === 'High',
                     'bg-amber-500/15 text-amber-400 border border-amber-500/30': job.fitLabel === 'Medium',
@@ -51,10 +58,12 @@
                   }">
               <span class="w-1.5 h-1.5 rounded-full"
                     [ngClass]="job.fitLabel === 'High' ? 'bg-emerald-400' : (job.fitLabel === 'Medium' ? 'bg-amber-400' : 'bg-rose-400')"></span>
-              {{ job.fitScore }} {{ job.fitLabel }}
+              {{ job.fitScore }} {{ job.fitLabel }} Fit
             </span>
 
-            <span class="font-mono text-xs font-semibold text-content-primary">{{ job.budget }}</span>
+            <span class="font-mono text-xs font-semibold text-content-primary bg-white/[0.04] px-2 py-0.5 rounded border border-white/[0.06]">
+              {{ job.budget }}
+            </span>
           </div>
 
           <!-- Job Title -->
@@ -62,72 +71,92 @@
             {{ job.jobTitle }}
           </h3>
 
-          <!-- Client Meta -->
-          <div class="flex items-center justify-between mt-2 text-[11px] text-content-muted font-mono">
-            <span>{{ job.clientCountry }} · ★ {{ job.clientRating.toFixed(1) }}</span>
-            <span class="text-content-secondary font-medium">{{ job.proposalsAlreadyIn }} bids</span>
+          <!-- Client Meta Footer -->
+          <div class="flex items-center justify-between mt-2.5 pt-2 border-t border-white/[0.04] text-[11px] text-content-muted font-mono">
+            <span class="flex items-center gap-1">
+              <span>📍 {{ job.clientCountry }}</span>
+              <span>·</span>
+              <span class="text-amber-400">★ {{ job.clientRating.toFixed(1) }}</span>
+            </span>
+            <span class="text-content-secondary font-medium">{{ job.proposalsAlreadyIn }} propuestas</span>
           </div>
         </div>
       } @empty {
-        <div class="p-8 text-center text-xs text-content-muted">
-          No hay empleos en esta categoría.
+        <div class="p-10 text-center text-xs text-content-muted space-y-2">
+          <span class="text-2xl block">🔍</span>
+          <p class="font-medium text-content-secondary">No se encontraron leads</p>
+          <p class="text-[11px]">Prueba ajustando los filtros o el término de búsqueda.</p>
         </div>
       }
     </div>
 
     <!-- Bottom Connects Saved Bar -->
-    <div class="p-3 border-t border-border-subtle bg-surface-elevated/40 flex items-center justify-between text-xs text-content-muted">
-      <span>Connects ahorrados: <strong class="text-emerald-400 font-mono">{{ lowFitCount() * 16 }}</strong></span>
-      <span class="font-mono text-[11px]">~ ${{ (lowFitCount() * 16 * 0.15).toFixed(2) }} USD</span>
+    <div class="p-3 border-t border-border-subtle bg-[#111624] flex items-center justify-between text-xs text-content-muted">
+      <div class="flex items-center gap-1.5">
+        <span class="text-emerald-400 font-bold">🛡️ Ahorro:</span>
+        <span class="font-mono text-content-primary font-semibold">{{ lowFitCount() * 16 }} Connects</span>
+      </div>
+      <span class="font-mono text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
+        ~${{ (lowFitCount() * 16 * 0.15).toFixed(2) }} USD
+      </span>
     </div>
   </aside>
 
-  <!-- RIGHT PANE: Dispatch Terminal (65% Width) -->
-  <main class="flex-1 overflow-y-auto bg-app p-8">
+  <!-- RIGHT PANE: Dispatch Console (65% Width) -->
+  <main class="flex-1 overflow-y-auto bg-[#0a0d16] p-6 lg:p-8">
     @if (selectedJob(); as current) {
-      <div class="max-w-3xl mx-auto space-y-6">
+      <div class="max-w-3xl mx-auto space-y-6 animate-fadeIn">
         
         <!-- Job Header Banner -->
-        <div class="p-6 rounded-2xl bg-surface border border-border-subtle shadow-sm space-y-4">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <div class="flex items-center gap-2 mb-2">
-                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-brand-primary/10 text-brand-primary border border-brand-primary/30">
+        <div class="p-6 rounded-2xl bg-[#0f1422] border border-border-subtle/80 shadow-xl space-y-4 relative overflow-hidden">
+          <div class="flex items-start justify-between gap-5">
+            <div class="space-y-2.5 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-brand-primary/15 text-brand-primary border border-brand-primary/30">
                   {{ current.normalizedRole }}
                 </span>
-                <span class="text-xs text-content-muted font-mono">{{ current.laneCategory }}</span>
+                <span class="text-xs text-content-muted font-mono bg-white/[0.04] px-2 py-0.5 rounded">
+                  {{ current.laneCategory }}
+                </span>
                 @if (current.verifiedPayment === 'Yes') {
-                  <span class="text-emerald-400 text-xs font-semibold flex items-center gap-1">
-                    ✓ Pago Verificado
+                  <span class="text-emerald-400 text-xs font-semibold flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Pago Verificado
                   </span>
                 }
               </div>
-              <h1 class="text-xl font-bold text-content-primary leading-tight tracking-tight">
+
+              <h1 class="text-xl lg:text-2xl font-bold text-white leading-tight tracking-tight">
                 {{ current.jobTitle }}
               </h1>
             </div>
 
-            <!-- Big Fit Score -->
-            <div class="flex flex-col items-center justify-center p-3 rounded-xl min-w-[70px] border"
+            <!-- Authoritative Big Fit Score Widget -->
+            <div class="flex flex-col items-center justify-center p-3.5 rounded-2xl min-w-[85px] border shadow-lg"
                  [ngClass]="{
-                   'bg-emerald-500/10 border-emerald-500/30 text-emerald-400': current.fitLabel === 'High',
-                   'bg-amber-500/10 border-amber-500/30 text-amber-400': current.fitLabel === 'Medium',
-                   'bg-rose-500/10 border-rose-500/30 text-rose-400': current.fitLabel === 'Low'
+                   'bg-gradient-to-b from-emerald-500/20 to-emerald-950/40 border-emerald-500/40 text-emerald-400 shadow-emerald-950/30': current.fitLabel === 'High',
+                   'bg-gradient-to-b from-amber-500/20 to-amber-950/40 border-amber-500/40 text-amber-400 shadow-amber-950/30': current.fitLabel === 'Medium',
+                   'bg-gradient-to-b from-rose-500/20 to-rose-950/40 border-rose-500/40 text-rose-400 shadow-rose-950/30': current.fitLabel === 'Low'
                  }">
-              <span class="text-3xl font-extrabold font-mono leading-none">{{ current.fitScore }}</span>
-              <span class="text-[10px] font-bold uppercase tracking-wider mt-1">{{ current.fitLabel }} Fit</span>
+              <span class="text-3xl font-extrabold font-mono leading-none tracking-tight">{{ current.fitScore }}</span>
+              <span class="text-[10px] font-extrabold uppercase tracking-widest mt-1.5 opacity-90">{{ current.fitLabel }} Fit</span>
             </div>
           </div>
 
-          <!-- Rationale & Proof Story Injected -->
-          <div class="p-3 rounded-lg bg-surface-elevated/70 border border-border-subtle text-xs space-y-1.5">
-            <div class="flex items-center justify-between text-content-secondary">
-              <span><strong>Diagnóstico:</strong> {{ current.scoreNotes }}</span>
+          <!-- Intelligence Diagnostic Memo -->
+          <div class="p-3.5 rounded-xl bg-[#0a0d16] border border-border-subtle/70 text-xs space-y-2">
+            <div class="flex items-start gap-2 text-content-secondary leading-relaxed">
+              <span class="text-brand-primary font-bold mt-0.5">💡</span>
+              <div>
+                <strong class="text-white">Diagnóstico del Algoritmo:</strong> {{ current.scoreNotes }}
+              </div>
             </div>
             @if (current.suggestedProofStory && current.suggestedProofStory !== 'NONE') {
-              <div class="flex items-center gap-1.5 text-emerald-400 text-[11px] pt-1">
-                <span>🎯 <strong>Historia Inyectada:</strong></span>
-                <span class="font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+              <div class="flex items-center gap-2 pt-1 border-t border-white/[0.05] text-[11px]">
+                <span class="text-content-muted font-medium">Caso de Autoridad Seleccionado:</span>
+                <span class="font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
                   {{ current.suggestedProofStory }}
                 </span>
               </div>
@@ -135,33 +164,164 @@
           </div>
         </div>
 
-        <!-- THE 35-WORD HERO DISPATCH BOX -->
-        @if (current.coverLetter) {
-          <div class="p-6 rounded-2xl bg-surface border-2 border-brand-primary/40 shadow-lg space-y-4 relative overflow-hidden">
-            <!-- Accent Top Line -->
-            <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-primary via-indigo-400 to-emerald-400"></div>
+        <!-- AUDITORÍA DE RANKING & SCORECARD CUADRANTE -->
+        <div class="p-5 rounded-2xl bg-[#0f1422] border border-border-subtle/80 shadow-md space-y-4">
+          <div class="flex items-center justify-between border-b border-border-subtle/50 pb-3">
+            <div class="flex items-center gap-2">
+              <span class="text-sm">⚖️</span>
+              <h2 class="text-xs font-bold uppercase tracking-wider text-content-primary">
+                Auditoría Decisional del Algoritmo (Fit Score {{ current.fitScore }}/100)
+              </h2>
+            </div>
+            @if (current.isCapped) {
+              <span class="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                🛡️ Techo de Seguridad Activado
+              </span>
+            } @else {
+              <span class="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-semibold">
+                ✓ Puntuación Sin Restricciones
+              </span>
+            }
+          </div>
 
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-bold uppercase tracking-wider text-content-primary">Propuesta Optimizada</span>
-                <span class="text-[10px] font-mono font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                  Exactamente 35 Palabras · 0 Guiones Largos
+          <!-- Cuadrante 4 Métricas Clave -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <!-- 1. Afinidad Skills -->
+            <div class="p-3 rounded-xl bg-[#0a0d16] border border-border-subtle/60 flex flex-col justify-between">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[11px] font-medium text-content-muted">🎯 Skills (40%)</span>
+                <span class="font-mono font-bold text-xs" [ngClass]="(current.skillScore || 0) >= 70 ? 'text-emerald-400' : 'text-amber-400'">
+                  {{ current.skillScore ?? 0 }}%
                 </span>
               </div>
-              <span class="text-xs text-content-muted">Contacto: <strong class="text-content-primary">{{ current.contactNameFound }}</strong></span>
+              <div class="w-full bg-[#181f33] h-1.5 rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-300"
+                     [ngClass]="(current.skillScore || 0) >= 70 ? 'bg-emerald-400' : 'bg-amber-400'"
+                     [style.width.%]="current.skillScore || 0"></div>
+              </div>
             </div>
 
-            <!-- The Letter Content -->
-            <div class="p-4 rounded-xl bg-surface-elevated text-sm leading-relaxed text-content-primary font-medium border border-border-subtle select-all">
+            <!-- 2. Factibilidad AI -->
+            <div class="p-3 rounded-xl bg-[#0a0d16] border border-border-subtle/60 flex flex-col justify-between">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[11px] font-medium text-content-muted">🤖 AI Fit (25%)</span>
+                <span class="font-mono font-bold text-xs" [ngClass]="(current.aiFeasibilityScore || 0) >= 70 ? 'text-indigo-400' : 'text-amber-400'">
+                  {{ current.aiFeasibilityScore ?? 0 }}%
+                </span>
+              </div>
+              <div class="w-full bg-[#181f33] h-1.5 rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-300"
+                     [ngClass]="(current.aiFeasibilityScore || 0) >= 70 ? 'bg-indigo-400' : 'bg-amber-400'"
+                     [style.width.%]="current.aiFeasibilityScore || 0"></div>
+              </div>
+            </div>
+
+            <!-- 3. Calidad Cliente -->
+            <div class="p-3 rounded-xl bg-[#0a0d16] border border-border-subtle/60 flex flex-col justify-between">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[11px] font-medium text-content-muted">💎 Cliente (20%)</span>
+                <span class="font-mono font-bold text-xs" [ngClass]="(current.clientQualityScore || 0) >= 70 ? 'text-emerald-400' : 'text-amber-400'">
+                  {{ current.clientQualityScore ?? 0 }}%
+                </span>
+              </div>
+              <div class="w-full bg-[#181f33] h-1.5 rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-300"
+                     [ngClass]="(current.clientQualityScore || 0) >= 70 ? 'bg-emerald-400' : 'bg-amber-400'"
+                     [style.width.%]="current.clientQualityScore || 0"></div>
+              </div>
+            </div>
+
+            <!-- 4. Frescura -->
+            <div class="p-3 rounded-xl bg-[#0a0d16] border border-border-subtle/60 flex flex-col justify-between">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[11px] font-medium text-content-muted">⏱️ Frescura (15%)</span>
+                <span class="font-mono font-bold text-xs" [ngClass]="(current.recencyScore || 0) >= 70 ? 'text-emerald-400' : 'text-amber-400'">
+                  {{ current.recencyScore ?? 0 }}%
+                </span>
+              </div>
+              <div class="w-full bg-[#181f33] h-1.5 rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-300"
+                     [ngClass]="(current.recencyScore || 0) >= 70 ? 'bg-emerald-400' : 'bg-amber-400'"
+                     [style.width.%]="current.recencyScore || 0"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Drivers (+ Ventajas) & Drags (- Fricciones) -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            <!-- Drivers -->
+            <div class="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-2">
+              <span class="text-[11px] font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider">
+                <span>🚀</span> Ventajas Competitivas (Drivers)
+              </span>
+              <ul class="space-y-1.5">
+                @for (driver of current.drivers; track driver) {
+                  <li class="text-xs text-content-primary flex items-start gap-2 leading-snug">
+                    <span class="text-emerald-400 font-bold">•</span>
+                    <span>{{ driver }}</span>
+                  </li>
+                } @empty {
+                  <li class="text-xs text-content-muted italic">Sin ventajas diferenciales detectadas.</li>
+                }
+              </ul>
+            </div>
+
+            <!-- Drags -->
+            <div class="p-3.5 rounded-xl bg-rose-500/5 border border-rose-500/20 space-y-2">
+              <span class="text-[11px] font-bold text-rose-400 flex items-center gap-1.5 uppercase tracking-wider">
+                <span>⚠️</span> Factores de Fricción (Drags)
+              </span>
+              <ul class="space-y-1.5">
+                @for (drag of current.drags; track drag) {
+                  <li class="text-xs text-content-primary flex items-start gap-2 leading-snug">
+                    <span class="text-rose-400 font-bold">•</span>
+                    <span>{{ drag }}</span>
+                  </li>
+                } @empty {
+                  <li class="text-xs text-emerald-400 font-medium">✓ Ningún factor adverso registrado.</li>
+                }
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- THE 35-WORD HERO DISPATCH BOX (THE SHOWSTOPPER) -->
+        @if (current.coverLetter) {
+          <div class="p-6 rounded-2xl bg-[#0f1422] border-2 border-brand-primary/50 shadow-2xl space-y-5 relative overflow-hidden">
+            <!-- Top Gradient Accent Bar -->
+            <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-primary via-indigo-400 to-emerald-400"></div>
+
+            <!-- Header Row -->
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <span class="text-xs font-extrabold uppercase tracking-widest text-white">
+                  Propuesta Optimizada
+                </span>
+                <span class="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full border transition-all"
+                      [ngClass]="getWordCount(current.coverLetter) >= 30 && getWordCount(current.coverLetter) <= 35 
+                        ? 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30' 
+                        : 'text-amber-300 bg-amber-500/15 border-amber-500/30'">
+                  {{ getWordCount(current.coverLetter) }} Palabras (Meta: 30-35) · 0 Guiones Largos
+                </span>
+              </div>
+              <span class="text-xs text-content-muted">
+                Para: <strong class="text-white">{{ current.contactNameFound }}</strong>
+              </span>
+            </div>
+
+            <!-- The Letter Content (High-Legibility Editorial Container) -->
+            <div class="p-5 rounded-xl bg-[#080b13] text-[15px] leading-relaxed text-slate-100 font-medium border border-white/[0.08] shadow-inner select-all">
               {{ current.coverLetter }}
             </div>
 
-            <!-- Action Buttons -->
-            <div class="flex items-center gap-3 pt-1">
-              <!-- Copy Button -->
+            <!-- Action Buttons (Executive Zero-Friction Toolbar) -->
+            <div class="flex flex-wrap items-center gap-3 pt-1">
+              <!-- Primary CTA: Copy to Clipboard -->
               <button (click)="copyLetter(current)"
-                      class="flex-1 py-3 px-5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md"
-                      [ngClass]="copied() ? 'bg-emerald-500 text-white' : 'bg-brand-primary hover:bg-brand-hover text-white'">
+                      class="flex-1 py-3 px-6 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg min-w-[210px]"
+                      [ngClass]="copied() 
+                        ? 'bg-emerald-500 text-white shadow-emerald-500/30' 
+                        : 'bg-gradient-to-r from-brand-primary to-indigo-600 hover:from-brand-hover hover:to-indigo-500 text-white shadow-brand-primary/25 hover:shadow-brand-primary/40 hover:scale-[1.01] active:scale-[0.99]'">
                 @if (copied()) {
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
@@ -175,62 +335,122 @@
                 }
               </button>
 
+              <!-- Regenerate Autonomous Button with IA -->
+              <button (click)="regenerateProposal()"
+                      [disabled]="isRegenerating()"
+                      class="py-3 px-4 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] text-white font-bold text-xs flex items-center gap-1.5 border border-white/[0.1] transition-all disabled:opacity-50">
+                @if (isRegenerating()) {
+                  <svg class="w-4 h-4 animate-spin text-brand-primary" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                  </svg>
+                  <span>Sintetizando...</span>
+                } @else {
+                  <span>✨ Regenerar con IA</span>
+                }
+              </button>
+
+              <!-- Download Executive PDF via Gotenberg -->
+              <button (click)="downloadPdf(current)"
+                      [disabled]="isDownloadingPdf()"
+                      class="py-3 px-4 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white font-bold text-xs flex items-center gap-1.5 border border-indigo-500/30 hover:border-indigo-500/60 transition-all disabled:opacity-50 shadow-md">
+                @if (isDownloadingPdf()) {
+                  <svg class="w-4 h-4 animate-spin text-indigo-400" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                  </svg>
+                  <span>Generando PDF...</span>
+                } @else {
+                  <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                  <span>📄 Descargar PDF Ejecutivo</span>
+                }
+              </button>
+
+              <!-- Toggle Technical Proposal -->
+              <button (click)="toggleTechnicalProposal()"
+                      class="py-3 px-4 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] text-content-primary font-bold text-xs flex items-center gap-1.5 border border-white/[0.1] transition-all">
+                <span>📑 {{ showTechnicalProposal() ? 'Ocultar Propuesta' : 'Ver Propuesta Técnica' }}</span>
+              </button>
+
               <!-- Apply Direct Link -->
               <a [href]="current.applyLink" target="_blank"
-                 class="py-3 px-5 rounded-xl bg-surface-elevated hover:bg-surface-hover text-content-primary font-bold text-xs flex items-center gap-1.5 border border-border-subtle transition-all">
+                 class="py-3 px-5 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] text-white font-bold text-xs flex items-center gap-1.5 border border-white/[0.1] transition-all">
                 <span>🚀 Abrir en Upwork</span>
-                <svg class="w-4 h-4 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg class="w-3.5 h-3.5 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                 </svg>
               </a>
-
-              <!-- Walkthrough Link -->
-              @if (current.proposalDocLink) {
-                <a [href]="current.proposalDocLink" target="_blank"
-                   class="py-3 px-4 rounded-xl bg-surface-elevated hover:bg-surface-hover text-content-secondary hover:text-content-primary text-xs font-medium border border-border-subtle transition-all"
-                   title="Ver Walkthrough Público">
-                  Ver Walkthrough ↗
-                </a>
-              }
             </div>
+
+            <!-- Inline Success Toast Banner -->
+            @if (successBanner()) {
+              <div class="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-2 animate-fadeIn">
+                <span>✓</span>
+                <span>{{ successBanner() }}</span>
+              </div>
+            }
           </div>
         } @else {
-          <!-- Skipped / Capped Notice -->
-          <div class="p-6 rounded-2xl bg-surface border border-border-subtle text-center space-y-2">
-            <span class="text-2xl">🛡️</span>
-            <h3 class="text-sm font-bold text-content-primary">Propuesta no generada</h3>
-            <p class="text-xs text-content-muted max-w-md mx-auto">
-              Este empleo fue catalogado como {{ current.fitLabel }} Fit. El sistema no generó propuesta para proteger tus tokens de IA y tus Connects.
+          <!-- Skipped / Capped Notice with One-Click Generate -->
+          <div class="p-8 rounded-2xl bg-[#0f1422] border border-border-subtle/80 text-center space-y-3">
+            <span class="text-3xl block">⚡</span>
+            <h3 class="text-sm font-bold text-white">Propuesta en pausa preventiva</h3>
+            <p class="text-xs text-content-muted max-w-md mx-auto leading-relaxed">
+              Este empleo fue catalogado como <strong class="text-content-primary">{{ current.fitLabel }} Fit</strong> para proteger tus tokens. Puedes forzar la síntesis con un solo clic.
             </p>
+            <button (click)="regenerateProposal()"
+                    [disabled]="isRegenerating()"
+                    class="py-2.5 px-5 rounded-xl bg-brand-primary hover:bg-brand-hover text-white font-bold text-xs inline-flex items-center gap-2 transition-all shadow-md">
+              @if (isRegenerating()) {
+                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                </svg>
+                <span>Generando...</span>
+              } @else {
+                <span>✨ Generar Propuesta con IA</span>
+              }
+            </button>
           </div>
         }
 
-        <!-- Roadmap Architecture Accordion -->
-        <div class="p-5 rounded-2xl bg-surface border border-border-subtle space-y-3">
-          <div class="flex items-center justify-between cursor-pointer" (click)="toggleRoadmap()">
-            <span class="text-xs font-bold uppercase tracking-wider text-content-primary flex items-center gap-2">
-              <span>🗺️</span>
-              <span>Roadmap de Ejecución (Diagrama Técnico del Walkthrough)</span>
-            </span>
-            <span class="text-xs text-content-muted">{{ showRoadmap() ? 'Ocultar ▲' : 'Mostrar ▼' }}</span>
-          </div>
-
-          @if (showRoadmap()) {
-            <div class="p-4 rounded-xl bg-surface-elevated font-mono text-xs text-indigo-300 leading-relaxed border border-border-subtle overflow-x-auto">
-              flowchart TD<br/>
-              &nbsp;&nbsp;A[Auditoría de Requerimientos] --&gt; B[Figma Tokens & Sistema de Diseño]<br/>
-              &nbsp;&nbsp;B --&gt; C[Librería de Componentes Autolayout & Variantes]<br/>
-              &nbsp;&nbsp;C --&gt; D[Zero-Friction Developer Handoff]
+        <!-- TECHNICAL PROPOSAL BODY VIEWER (4 SECTIONS) -->
+        @if (showTechnicalProposal() && current.technicalProposal) {
+          <div class="p-6 rounded-2xl bg-[#0f1422] border border-border-subtle/80 shadow-2xl space-y-4 animate-fadeIn">
+            <div class="flex items-center justify-between border-b border-border-subtle/60 pb-3">
+              <div class="flex items-center gap-2">
+                <span class="text-sm">📑</span>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-white">
+                  Propuesta Estratégica Completa & Hitos 90 Días
+                </h3>
+              </div>
+              <button (click)="toggleTechnicalProposal()" class="text-xs text-content-muted hover:text-white font-semibold transition-colors">
+                Ocultar ✕
+              </button>
             </div>
-          }
+
+            <div class="p-5 rounded-xl bg-[#080b13] border border-white/[0.06] text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-sans max-h-[500px] overflow-y-auto select-all">
+              {{ current.technicalProposal }}
+            </div>
+          </div>
+        }
+
+        <!-- Interactive Mermaid Roadmap Viewer -->
+        <div class="mt-4">
+          <app-mermaid-viewer
+            [code]="selectedJob()?.mermaidCode || 'flowchart TD\n  A[Auditoría de Requerimientos] --> B[Figma Tokens & Sistema de Diseño]\n  B --> C[Librería de Componentes Autolayout & Variantes]\n  C --> D[Zero-Friction Developer Handoff]'"
+            [title]="'Roadmap de Ejecución · ' + (selectedJob()?.jobTitle || 'Walkthrough')">
+          </app-mermaid-viewer>
         </div>
       </div>
     } @else {
       <!-- Empty State -->
       <div class="h-full flex flex-col items-center justify-center text-center p-8 text-content-muted">
         <span class="text-4xl mb-3">⚡</span>
-        <h3 class="text-base font-bold text-content-primary">Selecciona un lead de la lista</h3>
-        <p class="text-xs mt-1 max-w-sm">
+        <h3 class="text-base font-bold text-white">Selecciona un lead de la lista</h3>
+        <p class="text-xs mt-1 max-w-sm text-content-secondary">
           Haz clic en cualquier empleo del panel izquierdo para inspeccionar su diagnóstico y despachar la propuesta.
         </p>
       </div>
