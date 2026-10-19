@@ -25,7 +25,8 @@ export class ZeroStateOnboardingComponent {
 
   public restoreBoPreset(): void {
     this.isLoadingPreset.set(true);
-    this.http.post('http://localhost:7000/api/scraping/restore-preset', {})
+    const apiBase = (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') ? '/api' : 'http://localhost:7000/api';
+    this.http.post(`${apiBase}/scraping/restore-preset`, {})
       .subscribe({
         next: () => {
           this.isLoadingPreset.set(false);

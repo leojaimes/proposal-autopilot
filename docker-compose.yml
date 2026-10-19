@@ -28,6 +28,11 @@ services:
         condition: service_healthy
     ports:
       - '7000:7000'
+    networks:
+      default:
+        aliases:
+          - pepper-tix_proposal-backend
+          - proposal_autopilot_backend
     environment:
       PORT: 7000
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/proposal_autopilot_db?schema=public

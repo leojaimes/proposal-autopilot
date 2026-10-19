@@ -116,8 +116,14 @@ export class EngineSettingsDrawerComponent {
     this.close();
   }
 
+  private getApiBase(): string {
+    return (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
+      ? '/api'
+      : 'http://localhost:7000/api';
+  }
+
   public resetDatabase(): void {
-    this.http.post('http://localhost:7000/api/scraping/reset', {})
+    this.http.post(`${this.getApiBase()}/scraping/reset`, {})
       .subscribe(() => {
         this.report.refresh();
         this.close();
@@ -125,7 +131,7 @@ export class EngineSettingsDrawerComponent {
   }
 
   public restorePreset(): void {
-    this.http.post('http://localhost:7000/api/scraping/restore-preset', {})
+    this.http.post(`${this.getApiBase()}/scraping/restore-preset`, {})
       .subscribe(() => {
         this.report.refresh();
         this.close();
@@ -151,7 +157,7 @@ export class EngineSettingsDrawerComponent {
     this.geoSavedMessage.set('');
     try {
       const keywords = this.pipeline.keywordsText().split(',').map(k => k.trim()).filter(Boolean);
-      await this.http.put('http://localhost:7000/api/config/scrape', {
+      await this.http.put(`${this.getApiBase()}/config/scrape`, {
         searchKeywords: keywords.length > 0 ? keywords : ['UX Designer', 'Figma'],
         minBudgetFixed: this.pipeline.minBudgetFixed(),
         minHourlyRate: this.pipeline.minHourlyRate(),
@@ -162,7 +168,7 @@ export class EngineSettingsDrawerComponent {
         geoFilterMode: this.pipeline.geoFilterMode(),
       }).toPromise();
 
-      await this.http.post('http://localhost:7000/api/scraping/reprocess', {}).toPromise();
+      await this.http.post(`${this.getApiBase()}/scraping/reprocess`, {}).toPromise();
       this.report.refresh();
       this.geoSavedMessage.set('¡Preferencias geográficas aplicadas y ranking recalculado!');
       setTimeout(() => this.geoSavedMessage.set(''), 3500);
