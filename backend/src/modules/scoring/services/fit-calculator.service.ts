@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { RoleClassifierService } from './role-classifier.service';
 import { StrategicLane } from '../constants/taxonomy.constants';
 
@@ -6,16 +6,15 @@ export interface FitCalculationInput {
   title: string;
   description: string;
   skills?: string[];
+  activeQueries?: string[];
+  clientCountry?: string;
   clientTotalSpend?: number;
   clientRating?: number;
-  clientCountry?: string;
   proposalsCount?: number | null;
   isPaymentVerified?: boolean;
-  postedDate?: Date | null;
-  targetCountries?: string[];
-  targetRegions?: string[];
+  postedDate?: Date | string | null;
   excludedCountries?: string[];
-  geoFilterMode?: string;
+  targetCountries?: string[];
 }
 
 export interface FitScoreOutput {
@@ -33,151 +32,175 @@ export interface FitScoreOutput {
   dataQualityStatus: 'COMPLETE' | 'INCOMPLETE';
   summaryRationale: string;
   detectedGaps: string;
-  suggestedProofStory: string;
+  suggestedProofStory: string | null;
+  drivers: string[];
+  drags: string[];
 }
 
 @Injectable()
 export class FitCalculatorService {
+  private readonly logger = new Logger(FitCalculatorService.name);
+
   constructor(private readonly roleClassifier: RoleClassifierService) {}
 
+  /**
+   * Cálculo Determinista Deductivo (Arranca en el potencial del rol y descuenta por fricciones).
+   * Cero suposiciones en código: se guía por activeQueries del Calibrador de la base de datos.
+   */
   calculate(input: FitCalculationInput): FitScoreOutput {
-    const classification = this.roleClassifier.classify(input.title, input.description, input.skills);
+    const drivers: string[] = [];
+    const drags: string[] = [];
 
-    // 0. Integridad de Datos (Data Quality Status)
-    const hasProposals = input.proposalsCount !== undefined && input.proposalsCount !== null;
-    const hasDate = Boolean(input.postedDate);
-    const hasCountry = Boolean((input.clientCountry || '').trim());
-    const dataQualityStatus: 'COMPLETE' | 'INCOMPLETE' = (hasProposals && hasDate && hasCountry) ? 'COMPLETE' : 'INCOMPLETE';
-
-    // 1. Skill Score (Weight 40%) - Escala completa hasta 100 con validación profunda
-    let skillScore = 35;
-    const hasMultipleSkills = Array.isArray(input.skills) && input.skills.length >= 2;
-
-    if (classification.lane === StrategicLane.CORE_AI_UX) {
-      skillScore = hasMultipleSkills ? 100 : 80;
-    } else if (classification.lane === StrategicLane.SOFTWARE_BACKEND_API) {
-      skillScore = hasMultipleSkills ? 100 : 85;
-    } else if (classification.lane === StrategicLane.PRODUCT_STRATEGY) {
-      skillScore = 85;
-    } else if (classification.lane === StrategicLane.INTERFACE_BUILD) {
-      skillScore = 70;
-    } else if (classification.isDisqualified) {
-      skillScore = 15;
-    }
-
-    // 2. Viabilidad y Fricción de Mercado (Weight 25%) - Desacoplado de la etiqueta IA
-    let aiFeasibilityScore = 70; // Base neutral
-    if (classification.isDisqualified) {
-      aiFeasibilityScore = 20;
-    } else if (hasProposals) {
-      const proposals = Number(input.proposalsCount);
-      if (proposals <= 5) {
-        aiFeasibilityScore = 100; // Máxima viabilidad: primera línea de atención
-      } else if (proposals > 50) {
-        aiFeasibilityScore = 15;  // Mercado saturado: fricción crítica
-      } else if (proposals > 20) {
-        aiFeasibilityScore = 45;  // Competencia moderada/alta
-      }
-    }
-
-    // 3. Client Quality (Weight 20%)
-    let clientQualityScore = 40;
-    const spend = input.clientTotalSpend || 0;
-    const rating = input.clientRating || 0;
-
-    if (spend >= 100000) clientQualityScore = 75;
-    else if (spend >= 25000) clientQualityScore = 65;
-    else if (spend >= 5000) clientQualityScore = 55;
-    else if (spend >= 500) clientQualityScore = 45;
-
-    // Rating & Verificación
-    if (rating >= 4.8) clientQualityScore = Math.min(100, clientQualityScore + 10);
-    if (input.isPaymentVerified) {
-      clientQualityScore = Math.min(100, clientQualityScore + 5);
-    } else {
-      clientQualityScore = Math.max(15, clientQualityScore - 25);
-    }
-
-    // Evaluación Geográfica
-    const country = (input.clientCountry || '').trim().toLowerCase();
-    const excluded = (input.excludedCountries || []).map(c => c.trim().toLowerCase()).filter(Boolean);
-    const targets = (input.targetCountries || []).map(c => c.trim().toLowerCase()).filter(Boolean);
-
-    const isExcluded = country && excluded.some(exc => country.includes(exc) || exc.includes(country));
-    const isTarget = country && targets.length > 0 && targets.some(t => 
-      country.includes(t) || t.includes(country) || 
-      (t.includes('united states') && (country === 'us' || country === 'usa'))
+    // 1. Evaluación de Coincidencia contra las Expresiones Activas del Calibrador
+    const match = this.roleClassifier.evaluateMatch(
+      input.title,
+      input.description,
+      input.skills || [],
+      input.activeQueries || [],
     );
 
-    if (isTarget) {
-      clientQualityScore = Math.min(100, clientQualityScore + 10);
+    const baseFitScore = match.baseFitScore;
+    if (match.matchLevel === 'DIRECT_MATCH') {
+      drivers.push(match.reason);
+    } else if (match.matchLevel === 'PARTIAL_MATCH') {
+      drivers.push(match.reason);
+    } else {
+      drags.push(match.reason);
     }
 
-    // 4. Recency Score (Weight 15%)
-    let recencyScore = 50; // Neutro si no hay fecha
-    if (input.postedDate) {
-      const diffHours = Math.max(0, (Date.now() - new Date(input.postedDate).getTime()) / (1000 * 60 * 60));
-      if (diffHours <= 2) recencyScore = 100;
-      else if (diffHours <= 6) recencyScore = 90;
-      else if (diffHours <= 12) recencyScore = 80;
-      else if (diffHours <= 24) recencyScore = 70;
-      else if (diffHours <= 48) recencyScore = 50;
-      else recencyScore = 30;
-    }
+    let deductions = 0;
 
-    // 5. Renormalización Matemática de Pesos Dinámicos
-    let totalWeight = 0.40 + 0.25 + 0.20;
-    let weightedSum = (skillScore * 0.40) + (aiFeasibilityScore * 0.25) + (clientQualityScore * 0.20);
-    
-    if (input.postedDate) {
-      totalWeight += 0.15;
-      weightedSum += (recencyScore * 0.15);
-    }
-
-    let overallScore = Math.min(100, Math.round(weightedSum / totalWeight));
-    let isCapped = false;
-    let capReason: string | null = null;
-    let eligibilityStatus: 'ELIGIBLE' | 'PENDING' | 'EXCLUDED' = classification.isDisqualified ? 'EXCLUDED' : 'ELIGIBLE';
-
-    // 6. Inviolabilidad Geográfica
-    if (input.geoFilterMode === 'STRICT_EXCLUDE') {
-      if (isExcluded) {
-        overallScore = 15;
-        isCapped = true;
-        eligibilityStatus = 'EXCLUDED';
-        capReason = `GEO EXCLUDED: Cliente en país prohibido (${input.clientCountry})`;
-      } else if (targets.length > 0 && !hasCountry) {
-        overallScore = Math.min(44, overallScore);
-        isCapped = true;
-        eligibilityStatus = 'PENDING';
-        capReason = 'GEO PENDING: País desconocido en modo estricto';
-      } else if (targets.length > 0 && !isTarget) {
-        overallScore = 25;
-        isCapped = true;
-        eligibilityStatus = 'EXCLUDED';
-        capReason = `GEO EXCLUDED: Fuera de países objetivo (${input.clientCountry || 'Desconocido'})`;
+    // 2. Fricción por Competencia (Propuestas Enviadas)
+    let aiFeasibilityScore = 80;
+    if (input.proposalsCount != null) {
+      const count = input.proposalsCount;
+      if (count <= 5) {
+        drivers.push(`Baja competencia: ${count} propuestas (primeros en aplicar)`);
+        aiFeasibilityScore = 100;
+      } else if (count <= 15) {
+        deductions += 5;
+        drags.push(`Competencia moderada: ${count} propuestas (-5 pts)`);
+        aiFeasibilityScore = 85;
+      } else if (count <= 50) {
+        deductions += 15;
+        drags.push(`Competencia alta: ${count} propuestas (-15 pts)`);
+        aiFeasibilityScore = 55;
+      } else {
+        deductions += 30;
+        drags.push(`Mercado saturado: ${count} propuestas (-30 pts)`);
+        aiFeasibilityScore = 20;
       }
     }
 
-    // 7. Safety Cap Inflexible (Si afinidad técnica es insuficiente o está descalificado)
-    if (classification.isDisqualified) {
-      overallScore = Math.min(44, overallScore);
-      isCapped = true;
-      capReason = capReason || 'DISQUALIFIED: Tarea operativa o fuera de nicho';
-    } else if (skillScore <= 40 && overallScore > 44) {
-      overallScore = 44;
-      isCapped = true;
-      capReason = capReason || 'CAPPED at 44: skill match under 40';
+    // 3. Fricción por Solvencia y Reputación del Cliente
+    let clientQualityScore = 70;
+    if (input.isPaymentVerified === false) {
+      deductions += 20;
+      drags.push('Método de pago no verificado (-20 pts)');
+      clientQualityScore = 30;
+    } else {
+      drivers.push('Método de pago verificado');
+      clientQualityScore = 85;
     }
 
-    const fitTier = overallScore >= 75 ? 'HIGH' : overallScore >= 45 ? 'MEDIUM' : 'LOW';
+    const spend = input.clientTotalSpend ?? 0;
+    const rating = input.clientRating ?? 0;
+
+    if (spend >= 10000) {
+      drivers.push(`Cliente solvente ($${Math.round(spend).toLocaleString()} gastados)`);
+      clientQualityScore = Math.min(100, clientQualityScore + 15);
+    } else if (spend === 0) {
+      if (input.isPaymentVerified && rating >= 4.5) {
+        deductions += 5;
+        drags.push('Cliente nuevo con pago verificado (-5 pts)');
+      } else {
+        deductions += 15;
+        drags.push('Cliente sin historial previo de contratación (-15 pts)');
+      }
+    } else if (spend < 1000) {
+      deductions += 5;
+      drags.push('Gasto histórico bajo (< $1,000, -5 pts)');
+    }
+
+    if (rating > 0 && rating < 4.5) {
+      deductions += 10;
+      drags.push(`Rating del cliente bajo (${rating.toFixed(1)} estrellas, -10 pts)`);
+    }
+
+    // 4. Fricción por Frescura de Publicación
+    let recencyScore = 80;
+    if (input.postedDate != null) {
+      const postedTime = new Date(input.postedDate).getTime();
+      const diffHours = Math.max(0, (Date.now() - postedTime) / (1000 * 3600));
+
+      if (diffHours < 2) {
+        drivers.push('Publicación muy reciente (< 2 horas)');
+        recencyScore = 100;
+      } else if (diffHours <= 12) {
+        deductions += 5;
+        drags.push(`Publicado hace ${Math.round(diffHours)}h (-5 pts)`);
+        recencyScore = 85;
+      } else if (diffHours <= 24) {
+        deductions += 10;
+        drags.push(`Publicado hace ${Math.round(diffHours)}h (-10 pts)`);
+        recencyScore = 70;
+      } else if (diffHours <= 72) {
+        deductions += 18;
+        drags.push(`Publicado hace ${Math.round(diffHours / 24)}d (-18 pts)`);
+        recencyScore = 45;
+      } else {
+        deductions += 25;
+        drags.push(`Publicado hace ${Math.round(diffHours / 24)}d (> 3 días, -25 pts)`);
+        recencyScore = 20;
+      }
+    }
+
+    // 5. Cálculo Nominal Deductivo
+    let overallScore = Math.max(0, Math.min(100, baseFitScore - deductions));
+
+    // 6. Calidad de Datos
+    const dataQualityStatus: 'COMPLETE' | 'INCOMPLETE' =
+      (input.proposalsCount != null && input.postedDate != null) ? 'COMPLETE' : 'INCOMPLETE';
+
+    if (dataQualityStatus === 'INCOMPLETE' && overallScore > 90) {
+      overallScore = 88; // No regalar 100 perfecto si faltan propuestas o fecha
+      drags.push('Datos incompletos de Apify: fecha o propuestas no reportadas');
+    }
+
+    // 7. Filtro Geográfico y Techos de Seguridad (Caps)
+    let eligibilityStatus: 'ELIGIBLE' | 'PENDING' | 'EXCLUDED' = 'ELIGIBLE';
+    let isCapped = false;
+    let capReason: string | null = null;
+
+    const excluded = (input.excludedCountries || []).map(c => c.toLowerCase().trim());
+    const countryLower = (input.clientCountry || '').toLowerCase().trim();
+    if (countryLower && excluded.includes(countryLower)) {
+      overallScore = Math.min(15, overallScore);
+      eligibilityStatus = 'EXCLUDED';
+      isCapped = true;
+      capReason = `GEO EXCLUDED: Fuera de países permitidos (${input.clientCountry})`;
+      drags.push(capReason);
+    }
+
+    if (match.isIncompatible) {
+      overallScore = Math.min(25, overallScore);
+      isCapped = true;
+      capReason = capReason || 'INCOMPATIBLE: Rol de asistencia o soporte ajeno al perfil';
+    } else if (match.matchLevel === 'OFF_NICHE' || match.isDisqualified) {
+      overallScore = Math.min(35, overallScore);
+      isCapped = true;
+      capReason = capReason || 'OFF_NICHE: Sin coincidencia con las expresiones activas del motor';
+    }
+
+    const fitTier: 'HIGH' | 'MEDIUM' | 'LOW' =
+      overallScore >= 75 ? 'HIGH' : overallScore >= 45 ? 'MEDIUM' : 'LOW';
 
     return {
       overallScore,
       fitTier,
-      strategicLane: classification.lane,
-      normalizedRole: classification.normalizedRole,
-      skillScore,
+      strategicLane: match.lane,
+      normalizedRole: match.normalizedRole,
+      skillScore: baseFitScore,
       aiFeasibilityScore,
       clientQualityScore,
       recencyScore,
@@ -185,9 +208,11 @@ export class FitCalculatorService {
       capReason,
       eligibilityStatus,
       dataQualityStatus,
-      summaryRationale: `skill ${skillScore} / Feasibility ${aiFeasibilityScore} / client ${clientQualityScore} / recency ${recencyScore} (${dataQualityStatus})`,
-      detectedGaps: classification.isDisqualified ? 'Explicitly off-niche task' : 'Review domain specific alignment',
-      suggestedProofStory: classification.suggestedProofStory,
+      summaryRationale: `Base ${baseFitScore} - Deducciones ${deductions} pts (${dataQualityStatus})`,
+      detectedGaps: match.isDisqualified ? match.reason : 'Revisar detalles en la descripción del cliente',
+      suggestedProofStory: null, // Cero nombres inventados
+      drivers,
+      drags,
     };
   }
 }

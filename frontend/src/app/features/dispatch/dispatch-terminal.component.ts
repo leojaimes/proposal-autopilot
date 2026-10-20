@@ -138,6 +138,22 @@ export class DispatchTerminalComponent {
     this.showTechnicalProposal.update(v => !v);
   }
 
+  public formatRelativeTime(postedAt?: string | null): string {
+    if (!postedAt) return 'Fecha no disponible';
+    const time = new Date(postedAt).getTime();
+    if (isNaN(time)) return 'Fecha no disponible';
+    const now = Date.now();
+    const diffMs = Math.max(0, now - time);
+    const diffMin = Math.floor(diffMs / (1000 * 60));
+    if (diffMin < 1) return 'Hace un momento';
+    if (diffMin < 60) return `Hace ${diffMin}m`;
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return `Hace ${diffHours}h`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return 'Hace 1 día';
+    return `Hace ${diffDays} días`;
+  }
+
   public getWordCount(text?: string): number {
     if (!text) return 0;
     return text.trim().split(/\s+/).filter(Boolean).length;

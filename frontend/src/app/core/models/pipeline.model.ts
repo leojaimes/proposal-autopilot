@@ -19,6 +19,7 @@ export interface JobReportItem {
   clientTotalSpent: number;
   verifiedPayment: 'Yes' | 'No';
   proposalsAlreadyIn: number;
+  postedAt?: string | null;
   contactNameFound: string;
   coverLetter: string;
   proposalDocLink: string;

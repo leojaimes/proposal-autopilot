@@ -277,11 +277,12 @@ export class ScrapingController {
         },
       });
 
-      // Cálculo Matemático del FitScore
+      // Cálculo Matemático del FitScore Deductivo
       const evaluation = this.fitCalculator.calculate({
         title: jobPost.title,
         description: jobPost.description,
         skills: normalized.skills,
+        activeQueries: scrapeConfig?.searchKeywords || [],
         clientTotalSpend: Number(jobPost.clientTotalSpend),
         clientRating: Number(jobPost.clientRating),
         clientCountry: jobPost.clientCountry || undefined,
@@ -289,9 +290,7 @@ export class ScrapingController {
         isPaymentVerified: jobPost.isPaymentVerified,
         postedDate: normalized.postedAt || undefined,
         targetCountries: scrapeConfig?.targetCountries || [],
-        targetRegions: scrapeConfig?.targetRegions || [],
         excludedCountries: scrapeConfig?.excludedCountries || [],
-        geoFilterMode: scrapeConfig?.geoFilterMode || 'WEIGHTED_PREFERENCE',
       });
 
       if (evaluation.fitTier === 'HIGH') highFitCount++;
@@ -460,6 +459,7 @@ export class ScrapingController {
       where: { tenantId },
     });
 
+    const scrapeConfig = await this.prisma.scrapeConfig.findFirst({ where: { tenantId } });
     let updated = 0;
     for (const job of jobs) {
       const raw = (job.rawApifyPayload as any) || {};
@@ -502,14 +502,15 @@ export class ScrapingController {
         title: job.title,
         description: job.description || '',
         skills,
+        activeQueries: scrapeConfig?.searchKeywords || [],
         clientTotalSpend: Number(job.clientTotalSpend || 0),
         clientRating: Number(job.clientRating || 0),
         clientCountry: clientCountry || undefined,
         proposalsCount: proposalsCount != null ? proposalsCount : undefined,
         isPaymentVerified: job.isPaymentVerified,
         postedDate: postedAt || undefined,
-        targetCountries: ['United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'Ireland'],
-        geoFilterMode: 'WEIGHTED_PREFERENCE',
+        targetCountries: scrapeConfig?.targetCountries || ['United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'Ireland'],
+        excludedCountries: scrapeConfig?.excludedCountries || [],
       });
 
       await this.prisma.fitEvaluation.upsert({
@@ -886,6 +887,7 @@ export class ScrapingController {
         clientTotalSpent: Number(job.clientTotalSpend || 0),
         verifiedPayment: job.isPaymentVerified ? 'Yes' : 'No',
         proposalsAlreadyIn: job.proposalsCount,
+        postedAt: job.postedAt ? job.postedAt.toISOString() : null,
         contactNameFound: job.proposal?.contactName || 'Hiring Team',
         coverLetter: job.proposal?.coverLetter35Words || '',
         proposalDocLink,
@@ -1004,6 +1006,7 @@ export class ScrapingController {
         title: normalized.title,
         description: normalized.description,
         skills: normalized.skills,
+        activeQueries: scrapeConfig?.searchKeywords || [],
         clientTotalSpend: Number(normalized.clientTotalSpend),
         clientRating: Number(normalized.clientRating),
         clientCountry: normalized.clientCountry || undefined,
@@ -1011,9 +1014,7 @@ export class ScrapingController {
         isPaymentVerified: normalized.isPaymentVerified,
         postedDate: normalized.postedAt,
         targetCountries: scrapeConfig?.targetCountries || [],
-        targetRegions: scrapeConfig?.targetRegions || [],
         excludedCountries: scrapeConfig?.excludedCountries || [],
-        geoFilterMode: scrapeConfig?.geoFilterMode || 'WEIGHTED_PREFERENCE',
       });
 
       await this.prisma.fitEvaluation.upsert({

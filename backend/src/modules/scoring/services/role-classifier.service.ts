@@ -1,110 +1,155 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { StrategicLane, RoleClassification } from '../constants/taxonomy.constants';
+
+export interface PositioningProfileContext {
+  offerHeadline: string;
+  targetAudience: string;
+  proofStories?: Array<{
+    keyCode?: string;
+    companyOrProduct: string;
+    impactMetric: string;
+    domainTags: string[];
+  }>;
+}
+
+export interface MatchEvaluation {
+  matchLevel: 'DIRECT_MATCH' | 'PARTIAL_MATCH' | 'OFF_NICHE' | 'INCOMPATIBLE_ROLE';
+  matchedQuery: string | null;
+  baseFitScore: number;
+  normalizedRole: string;
+  lane: StrategicLane;
+  isDisqualified: boolean;
+  isIncompatible: boolean;
+  reason: string;
+}
 
 @Injectable()
 export class RoleClassifierService {
-  classify(title: string, description: string, skills: string[] = []): RoleClassification {
-    const text = `${title} ${description} ${skills.join(' ')}`.toLowerCase();
+  private readonly logger = new Logger(RoleClassifierService.name);
 
-    // 1. Detección de Tareas Operativas / No Técnicas (Ruido / Descalificado)
-    const operationalNoiseRegex = /\b(acquisition manager|real estate agent|sales agent|insurance agent|travel agent|cold caller|telemarketer|bookkeeper|bookkeeping|tax prep|medical billing|customer service rep|virtual assistant|data entry|course instructor|tutoring|teach courses|qa checklist|graphic designer|influencer|avatar creator|photo editing|photo editor|photoshop|photo retouch|listing photos|youtube host|voiceover|voice actor|narrator|reddit advertising|facebook ads|media buyer|ad manager|ads specialist|advertising manager|poker|telehealth operator|launch operator)\b/i;
-    
-    // Señales de intención de desarrollo de software / arquitectura
-    const softwareRoleRegex = /\b(software|developer|engineer|architect|fullstack|backend|frontend|api|apis|saas platform|microservice|microservices|nestjs|prisma|node\.js|python|fastapi|react|angular|vue|devops|database architect|automate|power automate|workflow automation)\b/i;
-    const hasSoftwareEngineeringIntent = softwareRoleRegex.test(title) || (
-      softwareRoleRegex.test(text) && /\b(build|develop|architect|code|program|implement|refactor|stabilize|automate|create|integrate)\b/i.test(text)
-    );
+  /**
+   * Evaluador Flexible de Afinidad contra las Expresiones Activas del Calibrador (searchKeywords).
+   * Tokeniza términos para emparejar sin importar el orden (ej. 'Product Designer (AI)' empareja con 'AI product design').
+   */
+  evaluateMatch(
+    title: string,
+    description: string,
+    skills: string[] = [],
+    activeQueries: string[] = [],
+  ): MatchEvaluation {
+    const titleLower = title.toLowerCase();
+    const descLower = description.toLowerCase();
+    const allText = `${titleLower} ${descLower} ${skills.join(' ').toLowerCase()}`;
 
-    // Si es un rol puramente operativo y NO es un proyecto de desarrollo/ingeniería de software -> Descalificar
-    if (operationalNoiseRegex.test(title) && !hasSoftwareEngineeringIntent) {
+    // 1. Detección de Roles Incompatibles / Asistencia / Soporte (Filtro Sujeto vs. Objeto)
+    const assistantRegex = /\b(assistant|virtual assistant|reverse recruiter|recruiter assistant|job application assistant|job search assistant|data entry|clerk|telemarketer|cold caller|appointment setter)\b/i;
+    if (assistantRegex.test(titleLower)) {
       return {
+        matchLevel: 'INCOMPATIBLE_ROLE',
+        matchedQuery: null,
+        baseFitScore: 20,
+        normalizedRole: 'Disqualified / Administrative Support Task',
         lane: StrategicLane.DISQUALIFIED_NOISE,
-        normalizedRole: 'Disqualified / Off-Niche Task',
-        suggestedProofStory: 'NONE',
         isDisqualified: true,
+        isIncompatible: true,
+        reason: 'El título corresponde a un rol de asistencia o soporte administrativo ajeno al perfil',
       };
     }
 
-    if (operationalNoiseRegex.test(text) && !hasSoftwareEngineeringIntent && !/\b(saas|software|portal|crm|platform|api)\b/i.test(title)) {
-      return {
-        lane: StrategicLane.DISQUALIFIED_NOISE,
-        normalizedRole: 'Disqualified / Off-Niche Task',
-        suggestedProofStory: 'NONE',
-        isDisqualified: true,
+    // 2. Coincidencia Flexible con Expresiones Activas del Motor
+    let directMatchedQuery: string | null = null;
+    let partialMatchedQuery: string | null = null;
+
+    for (const query of activeQueries) {
+      if (!query || query.trim().length === 0) continue;
+      const queryLower = query.toLowerCase().trim();
+
+      // Tokenizar las palabras clave de la query (mínimo 2 letras)
+      const tokens = queryLower.split(/\s+/).filter(t => t.length >= 2);
+      if (tokens.length === 0) continue;
+
+      // Stemming simple para variaciones comunes (design/designer, prototype/prototyping, etc.)
+      const normalizeToken = (t: string) => {
+        if (t.startsWith('design')) return 'design';
+        if (t.startsWith('prototyp')) return 'prototyp';
+        if (t.startsWith('agent')) return 'agent';
+        if (t.startsWith('researc')) return 'researc';
+        if (t.startsWith('usabilit')) return 'usabilit';
+        if (t.startsWith('system')) return 'system';
+        return t;
       };
+
+      const normalizedTokens = tokens.map(normalizeToken);
+
+      // Comprobar si TODOS los tokens de la query aparecen en el TÍTULO (en cualquier orden)
+      const titleMatchesAll = normalizedTokens.every(tok => titleLower.includes(tok));
+      if (titleMatchesAll) {
+        directMatchedQuery = query;
+        break; // Máxima prioridad: match directo en título
+      }
+
+      // Si no en título, comprobar en el texto completo o skills
+      const fullMatchesAll = normalizedTokens.every(tok => allText.includes(tok));
+      if (fullMatchesAll && !partialMatchedQuery) {
+        partialMatchedQuery = query;
+      }
     }
 
-    // 2. Familia Core: AI & Agentic UX (Regex context-aware: 'agent' debe ser de IA o software)
-    const aiAgentRegex = /\b(ai agent|ai agents|agentic|autonomous agent|autonomous agents|multi-agent|copilot|llm|llms|genai|gpt|chatgpt|conversational ai|rag|langchain|langgraph|crewai)\b/i;
-    const isAiContext = aiAgentRegex.test(text) || (/\bai\b/i.test(text) && /\b(ux|ui|product|designer|design|interaction|prototype|interface|workflow|automation)\b/i.test(text));
-
-    if (isAiContext) {
+    // Si hubo coincidencia directa en el título
+    if (directMatchedQuery) {
       return {
+        matchLevel: 'DIRECT_MATCH',
+        matchedQuery: directMatchedQuery,
+        baseFitScore: 100,
+        normalizedRole: title.slice(0, 50),
         lane: StrategicLane.CORE_AI_UX,
-        normalizedRole: 'AI Interaction & Agentic UX Designer',
-        suggestedProofStory: 'META_MESSENGER_TRUST',
         isDisqualified: false,
+        isIncompatible: false,
+        reason: `Coincidencia directa con la expresión activa: "${directMatchedQuery}"`,
       };
     }
 
-    // 3. Familia Backend, APIs & Arquitectura de Software
-    const backendApiRegex = /\b(nestjs|backend|rest api|graphql|microservice|microservices|postgresql|prisma|fastapi|node\.js|docker swarm)\b/i;
-    if (backendApiRegex.test(text)) {
+    // Si hubo coincidencia parcial en skills o descripción
+    if (partialMatchedQuery) {
       return {
-        lane: StrategicLane.SOFTWARE_BACKEND_API,
-        normalizedRole: 'Senior Backend & API Architect',
-        suggestedProofStory: 'CISCO_COMMERCE',
-        isDisqualified: false,
-      };
-    }
-
-    // 4. Familia Design Systems
-    if (text.includes('design system') || text.includes('component library') || text.includes('figma variables') || text.includes('tokens')) {
-      return {
-        lane: StrategicLane.CORE_AI_UX,
-        normalizedRole: 'Design System Lead / Architect',
-        suggestedProofStory: 'CISCO_COMMERCE',
-        isDisqualified: false,
-      };
-    }
-
-    // 5. Familia Product Strategy & Interim PM
-    if (text.includes('product manager') || text.includes('interim') || text.includes('0-to-1') || text.includes('roadmap') || text.includes('cpo')) {
-      return {
-        lane: StrategicLane.PRODUCT_STRATEGY,
-        normalizedRole: 'Interim Product Manager (0-to-1)',
-        suggestedProofStory: 'PEPPER_AI',
-        isDisqualified: false,
-      };
-    }
-
-    // 6. Familia Interface Build (SaaS / Web / Dashboard / UI / UX)
-    const interfaceRegex = /\b(ui|ux|user experience|user interface|product design|product designer|figma|framer|dashboard|wireframe|wireframes|prototype|prototyping|web design|website design|landing page|redesign|saas website|ui design|portfolio website)\b/i;
-    if (interfaceRegex.test(text)) {
-      return {
+        matchLevel: 'PARTIAL_MATCH',
+        matchedQuery: partialMatchedQuery,
+        baseFitScore: 80,
+        normalizedRole: title.slice(0, 50),
         lane: StrategicLane.INTERFACE_BUILD,
-        normalizedRole: 'SaaS Product & Interface Designer',
-        suggestedProofStory: 'META_FINTECH',
         isDisqualified: false,
+        isIncompatible: false,
+        reason: `Coincidencia secundaria con la expresión activa: "${partialMatchedQuery}"`,
       };
     }
 
-    // 7. Fallback según intención de desarrollo/ingeniería detectada
-    if (hasSoftwareEngineeringIntent) {
-      return {
-        lane: StrategicLane.SOFTWARE_BACKEND_API,
-        normalizedRole: 'Fullstack / Software Engineer',
-        suggestedProofStory: 'CISCO_COMMERCE',
-        isDisqualified: false,
-      };
-    }
+    // 3. Si no coincide con ninguna expresión del usuario:
+    // Verificar si describe tareas operativas tradicionales fuera de nicho
+    const offNicheRegex = /\b(acquisition manager|real estate agent|sales agent|insurance agent|travel agent|bookkeeper|bookkeeping|tax prep|medical billing|customer service rep|graphic designer|photo editing|photo editor|photoshop|video editor|listing photos|reddit ads|facebook ads|media buyer)\b/i;
+    const isOffNiche = offNicheRegex.test(titleLower) || (offNicheRegex.test(descLower) && !/\b(crm|saas|portal|software|platform|api)\b/i.test(titleLower));
 
-    // Si no contiene ninguna señal de diseño, producto, IA ni ingeniería de software -> Descalificar
     return {
+      matchLevel: 'OFF_NICHE',
+      matchedQuery: null,
+      baseFitScore: isOffNiche ? 25 : 40,
+      normalizedRole: title.slice(0, 50),
       lane: StrategicLane.DISQUALIFIED_NOISE,
-      normalizedRole: 'Disqualified / Off-Niche Task',
-      suggestedProofStory: 'NONE',
       isDisqualified: true,
+      isIncompatible: false,
+      reason: 'No coincide con las expresiones activas de búsqueda del motor',
+    };
+  }
+
+  /**
+   * Clasificador Heurístico (Compatibilidad con llamadas legacy)
+   */
+  classify(title: string, description: string, skills: string[] = []): RoleClassification {
+    const evaluation = this.evaluateMatch(title, description, skills, []);
+    return {
+      lane: evaluation.lane,
+      normalizedRole: evaluation.normalizedRole,
+      suggestedProofStory: null, // Cero hardcodeo
+      isDisqualified: evaluation.isDisqualified,
     };
   }
 }
