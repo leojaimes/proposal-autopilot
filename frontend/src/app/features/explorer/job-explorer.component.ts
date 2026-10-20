@@ -36,7 +36,7 @@ export class JobExplorerComponent {
   public readonly report = inject(ReportService);
   public readonly copiedId = signal<string | null>(null);
 
-  // Definición de Columnas de Excel para Empleos
+  // Definición de Columnas de Excel para Empleos (Stitch Grid Layout)
   public readonly jobColumns: ExcelColumnDef<JobReportItem>[] = [
     {
       key: 'fitScore',
@@ -44,7 +44,7 @@ export class JobExplorerComponent {
       type: 'number',
       sortable: true,
       filterable: true,
-      width: '85px',
+      width: '80px',
       align: 'center',
     },
     {
@@ -53,7 +53,7 @@ export class JobExplorerComponent {
       type: 'string',
       sortable: true,
       filterable: true,
-      width: '320px',
+      width: '360px',
     },
     {
       key: 'budget',
@@ -69,7 +69,7 @@ export class JobExplorerComponent {
       type: 'enum',
       sortable: true,
       filterable: true,
-      width: '140px',
+      width: '145px',
     },
     {
       key: 'clientRating',
@@ -77,7 +77,7 @@ export class JobExplorerComponent {
       type: 'number',
       sortable: true,
       filterable: true,
-      width: '100px',
+      width: '110px',
       align: 'center',
     },
     {
@@ -86,7 +86,7 @@ export class JobExplorerComponent {
       type: 'number',
       sortable: true,
       filterable: true,
-      width: '115px',
+      width: '125px',
       align: 'right',
       valueFormatter: (val) => `$${Math.round(Number(val) || 0).toLocaleString()} USD`,
     },
@@ -96,7 +96,7 @@ export class JobExplorerComponent {
       type: 'number',
       sortable: true,
       filterable: true,
-      width: '85px',
+      width: '75px',
       align: 'center',
     },
     {
@@ -106,6 +106,7 @@ export class JobExplorerComponent {
       sortable: true,
       filterable: true,
       width: '145px',
+      align: 'center',
     },
     {
       key: 'status',
@@ -113,7 +114,7 @@ export class JobExplorerComponent {
       type: 'enum',
       sortable: true,
       filterable: true,
-      width: '130px',
+      width: '145px',
     },
     {
       key: 'actions',
@@ -121,8 +122,8 @@ export class JobExplorerComponent {
       type: 'custom',
       sortable: false,
       filterable: false,
-      width: '110px',
-      align: 'right',
+      width: '120px',
+      align: 'center',
     },
   ];
 

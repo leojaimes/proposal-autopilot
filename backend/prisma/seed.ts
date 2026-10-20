@@ -36,17 +36,17 @@ async function main() {
     await prisma.scrapeConfig.create({
       data: {
         tenantId: tenant.id,
-        searchKeywords: ['UX Designer', 'Product Designer', 'Design Systems', 'AI UX', 'Figma'],
+        searchKeywords: ['UI/UX Designer', 'UX/UI Design', 'UX Research', 'Design Systems', 'AI Product Design', 'Figma', 'Usability Testing', 'AI Prototyping'],
         minBudgetFixed: 1000.00,
-        minHourlyRate: 45.00,
-        recencyDays: 3,
+        minHourlyRate: 40.00,
+        recencyDays: 30,
         verifiedPaymentOnly: true,
       },
     });
     console.log('✅ ScrapeConfig base creado.');
   }
 
-  // 3. Perfil de Posicionamiento base (Bo: Senior AI UX Designer)
+  // 3. Perfil de Posicionamiento base (Armando: Senior AI UX Designer)
   let profile = await prisma.positioningProfile.findFirst({
     where: { tenantId: tenant.id },
   });
@@ -55,13 +55,13 @@ async function main() {
     profile = await prisma.positioningProfile.create({
       data: {
         tenantId: tenant.id,
-        offerHeadline: 'AI Interaction & Agentic UX Designer (0-to-1 & Scale)',
+        offerHeadline: 'Armando: Senior AI UX & Product Designer (0-to-1 & Scale)',
         targetAudience: 'Seed to Series B AI Startups, Enterprise Design System teams, and SaaS founders.',
         voiceRules: ['Direct', 'Numbers-first', 'No corporate filler', 'Walkthrough link inside'],
         isActive: true,
       },
     });
-    console.log('✅ PositioningProfile base creado.');
+    console.log('✅ PositioningProfile base de Armando creado.');
   }
 
   // 4. Proof Stories de Autoridad verificadas

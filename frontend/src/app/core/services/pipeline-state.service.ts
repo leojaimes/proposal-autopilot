@@ -25,12 +25,12 @@ export interface CalibrationProfile {
 
 const DEFAULT_PROFILES: CalibrationProfile[] = [
   {
-    id: 'BO_PRESET',
-    name: 'Bo: Senior AI UX Designer',
+    id: 'ARMANDO_PRESET',
+    name: 'Armando: Senior AI UX Designer',
     roleTitle: 'AI Interaction & Agentic UX Designer',
     offerText: 'AI-native UX for product teams: senior design-system, prototyping, and research work delivered at agency speed by pairing 10+ years of Meta/Google/Cisco design craft with AI-assisted workflows.',
     targetAudience: 'Seed-to-Series B SaaS founders and product leads who need senior design-system or UX-research work fast, but cannot yet justify a full-time senior hire.',
-    keywords: 'UX research, design system, Figma design system, AI product design, usability testing, AI prototyping, vibe coding, agentic workflow design, N8N automation design, GenAI UX',
+    keywords: 'UI/UX design, UX/UI designer, UX research, design system, Figma design system, AI product design, usability testing, AI prototyping, vibe coding, agentic workflow design, N8N automation design, GenAI UX',
     minHourlyRate: 40,
     minBudgetFixed: 1000,
     verifiedPaymentOnly: true,
@@ -124,7 +124,22 @@ export class PipelineStateService {
   private loadProfiles(): CalibrationProfile[] {
     try {
       const stored = localStorage.getItem('proposal_autopilot_profiles');
-      return stored ? JSON.parse(stored) : DEFAULT_PROFILES;
+      if (stored) {
+        const list: CalibrationProfile[] = JSON.parse(stored);
+        // Migrar cualquier perfil previo a Armando
+        return list.map(p => {
+          if (p.id === 'BO_PRESET' || p.name.includes('Bo:')) {
+            return {
+              ...p,
+              id: 'ARMANDO_PRESET',
+              name: 'Armando: Senior AI UX Designer',
+              keywords: p.keywords.includes('UI/UX') ? p.keywords : `UI/UX design, UX/UI designer, ${p.keywords}`,
+            };
+          }
+          return p;
+        });
+      }
+      return DEFAULT_PROFILES;
     } catch {
       return DEFAULT_PROFILES;
     }
@@ -132,9 +147,11 @@ export class PipelineStateService {
 
   private loadActiveProfileId(): string {
     try {
-      return localStorage.getItem('proposal_autopilot_active_id') || 'BO_PRESET';
+      const storedId = localStorage.getItem('proposal_autopilot_active_id');
+      if (!storedId || storedId === 'BO_PRESET') return 'ARMANDO_PRESET';
+      return storedId;
     } catch {
-      return 'BO_PRESET';
+      return 'ARMANDO_PRESET';
     }
   }
 

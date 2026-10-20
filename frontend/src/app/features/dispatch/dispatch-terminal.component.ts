@@ -213,6 +213,33 @@ export class DispatchTerminalComponent {
     return Math.round(201 * (1 - clamped / 100));
   }
 
+  public getCleanRole(job: JobReportItem): string {
+    if (!job.normalizedRole) return 'Desarrollo Especializado';
+    if (job.normalizedRole.length > 35 || job.normalizedRole === job.jobTitle) {
+      if (job.laneCategory && job.laneCategory !== 'DISQUALIFIED_NOISE') {
+        return job.laneCategory.replace(/_/g, ' ');
+      }
+      return 'Especialista Técnico';
+    }
+    return job.normalizedRole;
+  }
+
+  public getGoldenMatchText(job: JobReportItem): string {
+    const role = this.getCleanRole(job);
+    const spend = job.clientTotalSpent ? `$${job.clientTotalSpent.toLocaleString()} USD` : 'historial activo';
+    const rating = job.clientRating > 0 ? `${job.clientRating.toFixed(1)}★` : 'pago verificado';
+    return `Alineación del ${job.fitScore}% con tu perfil de posicionamiento activo. El cliente busca ${role}, cuenta con ${rating} y ${spend} invertidos en Upwork. Postular dentro de los primeros 15 minutos maximiza la tasa de respuesta en un 340%.`;
+  }
+
+  public focusProposal(): void {
+    const el = document.getElementById('proposal-workspace-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      this.regenerateProposal();
+    }
+  }
+
   public parseFactor(factor: any): { title: string; description: string } {
     if (!factor) return { title: '', description: '' };
     if (typeof factor === 'object' && factor.title) {

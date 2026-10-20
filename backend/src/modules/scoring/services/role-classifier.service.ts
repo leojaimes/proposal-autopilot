@@ -61,11 +61,10 @@ export class RoleClassifierService {
     let partialMatchedQuery: string | null = null;
 
     for (const query of activeQueries) {
-      if (!query || query.trim().length === 0) continue;
       const queryLower = query.toLowerCase().trim();
-
-      // Tokenizar las palabras clave de la query (mínimo 2 letras)
-      const tokens = queryLower.split(/\s+/).filter(t => t.length >= 2);
+      // Normalizar separadores y variaciones comunes (ui/ux -> ui ux)
+      const cleanQuery = queryLower.replace(/[\/\-_]/g, ' ');
+      const tokens = cleanQuery.split(/\s+/).filter(t => t.length >= 2);
       if (tokens.length === 0) continue;
 
       // Stemming simple para variaciones comunes (design/designer, prototype/prototyping, etc.)
@@ -76,20 +75,23 @@ export class RoleClassifierService {
         if (t.startsWith('researc')) return 'researc';
         if (t.startsWith('usabilit')) return 'usabilit';
         if (t.startsWith('system')) return 'system';
+        if (t.startsWith('architect')) return 'architect';
         return t;
       };
 
       const normalizedTokens = tokens.map(normalizeToken);
+      const cleanTitle = titleLower.replace(/[\/\-_]/g, ' ');
+      const cleanAllText = allText.replace(/[\/\-_]/g, ' ');
 
       // Comprobar si TODOS los tokens de la query aparecen en el TÍTULO (en cualquier orden)
-      const titleMatchesAll = normalizedTokens.every(tok => titleLower.includes(tok));
+      const titleMatchesAll = normalizedTokens.every(tok => cleanTitle.includes(tok));
       if (titleMatchesAll) {
         directMatchedQuery = query;
         break; // Máxima prioridad: match directo en título
       }
 
       // Si no en título, comprobar en el texto completo o skills
-      const fullMatchesAll = normalizedTokens.every(tok => allText.includes(tok));
+      const fullMatchesAll = normalizedTokens.every(tok => cleanAllText.includes(tok));
       if (fullMatchesAll && !partialMatchedQuery) {
         partialMatchedQuery = query;
       }

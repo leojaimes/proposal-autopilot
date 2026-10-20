@@ -127,31 +127,31 @@ export class FitCalculatorService {
       drags.push(`Rating del cliente bajo (${rating.toFixed(1)} estrellas, -10 pts)`);
     }
 
-    // 4. Fricción por Frescura de Publicación
-    let recencyScore = 80;
+    // 4. Frescura de Publicación (Priorizando el match de Perfil sobre la Fecha)
+    let recencyScore = 85;
     if (input.postedDate != null) {
       const postedTime = new Date(input.postedDate).getTime();
       const diffHours = Math.max(0, (Date.now() - postedTime) / (1000 * 3600));
 
-      if (diffHours < 2) {
-        drivers.push('Publicación muy reciente (< 2 horas)');
+      if (diffHours < 3) {
+        drivers.push('Publicación muy reciente (< 3 horas, ventaja primer postor)');
         recencyScore = 100;
-      } else if (diffHours <= 12) {
-        deductions += 5;
-        drags.push(`Publicado hace ${Math.round(diffHours)}h (-5 pts)`);
-        recencyScore = 85;
       } else if (diffHours <= 24) {
-        deductions += 10;
-        drags.push(`Publicado hace ${Math.round(diffHours)}h (-10 pts)`);
-        recencyScore = 70;
+        recencyScore = 95;
       } else if (diffHours <= 72) {
-        deductions += 18;
-        drags.push(`Publicado hace ${Math.round(diffHours / 24)}d (-18 pts)`);
-        recencyScore = 45;
+        recencyScore = 85;
+      } else if (diffHours <= 168) {
+        recencyScore = 75;
+        deductions += 2;
+        drags.push(`Publicado hace ${Math.round(diffHours / 24)}d (-2 pts)`);
+      } else if (diffHours <= 504) {
+        recencyScore = 65;
+        deductions += 4;
+        drags.push(`Publicado hace ${Math.round(diffHours / 24)}d (-4 pts)`);
       } else {
-        deductions += 25;
-        drags.push(`Publicado hace ${Math.round(diffHours / 24)}d (> 3 días, -25 pts)`);
-        recencyScore = 20;
+        recencyScore = 50;
+        deductions += 7;
+        drags.push(`Publicado hace más de 3 semanas (-7 pts)`);
       }
     }
 

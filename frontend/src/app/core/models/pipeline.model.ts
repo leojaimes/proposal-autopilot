@@ -13,6 +13,7 @@ export interface JobReportItem {
   fitScore: number;
   fitLabel: 'High' | 'Medium' | 'Low';
   jobTitle: string;
+  jobDescription?: string;
   budget: string;
   clientCountry: string;
   clientRating: number;

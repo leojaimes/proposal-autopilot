@@ -968,6 +968,7 @@ export class ScrapingController {
         fitScore: ev?.overallScore ?? 0,
         fitLabel,
         jobTitle: job.title,
+        jobDescription: job.description,
         budget: budgetStr,
         clientCountry: job.clientCountry || 'Unknown',
         clientRating: Number(job.clientRating || 0),
