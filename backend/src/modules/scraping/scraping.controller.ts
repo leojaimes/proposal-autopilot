@@ -21,6 +21,11 @@ export interface UpdateStatusDto {
   status: 'APPROVED' | 'SKIPPED' | 'APPLIED' | 'NEEDS_REVIEW';
 }
 
+export interface DecisionFactor {
+  title: string;
+  description: string;
+}
+
 @Controller('api/scraping')
 export class ScrapingController {
   private readonly logger = new Logger(ScrapingController.name);
@@ -819,57 +824,139 @@ export class ScrapingController {
         scoreNotes += ` Gaps: ${ev.detectedGaps}.`;
       }
 
-      // 5. Drivers & Drags Decisionales
-      const drivers: string[] = [];
-      const drags: string[] = [];
+      // 5. Drivers & Drags Decisionales Estructurados (Stitch Cockpit Specification)
+      const drivers: DecisionFactor[] = [];
+      const drags: DecisionFactor[] = [];
       const cCountry = (job.clientCountry || '').trim().toLowerCase();
       const isTargetCountry = cCountry && targetCountries.some((t: string) => cCountry.includes(t) || t.includes(cCountry));
       const isExcludedCountry = cCountry && excludedCountries.some((e: string) => cCountry.includes(e) || e.includes(cCountry));
+      const clientSpendNum = Number(job.clientTotalSpend || 0);
+      const clientRatingNum = Number(job.clientRating || 0);
+      const hourlyMaxNum = Number(job.hourlyMax || 0);
+      const hourlyMinNum = Number(job.hourlyMin || 0);
+      const budgetFixedNum = Number(job.budgetFixed || 0);
 
       if (ev) {
-        if (ev.skillScore >= 80) {
-          drivers.push(`Rol alineado: ${ev.normalizedRole} (${ev.skillScore} pts)`);
-        } else if (ev.skillScore <= 35) {
-          drags.push(`Rol fuera de nicho o baja afinidad (${ev.skillScore} pts)`);
+        // Gasto Histórico del Cliente
+        if (clientSpendNum >= 20000) {
+          drivers.push({
+            title: 'Cliente con alto gasto histórico',
+            description: `+$${Math.round(clientSpendNum).toLocaleString()} USD invertidos en Upwork con historial de pago verificado y contratos exitosos.`,
+          });
+        } else if (clientSpendNum >= 5000) {
+          drivers.push({
+            title: 'Cliente con inversión probada',
+            description: `$${Math.round(clientSpendNum).toLocaleString()} USD gastados en la plataforma, indicando seriedad de contratación.`,
+          });
+        } else if (clientSpendNum < 500) {
+          drags.push({
+            title: 'Historial en blanco',
+            description: `Cliente nuevo en plataforma ($${Math.round(clientSpendNum)} USD gastados, 0 contrataciones previas registradas).`,
+          });
         }
 
-        if (Number(job.clientTotalSpend || 0) >= 20000) {
-          drivers.push(`Cliente High-Ticket ($${Math.round(Number(job.clientTotalSpend)).toLocaleString()} USD gastados)`);
-        } else if (Number(job.clientTotalSpend || 0) < 500) {
-          drags.push(`Cliente nuevo con baja inversión ($${Math.round(Number(job.clientTotalSpend))} USD)`);
-        }
-
-        if (Number(job.clientRating || 0) >= 4.8) {
-          drivers.push(`Excelente reputación (${Number(job.clientRating).toFixed(1)}/5.0)`);
-        }
-
-        if (job.isPaymentVerified) {
-          drivers.push(`Método de pago verificado`);
-        } else {
-          drags.push(`Método de pago no verificado (-20 pts)`);
-        }
-
-        if (isTargetCountry) {
-          drivers.push(`Mercado prioritario: ${job.clientCountry} (+15 pts)`);
-        }
-        if (isExcludedCountry) {
-          drags.push(`País en lista de exclusión: ${job.clientCountry}`);
-        }
-
+        // Competencia / Ventana de Postulación
         if (job.proposalsCount <= 5) {
-          drivers.push(`Ventaja primer postor: Solo ${job.proposalsCount} propuestas`);
+          drivers.push({
+            title: 'Ventana dorada de postulación',
+            description: `Solo ${job.proposalsCount} propuestas enviadas. Ser de los primeros 5 dispara radicalmente la tasa de apertura y entrevista.`,
+          });
         } else if (job.proposalsCount > 20) {
-          drags.push(`Alta competencia: ${job.proposalsCount} propuestas ya enviadas`);
+          drags.push({
+            title: 'Alta competencia saturada',
+            description: `Más de ${job.proposalsCount} freelancers han postulado. Requiere un ángulo de diferenciación inmediato en las primeras 2 líneas.`,
+          });
         }
 
+        // Coincidencia de Stack / Rol
+        if (ev.skillScore >= 75) {
+          drivers.push({
+            title: 'Coincidencia exacta de stack',
+            description: `Rol clasificado como ${ev.normalizedRole} con afinidad técnica del ${ev.skillScore}% respecto a tus keywords y casos de estudio.`,
+          });
+        } else if (ev.skillScore <= 35) {
+          drags.push({
+            title: 'Desalineación temática (Off-Niche)',
+            description: `Afinidad baja (${ev.skillScore}%). El cliente solicita habilidades comisionistas o fuera de tu stack de valor principal.`,
+          });
+        }
+
+        // Tarifa / Presupuesto
+        if (job.budgetType === BudgetType.HOURLY && hourlyMaxNum >= 40) {
+          drivers.push({
+            title: 'Tarifa alineada a tu valor',
+            description: `Rango $${hourlyMinNum}-$${hourlyMaxNum}/h cumple o supera holgadamente tu tarifa base ($40/h), ofreciendo alto margen.`,
+          });
+        } else if (job.budgetType === BudgetType.FIXED && budgetFixedNum >= 1000) {
+          drivers.push({
+            title: 'Presupuesto Fixed-Price saludable',
+            description: `Presupuesto asignado de $${budgetFixedNum.toLocaleString()} USD con margen viable para entregables de calidad.`,
+          });
+        } else if (job.budgetType === BudgetType.HOURLY && hourlyMaxNum < 30 && hourlyMaxNum > 0) {
+          drags.push({
+            title: 'Tarifa por debajo de umbral',
+            description: `Tarifa máxima declarada de $${hourlyMaxNum}/h inferior a tu tarifa base ($40/h).`,
+          });
+        }
+
+        // Reputación
+        if (clientRatingNum >= 4.8) {
+          drivers.push({
+            title: 'Excelente reputación del cliente',
+            description: `${clientRatingNum.toFixed(2)} estrellas promedio otorgadas por freelancers anteriores, confirmando un trato profesional.`,
+          });
+        } else if (clientRatingNum > 0 && clientRatingNum < 4.0) {
+          drags.push({
+            title: 'Calificaciones mixtas o bajas',
+            description: `Promedio de ${clientRatingNum.toFixed(1)}/5.0 estrellas, alertando sobre posibles fricciones en contratos previos.`,
+          });
+        }
+
+        // Método de pago
+        if (job.isPaymentVerified) {
+          drivers.push({
+            title: 'Método de pago verificado',
+            description: 'Fondo financiero verificado en Upwork; liquidez de cobro garantizada sin riesgo de disputa.',
+          });
+        } else {
+          drags.push({
+            title: 'Método de pago no verificado',
+            description: 'El cliente aún no valida un método de pago oficial (-20 pts de penalización por riesgo de impago).',
+          });
+        }
+
+        // Mercado Geográfico
+        if (isTargetCountry) {
+          drivers.push({
+            title: 'Mercado geográfico prioritario',
+            description: `Cliente radicado en ${job.clientCountry}, mercado objetivo de alta inversión y afinidad cultural (+15 pts).`,
+          });
+        } else if (isExcludedCountry) {
+          drags.push({
+            title: 'País en lista de exclusión',
+            description: `Cliente ubicado en ${job.clientCountry}, mercado catalogado con alta fricción o bajo ratio de contratación.`,
+          });
+        }
+
+        // Frescura
         if (ev.recencyScore >= 85) {
-          drivers.push(`Vacante ultra fresca (<6h)`);
+          drivers.push({
+            title: 'Vacante ultra fresca (<6h)',
+            description: 'Publicada recientemente; el cliente está activo en plataforma revisando propuestas en tiempo real.',
+          });
         } else if (ev.recencyScore <= 50) {
-          drags.push(`Vacante antigua (>24h)`);
+          drags.push({
+            title: 'Vacante con antigüedad (>24h)',
+            description: 'Publicada hace más de 24 horas; ventana inicial de postulación superada.',
+          });
         }
 
+        // Techo de seguridad
         if (ev.isCapped && ev.capReason) {
-          drags.push(`Techo de seguridad: ${ev.capReason}`);
+          drags.push({
+            title: 'Techo de seguridad activado',
+            description: `${ev.capReason}. Postulación bloqueada para proteger tus Connects mensuales.`,
+          });
         }
       }
 

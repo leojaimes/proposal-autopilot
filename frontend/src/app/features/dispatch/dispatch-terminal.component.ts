@@ -213,6 +213,144 @@ export class DispatchTerminalComponent {
     return Math.round(201 * (1 - clamped / 100));
   }
 
+  public parseFactor(factor: any): { title: string; description: string } {
+    if (!factor) return { title: '', description: '' };
+    if (typeof factor === 'object' && factor.title) {
+      return {
+        title: factor.title,
+        description: factor.description || ''
+      };
+    }
+    const str = String(factor);
+    if (str.includes(':')) {
+      const idx = str.indexOf(':');
+      return {
+        title: str.substring(0, idx).trim(),
+        description: str.substring(idx + 1).trim()
+      };
+    }
+    return {
+      title: str,
+      description: ''
+    };
+  }
+
+  public getSkillsBadge(job: JobReportItem): { label: string; class: string; subtitle: string; desc: string } {
+    const score = job.skillScore ?? 0;
+    let label = 'Match Parcial';
+    let cls = 'bg-[#2b1f09] text-[#fbbf24] border border-[#543b0c]';
+    if (score >= 85) {
+      label = 'Match Perfecto';
+      cls = 'bg-[#062c21] text-[#34d399] border border-[#0d4f3b]';
+    } else if (score >= 70) {
+      label = 'Alineado';
+      cls = 'bg-[#082836] text-[#38bdf8] border border-[#0c4a63]';
+    } else if (score <= 35) {
+      label = 'Falla Crítica';
+      cls = 'bg-[#2b0c14] text-[#f43f5e] border border-[#521323]';
+    }
+
+    const role = job.normalizedRole || 'Tokens y LLM flows';
+    const keywordRatio = score >= 85 ? '4/4' : (score >= 70 ? '3/4' : '2/4');
+    let desc = `${keywordRatio} keywords encontradas en ${role}.`;
+    if (job.scoreNotes && job.scoreNotes.includes('Gaps:')) {
+      const gaps = job.scoreNotes.split('Gaps:')[1]?.split('.')[0]?.trim();
+      if (gaps) {
+        desc = `Keywords encontradas en ${role}. Faltantes: ${gaps}.`;
+      }
+    }
+    return {
+      label,
+      class: cls,
+      subtitle: `${score}% Score base`,
+      desc
+    };
+  }
+
+  public getAiFitBadge(job: JobReportItem): { label: string; class: string; subtitle: string; desc: string } {
+    const score = job.aiFeasibilityScore ?? 0;
+    let label = 'Compatible';
+    let cls = 'bg-[#082836] text-[#38bdf8] border border-[#0c4a63]';
+    if (score >= 85) {
+      label = 'Excelente';
+      cls = 'bg-[#082836] text-[#38bdf8] border border-[#0c4a63]';
+    } else if (score <= 50) {
+      label = 'Bajo';
+      cls = 'bg-[#2b1f09] text-[#fbbf24] border border-[#543b0c]';
+    }
+    const desc = score >= 75
+      ? 'Modelo predictivo confirma intención directa de hiring.'
+      : 'Modelo predictivo detecta ambigüedad en intención de contratación.';
+    return {
+      label,
+      class: cls,
+      subtitle: `${score}% Score nicho`,
+      desc
+    };
+  }
+
+  public getClientBadge(job: JobReportItem): { label: string; class: string; subtitle: string; desc: string } {
+    const score = job.clientQualityScore ?? 0;
+    const spend = job.clientTotalSpent || 0;
+    let label = 'Historial Nuevo';
+    let cls = 'bg-[#2b1f09] text-[#fbbf24] border border-[#543b0c]';
+    if (spend >= 100000) {
+      label = `Top Tier / +$${Math.round(spend / 1000)}k`;
+      cls = 'bg-[#062c21] text-[#34d399] border border-[#0d4f3b]';
+    } else if (spend >= 20000) {
+      label = `Top Tier / +$${Math.round(spend / 1000)}k`;
+      cls = 'bg-[#062c21] text-[#34d399] border border-[#0d4f3b]';
+    } else if (spend >= 5000) {
+      label = `Inversión $${Math.round(spend / 1000)}k`;
+      cls = 'bg-[#062c21] text-[#34d399] border border-[#0d4f3b]';
+    } else if (job.verifiedPayment === 'Yes') {
+      label = 'Pago Verificado';
+      cls = 'bg-[#062c21] text-[#34d399] border border-[#0d4f3b]';
+    }
+
+    let desc = '';
+    if (spend >= 5000) {
+      desc = `Tasa de solvencia probada: +$${Math.round(spend).toLocaleString()} USD invertidos, ${job.clientRating > 0 ? job.clientRating.toFixed(1) + '★ reputación' : 'cliente solvente'}.`;
+    } else if (spend > 0) {
+      desc = `Inversión total $${spend.toLocaleString()} USD, ${job.clientRating > 0 ? job.clientRating.toFixed(1) + '★ reputación' : 'pago verificado'}.`;
+    } else {
+      desc = `Cliente nuevo en Upwork sin contrataciones previas registradas.`;
+    }
+
+    return {
+      label,
+      class: cls,
+      subtitle: `${score}% Solvencia`,
+      desc
+    };
+  }
+
+  public getRecencyBadge(job: JobReportItem): { label: string; class: string; subtitle: string; desc: string } {
+    const score = job.recencyScore ?? 0;
+    const rel = this.formatRelativeTime(job.postedAt);
+    let label = 'Fresco (<6h)';
+    let cls = 'bg-[#082836] text-[#38bdf8] border border-[#0c4a63]';
+    if (rel.includes('momento') || rel.includes('m')) {
+      label = `Ultra Fresco (${rel.replace('Hace ', '<')})`;
+      cls = 'bg-[#082836] text-[#38bdf8] border border-[#0c4a63]';
+    } else if (score <= 50) {
+      label = '>24h Publicado';
+      cls = 'bg-[#2b1f09] text-[#fbbf24] border border-[#543b0c]';
+    }
+
+    const proposals = job.proposalsAlreadyIn != null ? job.proposalsAlreadyIn : 0;
+    const desc = proposals <= 5
+      ? `Publicado ${rel}, cliente activo en Upwork ahora.`
+      : `Publicado ${rel}, ${proposals} propuestas enviadas.`;
+
+    return {
+      label,
+      class: cls,
+      subtitle: `${score}% Timing crítico`,
+      desc
+    };
+  }
+
   public selectJob(job: JobReportItem): void {
     this.selectedJob.set(job);
     const initialKey = job.suggestedProofStory && job.suggestedProofStory !== 'NONE'

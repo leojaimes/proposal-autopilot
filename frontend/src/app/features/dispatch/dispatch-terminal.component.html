@@ -338,9 +338,9 @@
             </div>
           }
 
-          <!-- 3. AUDITORÍA DECISIONAL DEL ALGORITMO & SCORECARD CUADRANTE -->
-          <div class="p-5 rounded-2xl bg-[#0f131d] border border-border-subtle/80 shadow-md space-y-4">
-            <div class="flex items-center justify-between border-b border-border-subtle/50 pb-3">
+          <!-- 3. AUDITORÍA DECISIONAL DEL ALGORITMO & SCORECARD CUADRANTE (Stitch Design) -->
+          <div class="space-y-4">
+            <div class="flex items-center justify-between border-b border-border-subtle/50 pb-2">
               <div class="flex items-center gap-2">
                 <svg lucideScale class="w-4 h-4 text-cyan-400"></svg>
                 <h2 class="text-xs font-bold uppercase tracking-wider text-content-primary font-headline">
@@ -360,120 +360,213 @@
               }
             </div>
 
-            <!-- Cuadrante 4 Métricas Clave -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <!-- 1. Afinidad Skills -->
-              <div class="p-3.5 rounded-xl bg-[#0a0e18] border border-border-subtle/60 flex flex-col justify-between">
-                <div class="flex items-center justify-between mb-1.5">
-                  <span class="text-[11px] font-medium text-content-muted inline-flex items-center gap-1 font-mono">
-                    <svg lucideTarget class="w-3 h-3 text-cyan-400"></svg>
-                    <span>Skills (40%)</span>
+            <!-- 4-Column Metric Cards Cluster (Matching User Screenshot) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              <!-- 1. SKILLS (40%) -->
+              @let skill = getSkillsBadge(current);
+              <div class="p-4 sm:p-5 rounded-2xl bg-[#0d131f] border border-[#1a2333] flex flex-col justify-between space-y-3 shadow-sm hover:border-emerald-500/30 transition-all">
+                <div class="flex items-center justify-between">
+                  <span class="font-mono text-xs font-bold text-white uppercase tracking-wider">
+                    SKILLS (40%)
                   </span>
-                  <span class="font-mono font-bold text-xs" [ngClass]="(current.skillScore || 0) >= 70 ? 'text-emerald-400' : 'text-amber-400'">
-                    {{ current.skillScore ?? 0 }}%
+                  <span class="text-[10px] sm:text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-md" [ngClass]="skill.class">
+                    {{ skill.label }}
                   </span>
                 </div>
-                <div class="w-full bg-[#1c1f2a] h-1.5 rounded-full overflow-hidden">
-                  <div class="h-full rounded-full transition-all duration-300"
-                       [ngClass]="(current.skillScore || 0) >= 70 ? 'bg-emerald-400' : 'bg-amber-400'"
-                       [style.width.%]="current.skillScore || 0"></div>
+                <div>
+                  <div class="flex items-baseline gap-1.5 font-mono mb-2">
+                    <span class="font-bold text-base sm:text-lg text-[#34d399]">{{ current.skillScore ?? 0 }}%</span>
+                    <span class="text-xs text-slate-400 font-mono">Score base</span>
+                  </div>
+                  <div class="w-full bg-[#141c2b] h-1.5 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full bg-[#34d399] transition-all duration-300"
+                         [style.width.%]="current.skillScore || 0"></div>
+                  </div>
                 </div>
+                <p class="text-xs text-slate-300 leading-relaxed font-sans">
+                  {{ skill.desc }}
+                </p>
               </div>
 
-              <!-- 2. Factibilidad AI -->
-              <div class="p-3.5 rounded-xl bg-[#0a0e18] border border-border-subtle/60 flex flex-col justify-between">
-                <div class="flex items-center justify-between mb-1.5">
-                  <span class="text-[11px] font-medium text-content-muted inline-flex items-center gap-1 font-mono">
-                    <svg lucideBot class="w-3 h-3 text-indigo-400"></svg>
-                    <span>AI Fit (25%)</span>
+              <!-- 2. AI FIT (25%) -->
+              @let ai = getAiFitBadge(current);
+              <div class="p-4 sm:p-5 rounded-2xl bg-[#0d131f] border border-[#1a2333] flex flex-col justify-between space-y-3 shadow-sm hover:border-cyan-500/30 transition-all">
+                <div class="flex items-center justify-between">
+                  <span class="font-mono text-xs font-bold text-white uppercase tracking-wider">
+                    AI FIT (25%)
                   </span>
-                  <span class="font-mono font-bold text-xs" [ngClass]="(current.aiFeasibilityScore || 0) >= 70 ? 'text-indigo-400' : 'text-amber-400'">
-                    {{ current.aiFeasibilityScore ?? 0 }}%
+                  <span class="text-[10px] sm:text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-md" [ngClass]="ai.class">
+                    {{ ai.label }}
                   </span>
                 </div>
-                <div class="w-full bg-[#1c1f2a] h-1.5 rounded-full overflow-hidden">
-                  <div class="h-full rounded-full transition-all duration-300"
-                       [ngClass]="(current.aiFeasibilityScore || 0) >= 70 ? 'bg-indigo-400' : 'bg-amber-400'"
-                       [style.width.%]="current.aiFeasibilityScore || 0"></div>
+                <div>
+                  <div class="flex items-baseline gap-1.5 font-mono mb-2">
+                    <span class="font-bold text-base sm:text-lg text-[#38bdf8]">{{ current.aiFeasibilityScore ?? 0 }}%</span>
+                    <span class="text-xs text-slate-400 font-mono">Score nicho</span>
+                  </div>
+                  <div class="w-full bg-[#141c2b] h-1.5 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full bg-[#38bdf8] transition-all duration-300"
+                         [style.width.%]="current.aiFeasibilityScore || 0"></div>
+                  </div>
                 </div>
+                <p class="text-xs text-slate-300 leading-relaxed font-sans">
+                  {{ ai.desc }}
+                </p>
               </div>
 
-              <!-- 3. Calidad Cliente -->
-              <div class="p-3.5 rounded-xl bg-[#0a0e18] border border-border-subtle/60 flex flex-col justify-between">
-                <div class="flex items-center justify-between mb-1.5">
-                  <span class="text-[11px] font-medium text-content-muted inline-flex items-center gap-1 font-mono">
-                    <svg lucideGem class="w-3 h-3 text-emerald-400"></svg>
-                    <span>Cliente (20%)</span>
+              <!-- 3. CLIENTE (20%) -->
+              @let client = getClientBadge(current);
+              <div class="p-4 sm:p-5 rounded-2xl bg-[#0d131f] border border-[#1a2333] flex flex-col justify-between space-y-3 shadow-sm hover:border-emerald-500/30 transition-all">
+                <div class="flex items-center justify-between">
+                  <span class="font-mono text-xs font-bold text-white uppercase tracking-wider">
+                    CLIENTE (20%)
                   </span>
-                  <span class="font-mono font-bold text-xs" [ngClass]="(current.clientQualityScore || 0) >= 70 ? 'text-emerald-400' : 'text-amber-400'">
-                    {{ current.clientQualityScore ?? 0 }}%
+                  <span class="text-[10px] sm:text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-md" [ngClass]="client.class">
+                    {{ client.label }}
                   </span>
                 </div>
-                <div class="w-full bg-[#1c1f2a] h-1.5 rounded-full overflow-hidden">
-                  <div class="h-full rounded-full transition-all duration-300"
-                       [ngClass]="(current.clientQualityScore || 0) >= 70 ? 'bg-emerald-400' : 'bg-amber-400'"
-                       [style.width.%]="current.clientQualityScore || 0"></div>
+                <div>
+                  <div class="flex items-baseline gap-1.5 font-mono mb-2">
+                    <span class="font-bold text-base sm:text-lg text-[#34d399]">{{ current.clientQualityScore ?? 0 }}%</span>
+                    <span class="text-xs text-slate-400 font-mono">Solvencia</span>
+                  </div>
+                  <div class="w-full bg-[#141c2b] h-1.5 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full bg-[#34d399] transition-all duration-300"
+                         [style.width.%]="current.clientQualityScore || 0"></div>
+                  </div>
                 </div>
+                <p class="text-xs text-slate-300 leading-relaxed font-sans">
+                  {{ client.desc }}
+                </p>
               </div>
 
-              <!-- 4. Frescura -->
-              <div class="p-3.5 rounded-xl bg-[#0a0e18] border border-border-subtle/60 flex flex-col justify-between">
-                <div class="flex items-center justify-between mb-1.5">
-                  <span class="text-[11px] font-medium text-content-muted inline-flex items-center gap-1 font-mono">
-                    <svg lucideClock class="w-3 h-3 text-amber-400"></svg>
-                    <span>Frescura (15%)</span>
+              <!-- 4. FRESCURA (15%) -->
+              @let recency = getRecencyBadge(current);
+              <div class="p-4 sm:p-5 rounded-2xl bg-[#0d131f] border border-[#1a2333] flex flex-col justify-between space-y-3 shadow-sm hover:border-cyan-500/30 transition-all">
+                <div class="flex items-center justify-between">
+                  <span class="font-mono text-xs font-bold text-white uppercase tracking-wider">
+                    FRESCURA (15%)
                   </span>
-                  <span class="font-mono font-bold text-xs" [ngClass]="(current.recencyScore || 0) >= 70 ? 'text-emerald-400' : 'text-amber-400'">
-                    {{ current.recencyScore ?? 0 }}%
+                  <span class="text-[10px] sm:text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-md" [ngClass]="recency.class">
+                    {{ recency.label }}
                   </span>
                 </div>
-                <div class="w-full bg-[#1c1f2a] h-1.5 rounded-full overflow-hidden">
-                  <div class="h-full rounded-full transition-all duration-300"
-                       [ngClass]="(current.recencyScore || 0) >= 70 ? 'bg-emerald-400' : 'bg-amber-400'"
-                       [style.width.%]="current.recencyScore || 0"></div>
+                <div>
+                  <div class="flex items-baseline gap-1.5 font-mono mb-2">
+                    <span class="font-bold text-base sm:text-lg text-[#38bdf8]">{{ current.recencyScore ?? 0 }}%</span>
+                    <span class="text-xs text-slate-400 font-mono">Timing crítico</span>
+                  </div>
+                  <div class="w-full bg-[#141c2b] h-1.5 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full bg-[#38bdf8] transition-all duration-300"
+                         [style.width.%]="current.recencyScore || 0"></div>
+                  </div>
                 </div>
+                <p class="text-xs text-slate-300 leading-relaxed font-sans">
+                  {{ recency.desc }}
+                </p>
               </div>
             </div>
 
-            <!-- Drivers (+ Ventajas) & Drags (- Fricciones) -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-              <!-- Drivers -->
-              <div class="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-2.5">
-                <span class="text-[11px] font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider font-mono">
-                  <svg lucideRocket class="w-3.5 h-3.5"></svg>
-                  <span>Ventajas Competitivas (Drivers)</span>
-                </span>
-                <ul class="space-y-1.5">
+            <!-- DRIVERS & DRAGS CLUSTERS (Matching User Screenshot 1) -->
+            <div class="space-y-4 pt-2">
+              <!-- Ventajas Competitivas (Drivers) -->
+              <div class="p-5 rounded-2xl bg-[#0f131d] border border-border-subtle/80 space-y-3.5 shadow-sm">
+                <!-- Header Bar -->
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-[0_0_8px_rgba(78,222,163,0.3)]">
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                      </svg>
+                    </span>
+                    <h3 class="text-xs md:text-sm font-bold text-white tracking-wide font-headline">
+                      Ventajas Competitivas (Drivers)
+                    </h3>
+                  </div>
+                  <!-- Pill Badge: e.g. 4 IDENTIFICADOS -->
+                  <span class="font-mono text-[10px] md:text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-0.5 rounded tracking-wider">
+                    {{ current.drivers?.length || 0 }} IDENTIFICADOS
+                  </span>
+                </div>
+
+                <!-- Card List -->
+                <div class="space-y-2.5">
                   @for (driver of current.drivers; track driver) {
-                    <li class="text-xs text-content-primary flex items-start gap-2 leading-snug">
-                      <span class="text-emerald-400 font-bold">•</span>
-                      <span>{{ driver }}</span>
-                    </li>
+                    @let factor = parseFactor(driver);
+                    <div class="p-3.5 rounded-xl bg-[#171b26] border border-white/[0.05] hover:border-emerald-500/30 transition-all flex items-start gap-3">
+                      <!-- Glowing Emerald Check-Circle Icon -->
+                      <div class="w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5 shadow-[0_0_8px_rgba(78,222,163,0.3)]">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                        </svg>
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <h4 class="text-xs md:text-sm font-bold text-white font-headline leading-tight">
+                          {{ factor.title }}
+                        </h4>
+                        @if (factor.description) {
+                          <p class="text-xs text-content-secondary leading-relaxed mt-1">
+                            {{ factor.description }}
+                          </p>
+                        }
+                      </div>
+                    </div>
                   } @empty {
-                    <li class="text-xs text-content-muted italic">Sin ventajas diferenciales detectadas.</li>
+                    <div class="p-4 rounded-xl bg-[#171b26]/50 border border-white/[0.04] text-xs text-content-muted italic text-center">
+                      Sin ventajas competitivas diferenciales detectadas para este lead.
+                    </div>
                   }
-                </ul>
+                </div>
               </div>
 
-              <!-- Drags -->
-              <div class="p-4 rounded-xl bg-rose-500/5 border border-rose-500/20 space-y-2.5">
-                <span class="text-[11px] font-bold text-rose-400 flex items-center gap-1.5 uppercase tracking-wider font-mono">
-                  <svg lucideTriangleAlert class="w-3.5 h-3.5"></svg>
-                  <span>Factores de Fricción (Drags)</span>
-                </span>
-                <ul class="space-y-1.5">
+              <!-- Factores de Fricción (Drags) -->
+              <div class="p-5 rounded-2xl bg-[#0f131d] border border-border-subtle/80 space-y-3.5 shadow-sm">
+                <!-- Header Bar -->
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="w-5 h-5 rounded-full bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.3)]">
+                      <svg lucideTriangleAlert class="w-3.5 h-3.5 text-rose-400"></svg>
+                    </span>
+                    <h3 class="text-xs md:text-sm font-bold text-white tracking-wide font-headline">
+                      Factores de Fricción (Drags - Riesgo)
+                    </h3>
+                  </div>
+                  <!-- Pill Badge: e.g. 2 DETECTADOS o 0 DETECTADOS -->
+                  <span class="font-mono text-[10px] md:text-xs font-bold px-2.5 py-0.5 rounded tracking-wider"
+                        [ngClass]="(current.drags?.length || 0) > 0 ? 'text-rose-400 bg-rose-500/10 border border-rose-500/25' : 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/25'">
+                    {{ current.drags?.length || 0 }} DETECTADOS
+                  </span>
+                </div>
+
+                <!-- Card List -->
+                <div class="space-y-2.5">
                   @for (drag of current.drags; track drag) {
-                    <li class="text-xs text-content-primary flex items-start gap-2 leading-snug">
-                      <span class="text-rose-400 font-bold">•</span>
-                      <span>{{ drag }}</span>
-                    </li>
+                    @let factor = parseFactor(drag);
+                    <div class="p-3.5 rounded-xl bg-[#171b26] border border-white/[0.05] hover:border-rose-500/30 transition-all flex items-start gap-3">
+                      <!-- Glowing Rose Circle Warning Icon -->
+                      <div class="w-5 h-5 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0 mt-0.5 shadow-[0_0_8px_rgba(244,63,94,0.3)]">
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <h4 class="text-xs md:text-sm font-bold text-white font-headline leading-tight">
+                          {{ factor.title }}
+                        </h4>
+                        @if (factor.description) {
+                          <p class="text-xs text-content-secondary leading-relaxed mt-1">
+                            {{ factor.description }}
+                          </p>
+                        }
+                      </div>
+                    </div>
                   } @empty {
-                    <li class="text-xs text-emerald-400 font-medium inline-flex items-center gap-1">
-                      <svg lucideCheck class="w-3.5 h-3.5"></svg>
-                      <span>Ningún factor adverso registrado.</span>
-                    </li>
+                    <div class="p-4 rounded-xl bg-[#171b26]/50 border border-emerald-500/20 text-xs text-emerald-400 font-medium flex items-center gap-2">
+                      <svg lucideCheck class="w-4 h-4 text-emerald-400"></svg>
+                      <span>Ningún factor de fricción registrado: cliente solvente, rol compatible y pago verificado.</span>
+                    </div>
                   }
-                </ul>
+                </div>
               </div>
             </div>
           </div>

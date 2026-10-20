@@ -38,8 +38,13 @@ export interface JobReportItem {
   recencyScore?: number;
   isCapped?: boolean;
   capReason?: string | null;
-  drivers?: string[];
-  drags?: string[];
+  drivers?: (DecisionFactor | string)[];
+  drags?: (DecisionFactor | string)[];
+}
+
+export interface DecisionFactor {
+  title: string;
+  description: string;
 }
 
 export interface ProofStory {
