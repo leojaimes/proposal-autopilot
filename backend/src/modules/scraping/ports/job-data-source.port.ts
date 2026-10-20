@@ -17,10 +17,10 @@ export interface NormalizedJob {
   clientRating: number;
   clientTotalSpend: number;
   clientHireRate: number | null;
-  proposalsCount: number;
+  proposalsCount: number | null;
   isPaymentVerified: boolean;
   skills: string[];
-  postedAt: Date;
+  postedAt: Date | null;
   rawPayload: Record<string, any>;
 }
 

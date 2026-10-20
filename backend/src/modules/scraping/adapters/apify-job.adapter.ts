@@ -46,11 +46,17 @@ export class ApifyJobAdapter implements JobDataSourcePort {
     const clientRating = Number(buyerStats.score ?? raw.client?.rating ?? 0);
     const clientTotalSpend = Number(buyerStats.totalCharges?.amount ?? raw.client?.totalSpent ?? 0);
 
-    // 4. Ubicación del Cliente
+    // 4. Ubicación del Cliente Normalizada
     let clientCountry: string | null = raw.buyer?.location?.country || raw.client?.country || null;
     if (!clientCountry && raw.nation) {
       // Formato típico en Apify: "India/Hyderabad" -> "India"
       clientCountry = String(raw.nation).split('/')[0].trim();
+    }
+    if (clientCountry) {
+      const lower = clientCountry.toLowerCase().trim();
+      if (lower === 'us' || lower === 'usa' || lower.includes('united states')) {
+        clientCountry = 'United States';
+      }
     }
 
     // 5. Verificación de Pago y Competencia (Propuestas enviadas)
@@ -60,11 +66,13 @@ export class ApifyJobAdapter implements JobDataSourcePort {
       raw.isPaymentVerified
     );
 
-    const proposalsCount = Number(
-      raw.client_activity?.totalApplicants ?? 
-      raw.proposals?.count ?? 
-      0
-    );
+    // Preservar null si Apify no encontró el conteo de aplicantes (no regalar bonos ficticios)
+    let proposalsCount: number | null = null;
+    if (raw.client_activity?.totalApplicants != null) {
+      proposalsCount = Number(raw.client_activity.totalApplicants);
+    } else if (raw.proposals?.count != null) {
+      proposalsCount = Number(raw.proposals.count);
+    }
 
     // 6. Hire Rate Histórico (% de contratación del cliente)
     let clientHireRate: number | null = null;
@@ -84,8 +92,13 @@ export class ApifyJobAdapter implements JobDataSourcePort {
       skills.push(...raw.skills.map((s: any) => String(s)));
     }
 
-    // 8. Fecha Real de Publicación
-    const postedAt = raw.publish_time ? new Date(raw.publish_time) : (raw.postedDate ? new Date(raw.postedDate) : new Date());
+    // 8. Fecha Real de Publicación (Preservar null si no existe)
+    let postedAt: Date | null = null;
+    if (raw.publish_time) {
+      postedAt = new Date(raw.publish_time);
+    } else if (raw.postedDate) {
+      postedAt = new Date(raw.postedDate);
+    }
 
     return {
       externalId,

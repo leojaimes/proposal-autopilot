@@ -285,9 +285,9 @@ export class ScrapingController {
         clientTotalSpend: Number(jobPost.clientTotalSpend),
         clientRating: Number(jobPost.clientRating),
         clientCountry: jobPost.clientCountry || undefined,
-        proposalsCount: jobPost.proposalsCount,
+        proposalsCount: normalized.proposalsCount != null ? normalized.proposalsCount : undefined,
         isPaymentVerified: jobPost.isPaymentVerified,
-        postedDate: jobPost.postedAt,
+        postedDate: normalized.postedAt || undefined,
         targetCountries: scrapeConfig?.targetCountries || [],
         targetRegions: scrapeConfig?.targetRegions || [],
         excludedCountries: scrapeConfig?.excludedCountries || [],
@@ -448,6 +448,108 @@ export class ScrapingController {
       ],
       take: 50,
     });
+  }
+
+  /**
+   * Re-evalúa el score de todos los empleos almacenados usando el nuevo motor de scoring
+   */
+  @Post('rescore-all')
+  async rescoreAllJobs() {
+    const tenantId = this.tenantContext.getTenantId();
+    const jobs = await this.prisma.jobPost.findMany({
+      where: { tenantId },
+    });
+
+    let updated = 0;
+    for (const job of jobs) {
+      const raw = (job.rawApifyPayload as any) || {};
+
+      let proposalsCount: number | null = null;
+      if (raw.client_activity?.totalApplicants != null) {
+        proposalsCount = Number(raw.client_activity.totalApplicants);
+      } else if (raw.proposals?.count != null) {
+        proposalsCount = Number(raw.proposals.count);
+      }
+
+      let postedAt: Date | null = null;
+      if (raw.publish_time) {
+        postedAt = new Date(raw.publish_time);
+      } else if (raw.postedDate) {
+        postedAt = new Date(raw.postedDate);
+      } else if (job.postedAt) {
+        postedAt = new Date(job.postedAt);
+      }
+
+      let clientCountry: string | null = job.clientCountry || raw.buyer?.location?.country || raw.client?.country || null;
+      if (!clientCountry && raw.nation) {
+        clientCountry = String(raw.nation).split('/')[0].trim();
+      }
+      if (clientCountry) {
+        const lower = clientCountry.toLowerCase().trim();
+        if (lower === 'us' || lower === 'usa' || lower.includes('united states')) {
+          clientCountry = 'United States';
+        }
+      }
+
+      const skills: string[] = [];
+      if (Array.isArray(raw.ontologySkills)) {
+        skills.push(...raw.ontologySkills.map((s: any) => s.prefLabel || s.name || String(s)));
+      } else if (Array.isArray(raw.skills)) {
+        skills.push(...raw.skills.map((s: any) => String(s)));
+      }
+
+      const evaluation = this.fitCalculator.calculate({
+        title: job.title,
+        description: job.description || '',
+        skills,
+        clientTotalSpend: Number(job.clientTotalSpend || 0),
+        clientRating: Number(job.clientRating || 0),
+        clientCountry: clientCountry || undefined,
+        proposalsCount: proposalsCount != null ? proposalsCount : undefined,
+        isPaymentVerified: job.isPaymentVerified,
+        postedDate: postedAt || undefined,
+        targetCountries: ['United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'Ireland'],
+        geoFilterMode: 'WEIGHTED_PREFERENCE',
+      });
+
+      await this.prisma.fitEvaluation.upsert({
+        where: { jobPostId: job.id },
+        create: {
+          jobPostId: job.id,
+          overallScore: evaluation.overallScore,
+          fitTier: evaluation.fitTier as FitTier,
+          strategicLane: evaluation.strategicLane as StrategicLane,
+          normalizedRole: evaluation.normalizedRole,
+          skillScore: evaluation.skillScore,
+          aiFeasibilityScore: evaluation.aiFeasibilityScore,
+          clientQualityScore: evaluation.clientQualityScore,
+          recencyScore: evaluation.recencyScore,
+          isCapped: evaluation.isCapped,
+          capReason: evaluation.capReason,
+          summaryRationale: evaluation.summaryRationale,
+          detectedGaps: evaluation.detectedGaps,
+          suggestedProofStory: evaluation.suggestedProofStory,
+        },
+        update: {
+          overallScore: evaluation.overallScore,
+          fitTier: evaluation.fitTier as FitTier,
+          strategicLane: evaluation.strategicLane as StrategicLane,
+          normalizedRole: evaluation.normalizedRole,
+          skillScore: evaluation.skillScore,
+          aiFeasibilityScore: evaluation.aiFeasibilityScore,
+          clientQualityScore: evaluation.clientQualityScore,
+          recencyScore: evaluation.recencyScore,
+          isCapped: evaluation.isCapped,
+          capReason: evaluation.capReason,
+          summaryRationale: evaluation.summaryRationale,
+          detectedGaps: evaluation.detectedGaps,
+          suggestedProofStory: evaluation.suggestedProofStory,
+        },
+      });
+      updated++;
+    }
+
+    return { message: `Re-evaluadas ${updated} vacantes exitosamente`, updatedCount: updated };
   }
 
   /**
