@@ -158,8 +158,11 @@ Return a strictly valid JSON object without markdown formatting wrappers or conv
      - Step 4: Agentic Automation & Workflow Integration (using n8n for agentic workflow orchestration and webhook triggers)
      - Step 5: Usability Testing & Iterative Hardening (standard usability testing, SUS benchmarking, and heuristic evaluation)
      
-     ## 3. Deliverables & Realistic Timeline
-     Milestone-based delivery (e.g., Phase 1 in Week 1, Phase 2 in Week 2) with concrete artifacts (Figma tokens library, n8n workflow blueprints, usability report).
+     ## 3. Deliverables & Realistic Timeline (Agile 2 to 3-Week Sprint)
+     Structure the delivery as a high-velocity 2 to 3-week sprint (10 to 15 business days). Avoid slow 2-month timelines; clients on Upwork want senior speed and rapid momentum.
+     - Phase 1 (Week 1, Days 1-5): Discovery, User Journeys & Wireframe Architecture. Promise the first interactive Figma click-through ready by Day 5.
+     - Phase 2 (Week 2, Days 6-10): Figma Design System & Core Interactive UI. Scalable tokens, autolayout components, and responsive desktop screens.
+     - Phase 3 (Week 3, Days 11-15): AI Workflow Automation, Usability Testing & Clean Handoff. Testing with real users to eliminate friction, n8n workflow blueprints, and developer-ready specs.
    - STRICT NEGATIVE CONSTRAINT: NEVER write ASCII diagrams, box drawings, or text pipelines inside "technicalProposalBody".
 
 4. "mermaidDiagramCode":
