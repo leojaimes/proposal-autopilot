@@ -9,6 +9,13 @@ description: >-
 # Skill: Auditor de Ranqueo y Fit de Upwork (Upwork Scoring Auditor)
 
 Esta skill analiza en profundidad por qué un empleo recibió una calificación determinada (0 a 100) y verifica si el ranking es fidedigno o si contiene distorsiones.
+Para la especificación matemática completa lista para Confluence, consulta [docs/scoring-engine-specification.md](file:///d:/SpotlightProjects/proposal-autopilot/docs/scoring-engine-specification.md).
+
+---
+
+## 🛡️ Reglas de Seguridad (Safety Caps)
+1. **Skill Safety Cap:** Si la afinidad técnica es inferior a 40 puntos (`skillScore < 40`), el Fit Score se bloquea en un máximo de **44 puntos** (`CAPPED at 44`), sin importar la solvencia del cliente.
+2. **Exclusión Geográfica:** En modo `STRICT_EXCLUDE`, clientes en países no deseados son descalificados automáticamente a **15 puntos**.
 
 ---
 
