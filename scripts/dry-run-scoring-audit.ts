@@ -7,6 +7,15 @@ async function runDryRun() {
   const roleClassifier = new RoleClassifierService();
   const fitCalculator = new FitCalculatorService(roleClassifier);
 
+  const configRes = await fetch('https://pepper-tix-proposal-backend.zh4nwb.easypanel.host/api/config/workspace');
+  if (!configRes.ok) {
+    throw new Error(`Error obteniendo configuración de la BD: ${configRes.status}`);
+  }
+  const workspaceConfig: any = await configRes.json();
+  const activeQueries: string[] = workspaceConfig.scrapeConfigs?.[0]?.searchKeywords || workspaceConfig.scrapeConfig?.searchKeywords || [];
+  console.log(`🔑 Expresiones Activas leídas de la Base de Datos (${activeQueries.length} queries):`);
+  console.log(activeQueries.map((q: string) => `   - ${q}`).join('\n') + '\n');
+
   const res = await fetch('https://pepper-tix-proposal-backend.zh4nwb.easypanel.host/api/scraping/jobs');
   if (!res.ok) {
     throw new Error(`Error HTTP consultando API de producción: ${res.status}`);
@@ -71,6 +80,7 @@ async function runDryRun() {
       title: job.title,
       description: job.description || '',
       skills,
+      activeQueries,
       clientTotalSpend: Number(job.clientTotalSpend || 0),
       clientRating: Number(job.clientRating || 0),
       clientCountry: clientCountry || undefined,
@@ -78,7 +88,6 @@ async function runDryRun() {
       isPaymentVerified: job.isPaymentVerified,
       postedDate: postedAt || undefined,
       targetCountries: ['United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'Ireland'],
-      geoFilterMode: 'WEIGHTED_PREFERENCE',
     });
 
     const oldScore = job.fitEvaluation?.overallScore ?? 0;

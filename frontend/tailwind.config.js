@@ -42,6 +42,7 @@ module.exports = {
         }
       },
       fontFamily: {
+        headline: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
         mono: ['JetBrains Mono', 'Menlo', 'Monaco', 'Consolas', 'Courier New', 'monospace'],
       }

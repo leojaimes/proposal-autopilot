@@ -1,31 +1,40 @@
-<header class="h-14 border-b border-border-subtle bg-surface px-5 flex items-center justify-between select-none relative z-30">
+<header class="h-16 border-b border-border-subtle/70 bg-[#0f131d]/95 backdrop-blur-xl px-5 flex items-center justify-between select-none relative z-30">
   
   <!-- Left: Logo & PROFILE SWITCHER (Multi-Persona) -->
-  <div class="flex items-center gap-5">
-    <div class="flex items-center gap-2">
-      <div class="w-7 h-7 rounded-lg bg-brand-primary flex items-center justify-center font-bold text-white text-xs shadow-md">
+  <div class="flex items-center gap-3 md:gap-4">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center font-bold text-cyan-400 text-xs shadow-[0_0_12px_rgba(76,215,246,0.25)]">
         PA
       </div>
       <div class="flex flex-col">
-        <span class="text-xs font-bold text-content-primary tracking-tight">Proposal Autopilot</span>
-        <span class="text-[10px] text-content-muted font-mono leading-none">v1.2 · High-Fit Engine</span>
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm font-bold text-white tracking-tight font-headline">Proposal Autopilot</span>
+          <span class="text-[10px] text-cyan-400 bg-cyan-500/10 border border-cyan-400/25 px-1.5 py-0.2 rounded font-mono font-semibold">v1.2</span>
+        </div>
+        <span class="text-[10px] text-content-muted font-mono leading-none">Cockpit Intelligence</span>
       </div>
     </div>
 
+    <!-- Live Motor High-Fit Status Indicator -->
+    <div class="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1c1f2a] border border-white/[0.08]">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(78,222,163,0.6)]"></span>
+      <span class="font-mono text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Motor High-Fit</span>
+    </div>
+
     <!-- DIVIDER -->
-    <div class="h-5 w-[1px] bg-border-subtle"></div>
+    <div class="h-5 w-[1px] bg-border-subtle hidden md:block"></div>
 
     <!-- PROFILE SWITCHER (Multi-Persona Selector) -->
     <div class="relative">
       <button (click)="toggleProfileDropdown()"
-              class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-elevated hover:bg-surface-hover border border-border-subtle transition-all text-left">
-        <svg lucideUser class="w-4 h-4 text-brand-primary"></svg>
+              class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#1c1f2a] hover:bg-[#262a35] border border-border-subtle/80 transition-all text-left">
+        <svg lucideUser class="w-4 h-4 text-cyan-400"></svg>
         <div class="flex flex-col">
           <span class="text-[11px] font-extrabold text-content-primary leading-tight flex items-center gap-1.5">
             <span>{{ pipeline.activeProfile().name }}</span>
-            <span class="text-[9px] font-mono text-brand-primary bg-brand-primary/10 px-1 py-0.2 rounded font-bold">Activo</span>
+            <span class="text-[9px] font-mono text-cyan-400 bg-cyan-400/10 px-1 py-0.2 rounded font-bold border border-cyan-400/20">Activo</span>
           </span>
-          <span class="text-[9px] text-content-muted">{{ pipeline.proofStories().length }} historias · $40/h</span>
+          <span class="text-[9px] text-content-muted font-mono">{{ pipeline.activeProfile().proofStories.length }} historias · ${{ pipeline.activeProfile().minHourlyRate }}/h</span>
         </div>
         <svg lucideChevronDown class="w-3.5 h-3.5 text-content-muted ml-1 transition-transform" [class.rotate-180]="isProfileDropdownOpen()"></svg>
       </button>
@@ -33,7 +42,7 @@
       <!-- DROPDOWN MENU -->
       @if (isProfileDropdownOpen()) {
         <div class="fixed inset-0 z-20" (click)="isProfileDropdownOpen.set(false)"></div>
-        <div class="absolute left-0 mt-2 w-72 rounded-2xl bg-surface border border-border-subtle shadow-2xl p-2 z-30 space-y-1">
+        <div class="absolute left-0 mt-2 w-80 rounded-2xl bg-[#171b26] border border-border-subtle shadow-2xl p-2 z-30 space-y-1">
           <div class="px-3 py-1.5 text-[10px] font-bold text-content-muted uppercase tracking-wider">
             Perfiles de Calibración (Personas)
           </div>
@@ -41,13 +50,13 @@
           <!-- Profile List -->
           @for (p of pipeline.profiles(); track p.id) {
             <div (click)="selectProfile(p.id)"
-                 class="flex items-center justify-between p-2.5 rounded-xl hover:bg-surface-elevated cursor-pointer transition-colors group"
-                 [ngClass]="pipeline.activeProfileId() === p.id ? 'bg-brand-primary/10 border border-brand-primary/30' : ''">
+                 class="flex items-center justify-between p-2.5 rounded-xl hover:bg-[#262a35] cursor-pointer transition-colors group"
+                 [ngClass]="pipeline.activeProfileId() === p.id ? 'bg-cyan-500/10 border border-cyan-400/30' : ''">
               <div class="flex items-center gap-2">
                 <svg lucideUser class="w-4 h-4 text-content-muted"></svg>
                 <div>
                   <span class="text-xs font-bold text-content-primary block">{{ p.name }}</span>
-                  <span class="text-[10px] text-content-muted">{{ p.proofStories.length }} historias configuradas</span>
+                  <span class="text-[10px] text-content-muted font-mono">{{ p.proofStories.length }} historias · ${{ p.minHourlyRate }}/h</span>
                 </div>
               </div>
 
@@ -65,7 +74,7 @@
           <!-- BOTÓN CREAR NUEVO PERFIL DE CERO -->
           <div class="pt-1 border-t border-border-subtle">
             <button (click)="openCreateModal()"
-                    class="w-full p-2.5 rounded-xl bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary font-bold text-xs flex items-center justify-center gap-1.5 transition-colors">
+                    class="w-full p-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors">
               <svg lucidePlus class="w-3.5 h-3.5"></svg>
               <span>Crear Perfil de Cero (Otra Persona)</span>
             </button>
@@ -76,39 +85,49 @@
   </div>
 
   <!-- Center: View Mode Switcher -->
-  <div class="flex items-center gap-1 p-1 bg-surface-elevated rounded-xl border border-border-subtle">
+  <div class="hidden md:flex items-center gap-1 p-1 bg-[#171b26] rounded-xl border border-border-subtle/80">
     <button (click)="switchView('TERMINAL')"
-            [ngClass]="activeView() === 'TERMINAL' ? 'bg-brand-primary text-white shadow-sm' : 'text-content-secondary hover:text-content-primary'"
-            class="px-3.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
+            [ngClass]="activeView() === 'TERMINAL' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
+            class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
       <svg lucideZap class="w-3.5 h-3.5"></svg>
       <span>Cabina de Despacho</span>
     </button>
     <button (click)="switchView('EXPLORER')"
-            [ngClass]="activeView() === 'EXPLORER' ? 'bg-brand-primary text-white shadow-sm' : 'text-content-secondary hover:text-content-primary'"
-            class="px-3.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
+            [ngClass]="activeView() === 'EXPLORER' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
+            class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
       <svg lucideSearch class="w-3.5 h-3.5"></svg>
       <span>Motor de Búsqueda</span>
       <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono"
-            [ngClass]="activeView() === 'EXPLORER' ? 'bg-white/20 text-white' : 'bg-surface text-content-muted'">
+            [ngClass]="activeView() === 'EXPLORER' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-surface text-content-muted'">
         {{ report.jobs().length }}
       </span>
     </button>
   </div>
 
-  <!-- Right: Metrics & Settings -->
-  <div class="flex items-center gap-4">
-    <!-- Quick Counts -->
-    <div class="flex items-center gap-3 text-xs font-mono">
-      <span class="flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-        {{ highFitCount() }} High Fit
-      </span>
+  <!-- Right: Telemetry, Shortcuts & CTAs -->
+  <div class="flex items-center gap-3">
+    <!-- Connects Telemetry Pill (Stitch) -->
+    <div class="hidden lg:flex items-center gap-2 px-3 py-1 rounded-xl bg-[#1c1f2a] border border-border-subtle/80 shadow-inner">
+      <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+      <div class="flex items-baseline gap-1.5">
+        <span class="font-mono text-xs text-white font-bold tracking-tight">{{ lowFitCount() * 16 }} Connects</span>
+        <span class="font-mono text-[11px] text-emerald-400">(~${{ (lowFitCount() * 16 * 0.15).toFixed(2) }} USD)</span>
+      </div>
     </div>
 
-    <!-- Look For More Projects Button -->
+    <!-- Cockpit Keyboard Shortcuts Chip -->
+    <div class="hidden xl:flex items-center gap-1 text-[11px] text-content-muted border border-border-subtle/80 rounded-xl px-2.5 py-1 bg-[#171b26]">
+      <span>Atajos:</span>
+      <kbd class="kbd-shortcut bg-[#262a35] px-1 py-0.2 rounded text-[10px] text-white">J/K</kbd>
+      <kbd class="kbd-shortcut bg-[#262a35] px-1 py-0.2 rounded text-[10px] text-white">D</kbd>
+      <kbd class="kbd-shortcut bg-[#262a35] px-1 py-0.2 rounded text-[10px] text-white">G</kbd>
+      <kbd class="kbd-shortcut bg-[#262a35] px-1 py-0.2 rounded text-[10px] text-white">/</kbd>
+    </div>
+
+    <!-- Look For More Projects Button (Apify Trigger) -->
     <button (click)="report.triggerLiveScrape(30)"
             [disabled]="report.isScrapingInProgress()"
-            class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-brand-primary to-indigo-600 hover:from-brand-primary-hover hover:to-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-brand-primary/20 disabled:opacity-50 disabled:cursor-not-allowed">
+            class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed">
       @if (report.isScrapingInProgress()) {
         <svg lucideRefreshCw class="w-3.5 h-3.5 animate-spin"></svg>
         <span>Buscando en Upwork...</span>
@@ -120,9 +139,9 @@
 
     <!-- Engine Settings Trigger Button -->
     <button (click)="openSettings.emit()"
-            class="px-3.5 py-1.5 rounded-xl bg-surface-elevated hover:bg-surface-hover text-content-primary border border-border-subtle text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm">
+            class="px-3 py-1.5 rounded-xl bg-[#1c1f2a] hover:bg-[#262a35] text-content-primary border border-border-subtle/80 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm">
       <svg lucideSettings class="w-3.5 h-3.5 text-content-muted"></svg>
-      <span>Calibrar Perfil</span>
+      <span>Calibrar</span>
     </button>
   </div>
 </header>

@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed, effect } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, effect, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReportService } from '../../core/services/report.service';
@@ -113,9 +113,108 @@ export class DispatchTerminalComponent {
     });
   }
 
+  /**
+   * Keyboard Shortcuts HostListener (Stitch Cockpit Specification)
+   * J/K: Navigate jobs in triage feed
+   * D: Discard current lead (Save 16 Connects)
+   * G: Generate/Regenerate proposal with Gemini
+   * C: Copy 35-word cover letter to clipboard
+   * /: Focus search input
+   */
+  @HostListener('window:keydown', ['$event'])
+  public handleKeyboardEvent(event: KeyboardEvent): void {
+    const activeEl = document.activeElement;
+    const tagName = activeEl?.tagName.toLowerCase();
+    if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') {
+      if (event.key === 'Escape') {
+        (activeEl as HTMLElement)?.blur();
+      }
+      return;
+    }
+
+    const key = event.key.toLowerCase();
+
+    if (key === 'j' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.selectNextJob();
+    } else if (key === 'k' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.selectPreviousJob();
+    } else if (key === 'd') {
+      event.preventDefault();
+      this.discardCurrentJob();
+    } else if (key === 'g') {
+      event.preventDefault();
+      this.regenerateProposal();
+    } else if (key === 'c') {
+      const current = this.selectedJob();
+      if (current?.coverLetter) {
+        event.preventDefault();
+        this.copyLetter(current);
+      }
+    } else if (key === '/') {
+      event.preventDefault();
+      const searchEl = document.getElementById('cockpit-search-input');
+      searchEl?.focus();
+    }
+  }
+
+  public selectNextJob(): void {
+    const jobs = this.filteredJobs();
+    if (jobs.length === 0) return;
+    const current = this.selectedJob();
+    if (!current) {
+      this.selectJob(jobs[0]);
+      return;
+    }
+    const idx = jobs.findIndex(j => j.id === current.id);
+    if (idx >= 0 && idx < jobs.length - 1) {
+      this.selectJob(jobs[idx + 1]);
+    }
+  }
+
+  public selectPreviousJob(): void {
+    const jobs = this.filteredJobs();
+    if (jobs.length === 0) return;
+    const current = this.selectedJob();
+    if (!current) {
+      this.selectJob(jobs[0]);
+      return;
+    }
+    const idx = jobs.findIndex(j => j.id === current.id);
+    if (idx > 0) {
+      this.selectJob(jobs[idx - 1]);
+    }
+  }
+
+  public discardCurrentJob(): void {
+    const current = this.selectedJob();
+    if (!current) return;
+    this.report.updateJobStatus(current.id, 'SKIPPED');
+    this.successBanner.set(`Lead marcado como Descartado (Ahorro de 16 Connects).`);
+    setTimeout(() => this.successBanner.set(''), 3500);
+    this.selectNextJob();
+  }
+
+  public approveCurrentJob(): void {
+    const current = this.selectedJob();
+    if (!current) return;
+    this.report.updateJobStatus(current.id, 'APPROVED');
+    this.successBanner.set(`Lead marcado como Aprobado para postulación.`);
+    setTimeout(() => this.successBanner.set(''), 3500);
+  }
+
+  /**
+   * SVG Circular Tachometer Gauge Offset Calculator
+   * Circumference for r=32 is ~201
+   */
+  public getGaugeOffset(score: number): number {
+    const clamped = Math.max(0, Math.min(100, score || 0));
+    return Math.round(201 * (1 - clamped / 100));
+  }
+
   public selectJob(job: JobReportItem): void {
     this.selectedJob.set(job);
-    // Sync proof story key to suggested or first available
     const initialKey = job.suggestedProofStory && job.suggestedProofStory !== 'NONE'
       ? job.suggestedProofStory
       : (this.report.proofStories()[0]?.keyCode || 'PEPPER_AI');
@@ -126,7 +225,11 @@ export class DispatchTerminalComponent {
     if (!job.coverLetter) return;
     navigator.clipboard.writeText(job.coverLetter).then(() => {
       this.copied.set(true);
-      setTimeout(() => this.copied.set(false), 2500);
+      this.successBanner.set('📋 Carta de 35 palabras copiada al portapapeles.');
+      setTimeout(() => {
+        this.copied.set(false);
+        this.successBanner.set('');
+      }, 3000);
     });
   }
 
@@ -181,7 +284,7 @@ export class DispatchTerminalComponent {
             proposalDocLink: res.proposalDocLink,
           } : null);
 
-          this.successBanner.set('✨ Propuesta y Roadmap regenerados exitosamente con IA (Gemini 3.8 Flash).');
+          this.successBanner.set('✨ Propuesta y Roadmap generados exitosamente con IA (Gemini 3.8 Flash).');
           setTimeout(() => this.successBanner.set(''), 4500);
         }
       },
@@ -208,3 +311,4 @@ export class DispatchTerminalComponent {
     });
   }
 }
+

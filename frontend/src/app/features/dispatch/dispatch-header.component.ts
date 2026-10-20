@@ -42,7 +42,11 @@ export class DispatchHeaderComponent {
   public readonly openSettings = output<void>();
 
   public readonly highFitCount = computed(() => {
-    return this.report.jobs().filter(j => j.fitScore >= 75).length;
+    return this.report.jobs().filter(j => j.fitLabel === 'High' || j.fitScore >= 70).length;
+  });
+
+  public readonly lowFitCount = computed(() => {
+    return this.report.jobs().filter(j => j.fitLabel === 'Low' || j.fitScore < 50).length;
   });
 
   // Profile Switcher Dropdown & Modal State
