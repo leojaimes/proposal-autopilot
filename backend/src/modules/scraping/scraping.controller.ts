@@ -69,7 +69,13 @@ export class ScrapingController {
 
     // 1. Resolver keywords dinámicas (Body > ScrapeConfig > Síntesis IA)
     let keywords = (body.keywords && body.keywords.length > 0) ? body.keywords : scrapeConfig?.searchKeywords;
-    if (!keywords || keywords.length === 0) {
+    if (body.keywords && body.keywords.length > 0 && scrapeConfig) {
+      await this.prisma.scrapeConfig.update({
+        where: { id: scrapeConfig.id },
+        data: { searchKeywords: body.keywords },
+      });
+      keywords = body.keywords;
+    } else if (!keywords || keywords.length === 0) {
       const profile = await this.prisma.positioningProfile.findFirst({
         where: { tenantId, isActive: true },
         include: { proofStories: true },
@@ -287,7 +293,7 @@ export class ScrapingController {
         title: jobPost.title,
         description: jobPost.description,
         skills: normalized.skills,
-        activeQueries: scrapeConfig?.searchKeywords || [],
+        activeQueries: (keywords && keywords.length > 0) ? keywords : (scrapeConfig?.searchKeywords || []),
         clientTotalSpend: Number(jobPost.clientTotalSpend),
         clientRating: Number(jobPost.clientRating),
         clientCountry: jobPost.clientCountry || undefined,

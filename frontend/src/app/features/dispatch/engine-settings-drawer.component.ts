@@ -140,8 +140,14 @@ export class EngineSettingsDrawerComponent {
     this.pipeline.moveProofStory(id, 'DOWN');
   }
 
-  public triggerScrapeWithActiveProfile(): void {
-    this.report.triggerLiveScrape(this.selectedBatchSize());
+  public async triggerScrapeWithActiveProfile(): Promise<void> {
+    const queries = this.pipeline.activeQueriesList();
+    try {
+      await this.saveScrapingConfig();
+    } catch (e) {
+      console.warn('Error guardando config previo al scrape:', e);
+    }
+    this.report.triggerLiveScrape(this.selectedBatchSize(), queries);
     this.close();
   }
 

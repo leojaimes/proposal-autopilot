@@ -101,13 +101,13 @@ export class ReportService {
   /**
    * Dispara la extracción asíncrona y abre el canal de streaming SSE en vivo
    */
-  public triggerLiveScrape(limit = 30): void {
+  public triggerLiveScrape(limit = 30, keywords?: string[]): void {
     if (this._isScrapingInProgress()) return;
 
     this._isScrapingInProgress.set(true);
     this.progressPercentage.set(5);
     this.progressStep.set('STARTING');
-    this.progressMessage.set('Iniciando extracción y conectando con el motor...');
+    this.progressMessage.set('Iniciando extracción con palabras clave del calibrador...');
     this.progressCurrentJob.set('');
     this.progressHighFitCount.set(0);
     this.elapsedTimeSeconds.set(0);
@@ -119,8 +119,13 @@ export class ReportService {
       this.elapsedTimeSeconds.update(s => s + 1);
     }, 1000);
 
-    // POST asíncrono que responde en <100ms
-    this.http.post<{ success: boolean; batchId: string }>(`${this.baseUrl}/trigger`, { maxResults: limit })
+    // POST asíncrono con las palabras clave prioritarias del perfil
+    const payload: { maxResults: number; keywords?: string[] } = { maxResults: limit };
+    if (keywords && keywords.length > 0) {
+      payload.keywords = keywords;
+    }
+
+    this.http.post<{ success: boolean; batchId: string }>(`${this.baseUrl}/trigger`, payload)
       .pipe(
         catchError((err) => {
           console.error('Fallo iniciando batch:', err);

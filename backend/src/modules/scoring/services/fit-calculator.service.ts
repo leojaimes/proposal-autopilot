@@ -127,7 +127,8 @@ export class FitCalculatorService {
       drags.push(`Rating del cliente bajo (${rating.toFixed(1)} estrellas, -10 pts)`);
     }
 
-    // 4. Frescura de Publicación (Priorizando el match de Perfil sobre la Fecha)
+    // 4. Frescura de Publicación (Priorizando 100% el Match de Perfil sobre la Fecha)
+    // Cero penalizaciones a la afinidad del perfil por días transcurridos
     let recencyScore = 85;
     if (input.postedDate != null) {
       const postedTime = new Date(input.postedDate).getTime();
@@ -139,19 +140,13 @@ export class FitCalculatorService {
       } else if (diffHours <= 24) {
         recencyScore = 95;
       } else if (diffHours <= 72) {
-        recencyScore = 85;
+        recencyScore = 90;
       } else if (diffHours <= 168) {
-        recencyScore = 75;
-        deductions += 2;
-        drags.push(`Publicado hace ${Math.round(diffHours / 24)}d (-2 pts)`);
+        recencyScore = 85;
       } else if (diffHours <= 504) {
-        recencyScore = 65;
-        deductions += 4;
-        drags.push(`Publicado hace ${Math.round(diffHours / 24)}d (-4 pts)`);
+        recencyScore = 75;
       } else {
-        recencyScore = 50;
-        deductions += 7;
-        drags.push(`Publicado hace más de 3 semanas (-7 pts)`);
+        recencyScore = 60;
       }
     }
 
