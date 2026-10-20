@@ -29,11 +29,12 @@ export class ApifyService {
     try {
       this.logger.log(`Iniciando scraping en Apify con ${keywords.length} queries: ${keywords.join(' | ')} | Max: ${maxResults}`);
 
-      // Actor probado y verificado: flash_mage/upwork con orden Newest y nivel Experto/Intermedio
+      // Actor flash_mage/upwork: el parámetro oficial es 'query' (Search/Keywords) y orden 'relevance' (Best Match)
       const run = await this.client.actor('flash_mage/upwork').call({
-        queries: keywords,
+        query: keywords,
+        queries: keywords, // Dual para compatibilidad
         limit: maxResults,
-        sort: options?.sort || 'newest',
+        sort: options?.sort || 'relevance',
         experience_level: options?.experienceLevel || ['IntermediateLevel', 'ExpertLevel'],
         hourly: true,
         fixed: true,
