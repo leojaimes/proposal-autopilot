@@ -70,7 +70,7 @@
             </svg>
             <span>Extrayendo con tu Token de Apify...</span>
           } @else {
-            <span class="text-lg">🚀</span>
+            <svg lucideRocket class="w-6 h-6"></svg>
             <span class="text-sm font-extrabold">Extraer Empleos Reales de Upwork</span>
             <span class="text-[11px] font-normal opacity-80">15 empleos frescos evaluados en vivo</span>
           }
@@ -80,7 +80,7 @@
         <button (click)="restoreBoPreset()"
                 [disabled]="isLoadingPreset()"
                 class="p-4 rounded-2xl bg-surface-elevated hover:bg-surface-hover text-content-primary font-bold text-xs flex flex-col items-center justify-center gap-2 border border-border-subtle transition-all group">
-          <span class="text-lg">📦</span>
+          <svg lucideRotateCcw class="w-6 h-6 text-brand-primary"></svg>
           <span class="text-sm font-extrabold">Cargar Preset de Demostración (Bo)</span>
           <span class="text-[11px] font-normal text-content-muted">Restaura las 6 historias y los 15 empleos de prueba</span>
         </button>

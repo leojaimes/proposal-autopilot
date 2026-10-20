@@ -1,4 +1,5 @@
-import { Injectable, signal, computed, effect } from '@angular/core';
+import { Injectable, signal, computed, effect, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { PipelineStep, ProofStory } from '../models/pipeline.model';
 
 export interface CalibrationProfile {
@@ -100,6 +101,23 @@ export class PipelineStateService {
   public readonly excludedCountries = signal<string[]>(this.activeProfile().excludedCountries || []);
   public readonly geoFilterMode = signal<'WEIGHTED_PREFERENCE' | 'STRICT_EXCLUDE'>(this.activeProfile().geoFilterMode || 'WEIGHTED_PREFERENCE');
   public readonly proofStories = signal<ProofStory[]>(this.activeProfile().proofStories);
+
+  // Dynamic Query Synthesis (Tri-Factor Engine)
+  private readonly http = inject(HttpClient);
+  public readonly isSynthesizingQueries = signal<boolean>(false);
+  public readonly synthesisRationale = signal<string>('');
+  public readonly synthesisSuccessMessage = signal<string>('');
+  public readonly selectedBatchSize = signal<number>(30);
+
+  // Computed list of individual queries for interactive chips
+  public readonly activeQueriesList = computed<string[]>(() => {
+    const raw = this.keywordsText().trim();
+    if (!raw) return [];
+    if (raw.includes('\n')) {
+      return raw.split('\n').map(q => q.trim()).filter(Boolean);
+    }
+    return raw.split(',').map(q => q.trim()).filter(Boolean);
+  });
 
   constructor() {}
 
@@ -283,4 +301,75 @@ export class PipelineStateService {
       return copy;
     });
   }
+
+  private getApiBase(): string {
+    return (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
+      ? '/api'
+      : 'http://localhost:7000/api';
+  }
+
+  public removeQuery(queryToRemove: string): void {
+    const list = this.activeQueriesList().filter(q => q.toLowerCase() !== queryToRemove.toLowerCase());
+    this.keywordsText.set(list.join('\n'));
+    this.syncActiveProfile();
+  }
+
+  public addQuery(newQuery: string): void {
+    const trimmed = newQuery.trim();
+    if (!trimmed) return;
+    const current = this.activeQueriesList();
+    if (!current.includes(trimmed)) {
+      const updated = [...current, trimmed];
+      this.keywordsText.set(updated.join('\n'));
+      this.syncActiveProfile();
+    }
+  }
+
+  /**
+   * Invoca el motor de IA (Gemini 3.8 Flash) en el backend para sintetizar
+   * consultas booleanas Upwork alineadas con la oferta y las Proof Stories activas.
+   */
+  public async synthesizeQueriesWithAi(): Promise<{ success: boolean; queries: string[]; rationale?: string }> {
+    this.isSynthesizingQueries.set(true);
+    this.synthesisSuccessMessage.set('');
+    try {
+      // 1. Guardar primero el perfil actual para que el backend tenga la versión más fresca
+      await this.http.put(`${this.getApiBase()}/config/positioning`, {
+        offerHeadline: this.offerText(),
+        targetAudience: this.targetAudience(),
+        voiceRules: 'First person peer-to-peer. No em dashes anywhere. Sell result before tool.',
+      }).toPromise();
+
+      // 2. Invocar la síntesis dinámica en el backend
+      const res = await this.http.post<{
+        success: boolean;
+        queries: string[];
+        suggestedMinHourlyRate: number;
+        suggestedMinBudgetFixed: number;
+        rationale: string;
+      }>(`${this.getApiBase()}/config/synthesize-queries`, {}).toPromise();
+
+      if (res && res.queries && res.queries.length > 0) {
+        this.keywordsText.set(res.queries.join('\n'));
+        if (res.suggestedMinHourlyRate) {
+          this.minHourlyRate.set(res.suggestedMinHourlyRate);
+        }
+        if (res.suggestedMinBudgetFixed) {
+          this.minBudgetFixed.set(res.suggestedMinBudgetFixed);
+        }
+        this.synthesisRationale.set(res.rationale || '');
+        this.synthesisSuccessMessage.set(`¡${res.queries.length} queries booleanas sintetizadas desde tus historias!`);
+        this.syncActiveProfile();
+        return { success: true, queries: res.queries, rationale: res.rationale };
+      }
+      return { success: false, queries: [] };
+    } catch (err: any) {
+      console.error('Error al sintetizar queries con IA:', err);
+      this.synthesisSuccessMessage.set('Error conectando con el motor de IA.');
+      return { success: false, queries: [] };
+    } finally {
+      this.isSynthesizingQueries.set(false);
+    }
+  }
 }
+

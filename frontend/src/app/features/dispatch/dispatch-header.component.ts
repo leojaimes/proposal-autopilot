@@ -4,12 +4,30 @@ import { FormsModule } from '@angular/forms';
 import { PipelineStateService } from '../../core/services/pipeline-state.service';
 import { ReportService } from '../../core/services/report.service';
 
+import {
+  LucideUser,
+  LucidePlus,
+  LucideZap,
+  LucideSearch,
+  LucideSettings,
+  LucideChevronDown,
+} from '@lucide/angular';
+
 export type AppViewMode = 'TERMINAL' | 'EXPLORER';
 
 @Component({
   selector: 'app-dispatch-header',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    LucideUser,
+    LucidePlus,
+    LucideZap,
+    LucideSearch,
+    LucideSettings,
+    LucideChevronDown,
+  ],
   templateUrl: './dispatch-header.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

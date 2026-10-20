@@ -3,8 +3,10 @@ import { TenantsService } from './tenants.service';
 import { TenantsController } from './tenants.controller';
 import { PrismaService } from '../../core/database/prisma.service';
 import { TenantContextService } from '../../core/context/tenant-context.service';
+import { ProposalsModule } from '../proposals/proposals.module';
 
 @Module({
+  imports: [ProposalsModule],
   controllers: [TenantsController],
   providers: [TenantsService, PrismaService, TenantContextService],
   exports: [TenantsService],

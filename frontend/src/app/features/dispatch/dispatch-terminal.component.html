@@ -41,7 +41,21 @@
 
     <!-- Lead Cards List -->
     <div class="flex-1 overflow-y-auto divide-y divide-border-subtle/40 p-2 space-y-1">
-      @for (job of filteredJobs(); track job.id) {
+      @if (report.isLoading() || (report.isScrapingInProgress() && report.jobs().length === 0)) {
+        <!-- GHOST SKELETONS SHIMMER -->
+        <div class="p-2 text-center text-[11px] font-mono font-bold text-indigo-400 bg-indigo-500/10 rounded-xl border border-indigo-500/20 mb-2 animate-pulse flex items-center justify-center gap-1.5">
+          <svg lucideZap class="w-3.5 h-3.5 text-indigo-400"></svg>
+          <span>Buscando vacantes en Upwork...</span>
+        </div>
+        <app-job-card-skeleton></app-job-card-skeleton>
+      } @else {
+        @if (report.isScrapingInProgress()) {
+          <div class="p-2 text-center text-[10px] font-mono font-bold text-indigo-400 bg-indigo-500/10 rounded-lg border border-indigo-500/20 mb-2 animate-pulse flex items-center justify-center gap-1.5">
+            <svg lucideRefreshCw class="w-3.5 h-3.5 animate-spin text-indigo-400"></svg>
+            <span>Actualizando lote en segundo plano...</span>
+          </div>
+        }
+        @for (job of filteredJobs(); track job.id) {
         <div (click)="selectJob(job)"
              class="p-3.5 rounded-xl cursor-pointer transition-all duration-150 relative group border"
              [ngClass]="selectedJob()?.id === job.id 
@@ -73,27 +87,39 @@
 
           <!-- Client Meta Footer -->
           <div class="flex items-center justify-between mt-2.5 pt-2 border-t border-white/[0.04] text-[11px] text-content-muted font-mono">
-            <span class="flex items-center gap-1">
-              <span>📍 {{ job.clientCountry }}</span>
+            <span class="flex items-center gap-2">
+              <span class="inline-flex items-center gap-1">
+                <svg lucideMapPin class="w-3 h-3 text-content-muted"></svg>
+                <span>{{ job.clientCountry }}</span>
+              </span>
               <span>·</span>
-              <span class="text-amber-400">★ {{ job.clientRating.toFixed(1) }}</span>
+              <span class="inline-flex items-center gap-0.5 text-amber-400">
+                <svg lucideStar class="w-3 h-3 fill-amber-400/40 text-amber-400"></svg>
+                <span>{{ job.clientRating.toFixed(1) }}</span>
+              </span>
             </span>
             <span class="text-content-secondary font-medium">{{ job.proposalsAlreadyIn }} propuestas</span>
           </div>
         </div>
       } @empty {
         <div class="p-10 text-center text-xs text-content-muted space-y-2">
-          <span class="text-2xl block">🔍</span>
+          <div class="w-10 h-10 rounded-2xl bg-white/[0.03] border border-border-subtle flex items-center justify-center mx-auto text-content-muted mb-2">
+            <svg lucideSearch class="w-5 h-5"></svg>
+          </div>
           <p class="font-medium text-content-secondary">No se encontraron leads</p>
           <p class="text-[11px]">Prueba ajustando los filtros o el término de búsqueda.</p>
         </div>
       }
+    }
     </div>
 
     <!-- Bottom Connects Saved Bar -->
     <div class="p-3 border-t border-border-subtle bg-[#111624] flex items-center justify-between text-xs text-content-muted">
       <div class="flex items-center gap-1.5">
-        <span class="text-emerald-400 font-bold">🛡️ Ahorro:</span>
+        <span class="text-emerald-400 font-bold inline-flex items-center gap-1">
+          <svg lucideShieldCheck class="w-3.5 h-3.5"></svg>
+          <span>Ahorro:</span>
+        </span>
         <span class="font-mono text-content-primary font-semibold">{{ lowFitCount() * 16 }} Connects</span>
       </div>
       <span class="font-mono text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
@@ -147,8 +173,8 @@
 
           <!-- Intelligence Diagnostic Memo -->
           <div class="p-3.5 rounded-xl bg-[#0a0d16] border border-border-subtle/70 text-xs space-y-2">
-            <div class="flex items-start gap-2 text-content-secondary leading-relaxed">
-              <span class="text-brand-primary font-bold mt-0.5">💡</span>
+            <div class="flex items-start gap-2.5 text-content-secondary leading-relaxed">
+              <svg lucideLightbulb class="w-4 h-4 text-brand-primary flex-shrink-0 mt-0.5"></svg>
               <div>
                 <strong class="text-white">Diagnóstico del Algoritmo:</strong> {{ current.scoreNotes }}
               </div>
@@ -168,18 +194,20 @@
         <div class="p-5 rounded-2xl bg-[#0f1422] border border-border-subtle/80 shadow-md space-y-4">
           <div class="flex items-center justify-between border-b border-border-subtle/50 pb-3">
             <div class="flex items-center gap-2">
-              <span class="text-sm">⚖️</span>
+              <svg lucideScale class="w-4 h-4 text-brand-primary"></svg>
               <h2 class="text-xs font-bold uppercase tracking-wider text-content-primary">
                 Auditoría Decisional del Algoritmo (Fit Score {{ current.fitScore }}/100)
               </h2>
             </div>
             @if (current.isCapped) {
-              <span class="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded bg-rose-500/15 text-rose-400 border border-rose-500/30">
-                🛡️ Techo de Seguridad Activado
+              <span class="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded bg-rose-500/15 text-rose-400 border border-rose-500/30 inline-flex items-center gap-1.5">
+                <svg lucideShieldAlert class="w-3.5 h-3.5"></svg>
+                <span>Techo de Seguridad Activado</span>
               </span>
             } @else {
-              <span class="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-semibold">
-                ✓ Puntuación Sin Restricciones
+              <span class="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-semibold inline-flex items-center gap-1.5">
+                <svg lucideCircleCheck class="w-3.5 h-3.5"></svg>
+                <span>Puntuación Sin Restricciones</span>
               </span>
             }
           </div>
@@ -189,7 +217,10 @@
             <!-- 1. Afinidad Skills -->
             <div class="p-3 rounded-xl bg-[#0a0d16] border border-border-subtle/60 flex flex-col justify-between">
               <div class="flex items-center justify-between mb-1.5">
-                <span class="text-[11px] font-medium text-content-muted">🎯 Skills (40%)</span>
+                <span class="text-[11px] font-medium text-content-muted inline-flex items-center gap-1">
+                  <svg lucideTarget class="w-3 h-3 text-brand-primary"></svg>
+                  <span>Skills (40%)</span>
+                </span>
                 <span class="font-mono font-bold text-xs" [ngClass]="(current.skillScore || 0) >= 70 ? 'text-emerald-400' : 'text-amber-400'">
                   {{ current.skillScore ?? 0 }}%
                 </span>
@@ -204,7 +235,10 @@
             <!-- 2. Factibilidad AI -->
             <div class="p-3 rounded-xl bg-[#0a0d16] border border-border-subtle/60 flex flex-col justify-between">
               <div class="flex items-center justify-between mb-1.5">
-                <span class="text-[11px] font-medium text-content-muted">🤖 AI Fit (25%)</span>
+                <span class="text-[11px] font-medium text-content-muted inline-flex items-center gap-1">
+                  <svg lucideBot class="w-3 h-3 text-indigo-400"></svg>
+                  <span>AI Fit (25%)</span>
+                </span>
                 <span class="font-mono font-bold text-xs" [ngClass]="(current.aiFeasibilityScore || 0) >= 70 ? 'text-indigo-400' : 'text-amber-400'">
                   {{ current.aiFeasibilityScore ?? 0 }}%
                 </span>
@@ -219,7 +253,10 @@
             <!-- 3. Calidad Cliente -->
             <div class="p-3 rounded-xl bg-[#0a0d16] border border-border-subtle/60 flex flex-col justify-between">
               <div class="flex items-center justify-between mb-1.5">
-                <span class="text-[11px] font-medium text-content-muted">💎 Cliente (20%)</span>
+                <span class="text-[11px] font-medium text-content-muted inline-flex items-center gap-1">
+                  <svg lucideGem class="w-3 h-3 text-emerald-400"></svg>
+                  <span>Cliente (20%)</span>
+                </span>
                 <span class="font-mono font-bold text-xs" [ngClass]="(current.clientQualityScore || 0) >= 70 ? 'text-emerald-400' : 'text-amber-400'">
                   {{ current.clientQualityScore ?? 0 }}%
                 </span>
@@ -234,7 +271,10 @@
             <!-- 4. Frescura -->
             <div class="p-3 rounded-xl bg-[#0a0d16] border border-border-subtle/60 flex flex-col justify-between">
               <div class="flex items-center justify-between mb-1.5">
-                <span class="text-[11px] font-medium text-content-muted">⏱️ Frescura (15%)</span>
+                <span class="text-[11px] font-medium text-content-muted inline-flex items-center gap-1">
+                  <svg lucideClock class="w-3 h-3 text-amber-400"></svg>
+                  <span>Frescura (15%)</span>
+                </span>
                 <span class="font-mono font-bold text-xs" [ngClass]="(current.recencyScore || 0) >= 70 ? 'text-emerald-400' : 'text-amber-400'">
                   {{ current.recencyScore ?? 0 }}%
                 </span>
@@ -252,7 +292,8 @@
             <!-- Drivers -->
             <div class="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-2">
               <span class="text-[11px] font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider">
-                <span>🚀</span> Ventajas Competitivas (Drivers)
+                <svg lucideRocket class="w-3.5 h-3.5"></svg>
+                <span>Ventajas Competitivas (Drivers)</span>
               </span>
               <ul class="space-y-1.5">
                 @for (driver of current.drivers; track driver) {
@@ -269,7 +310,8 @@
             <!-- Drags -->
             <div class="p-3.5 rounded-xl bg-rose-500/5 border border-rose-500/20 space-y-2">
               <span class="text-[11px] font-bold text-rose-400 flex items-center gap-1.5 uppercase tracking-wider">
-                <span>⚠️</span> Factores de Fricción (Drags)
+                <svg lucideTriangleAlert class="w-3.5 h-3.5"></svg>
+                <span>Factores de Fricción (Drags)</span>
               </span>
               <ul class="space-y-1.5">
                 @for (drag of current.drags; track drag) {
@@ -278,7 +320,10 @@
                     <span>{{ drag }}</span>
                   </li>
                 } @empty {
-                  <li class="text-xs text-emerald-400 font-medium">✓ Ningún factor adverso registrado.</li>
+                  <li class="text-xs text-emerald-400 font-medium inline-flex items-center gap-1">
+                    <svg lucideCheck class="w-3.5 h-3.5"></svg>
+                    <span>Ningún factor adverso registrado.</span>
+                  </li>
                 }
               </ul>
             </div>
@@ -323,15 +368,11 @@
                         ? 'bg-emerald-500 text-white shadow-emerald-500/30' 
                         : 'bg-gradient-to-r from-brand-primary to-indigo-600 hover:from-brand-hover hover:to-indigo-500 text-white shadow-brand-primary/25 hover:shadow-brand-primary/40 hover:scale-[1.01] active:scale-[0.99]'">
                 @if (copied()) {
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
-                  </svg>
-                  <span>✓ ¡Copiado al Portapapeles!</span>
+                  <svg lucideCheck class="w-4 h-4"></svg>
+                  <span>¡Copiado al Portapapeles!</span>
                 } @else {
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
-                  </svg>
-                  <span>📋 Copiar Carta para Upwork</span>
+                  <svg lucideCopy class="w-4 h-4"></svg>
+                  <span>Copiar Carta para Upwork</span>
                 }
               </button>
 
@@ -346,7 +387,8 @@
                   </svg>
                   <span>Sintetizando...</span>
                 } @else {
-                  <span>✨ Regenerar con IA</span>
+                  <svg lucideSparkles class="w-4 h-4 text-brand-primary"></svg>
+                  <span>Regenerar con IA</span>
                 }
               </button>
 
@@ -361,56 +403,57 @@
                   </svg>
                   <span>Generando PDF...</span>
                 } @else {
-                  <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                  </svg>
-                  <span>📄 Descargar PDF Ejecutivo</span>
+                  <svg lucideFileDown class="w-4 h-4 text-indigo-400"></svg>
+                  <span>Descargar PDF Ejecutivo</span>
                 }
               </button>
 
               <!-- Toggle Technical Proposal -->
               <button (click)="toggleTechnicalProposal()"
                       class="py-3 px-4 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] text-content-primary font-bold text-xs flex items-center gap-1.5 border border-white/[0.1] transition-all">
-                <span>📑 {{ showTechnicalProposal() ? 'Ocultar Propuesta' : 'Ver Propuesta Técnica' }}</span>
+                <svg lucideLayers class="w-4 h-4 text-content-muted"></svg>
+                <span>{{ showTechnicalProposal() ? 'Ocultar Propuesta' : 'Ver Propuesta Técnica' }}</span>
               </button>
 
               <!-- Apply Direct Link -->
               <a [href]="current.applyLink" target="_blank"
                  class="py-3 px-5 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] text-white font-bold text-xs flex items-center gap-1.5 border border-white/[0.1] transition-all">
-                <span>🚀 Abrir en Upwork</span>
-                <svg class="w-3.5 h-3.5 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                </svg>
+                <svg lucideExternalLink class="w-4 h-4 text-brand-primary"></svg>
+                <span>Abrir en Upwork</span>
               </a>
             </div>
 
             <!-- Inline Success Toast Banner -->
             @if (successBanner()) {
               <div class="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-2 animate-fadeIn">
-                <span>✓</span>
+                <svg lucideCheck class="w-4 h-4 text-emerald-400"></svg>
                 <span>{{ successBanner() }}</span>
               </div>
             }
           </div>
         } @else {
-          <!-- Skipped / Capped Notice with One-Click Generate -->
-          <div class="p-8 rounded-2xl bg-[#0f1422] border border-border-subtle/80 text-center space-y-3">
-            <span class="text-3xl block">⚡</span>
-            <h3 class="text-sm font-bold text-white">Propuesta en pausa preventiva</h3>
-            <p class="text-xs text-content-muted max-w-md mx-auto leading-relaxed">
-              Este empleo fue catalogado como <strong class="text-content-primary">{{ current.fitLabel }} Fit</strong> para proteger tus tokens. Puedes forzar la síntesis con un solo clic.
+          <!-- On-Demand Synthesis Box with One-Click Generate -->
+          <div class="p-8 rounded-2xl bg-[#0f1422] border border-brand-primary/30 shadow-xl text-center space-y-3.5 relative overflow-hidden animate-fadeIn">
+            <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-48 h-20 bg-brand-primary/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div class="w-12 h-12 rounded-2xl bg-brand-primary/10 border border-brand-primary/30 flex items-center justify-center mx-auto text-brand-primary mb-2 shadow-inner">
+              <svg lucideZap class="w-6 h-6"></svg>
+            </div>
+            <h3 class="text-sm font-bold text-white tracking-wide">Propuesta Bajo Demanda Lista para Redacción</h3>
+            <p class="text-xs text-content-muted max-w-lg mx-auto leading-relaxed">
+              Genera al instante la propuesta personalizada de 30-35 palabras, el roadmap ejecutivo y el diagrama Mermaid con Google Gemini para este cliente.
             </p>
             <button (click)="regenerateProposal()"
                     [disabled]="isRegenerating()"
-                    class="py-2.5 px-5 rounded-xl bg-brand-primary hover:bg-brand-hover text-white font-bold text-xs inline-flex items-center gap-2 transition-all shadow-md">
+                    class="py-3 px-6 rounded-xl bg-gradient-to-r from-brand-primary to-indigo-600 hover:from-brand-hover hover:to-indigo-500 text-white font-bold text-xs inline-flex items-center gap-2 transition-all shadow-lg hover:shadow-brand-primary/30 hover:scale-[1.02] active:scale-[0.98]">
               @if (isRegenerating()) {
                 <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
                 </svg>
-                <span>Generando...</span>
+                <span>Redactando con Gemini (~2s)...</span>
               } @else {
-                <span>✨ Generar Propuesta con IA</span>
+                <svg lucideSparkles class="w-4 h-4"></svg>
+                <span>Generar Propuesta con Gemini</span>
               }
             </button>
           </div>
@@ -421,7 +464,7 @@
           <div class="p-6 rounded-2xl bg-[#0f1422] border border-border-subtle/80 shadow-2xl space-y-4 animate-fadeIn">
             <div class="flex items-center justify-between border-b border-border-subtle/60 pb-3">
               <div class="flex items-center gap-2">
-                <span class="text-sm">📑</span>
+                <svg lucideLayers class="w-4 h-4 text-brand-primary"></svg>
                 <h3 class="text-xs font-bold uppercase tracking-wider text-white">
                   Propuesta Estratégica Completa & Hitos 90 Días
                 </h3>
@@ -448,7 +491,9 @@
     } @else {
       <!-- Empty State -->
       <div class="h-full flex flex-col items-center justify-center text-center p-8 text-content-muted">
-        <span class="text-4xl mb-3">⚡</span>
+        <div class="w-16 h-16 rounded-3xl bg-white/[0.03] border border-border-subtle flex items-center justify-center mb-4 text-brand-primary shadow-inner">
+          <svg lucideZap class="w-8 h-8"></svg>
+        </div>
         <h3 class="text-base font-bold text-white">Selecciona un lead de la lista</h3>
         <p class="text-xs mt-1 max-w-sm text-content-secondary">
           Haz clic en cualquier empleo del panel izquierdo para inspeccionar su diagnóstico y despachar la propuesta.

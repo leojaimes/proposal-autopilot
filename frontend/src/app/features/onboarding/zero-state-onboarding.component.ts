@@ -5,10 +5,12 @@ import { HttpClient } from '@angular/common/http';
 import { PipelineStateService } from '../../core/services/pipeline-state.service';
 import { ReportService } from '../../core/services/report.service';
 
+import { LucideRocket, LucideRotateCcw } from '@lucide/angular';
+
 @Component({
   selector: 'app-zero-state-onboarding',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LucideRocket, LucideRotateCcw],
   templateUrl: './zero-state-onboarding.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

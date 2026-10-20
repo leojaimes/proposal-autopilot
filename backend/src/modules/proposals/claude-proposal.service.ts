@@ -20,11 +20,25 @@ export interface ProposalOutput {
   mermaidDiagramCode: string;
 }
 
+export interface SynthesizeQueriesInput {
+  offerHeadline: string;
+  targetAudience: string;
+  proofStories: Array<{ companyOrProduct: string; impactMetric: string; domainTags: string[] }>;
+  dealbreakerKeywords?: string[];
+}
+
+export interface SynthesizeQueriesOutput {
+  searchQueries: string[];
+  suggestedMinHourlyRate: number;
+  suggestedMinBudgetFixed: number;
+  rationale: string;
+}
+
 @Injectable()
 export class ClaudeProposalService {
   private readonly logger = new Logger(ClaudeProposalService.name);
   private readonly geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_KEY || process.env.AI_STUDIO_API_KEY;
-  private readonly geminiModel = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  private readonly geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
   constructor() {
     if (this.geminiApiKey) {
@@ -80,7 +94,7 @@ Audited Metric: ${input.proofStoryMetric || 'Scaled production platform with pro
 Role: ${input.normalizedRole || 'Senior Product Specialist'}
 Offer Headline: ${input.offerHeadline || 'AI-native UX & High-Scale Product Architecture'}
 Target Audience: ${input.targetAudience || 'Seed-to-Series B SaaS founders and product leads'}
-Voice Guidelines: ${input.voiceRules?.join(', ') || 'First person peer-to-peer, zero filler, no em dashes'}
+Voice Guidelines: ${Array.isArray(input.voiceRules) ? input.voiceRules.join(', ') : (input.voiceRules || 'First person peer-to-peer, zero filler, no em dashes')}
 
 [CRITICAL PSYCHOLOGICAL INBOX DYNAMICS - THE 2-LINE SCREEN TRAP]
 - The client skims 30 to 50 proposals in their Upwork inbox. They only read the first 2 lines (~150 characters) before deciding whether to archive or click.
@@ -147,11 +161,13 @@ flowchart TD
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(15000),
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           responseMimeType: 'application/json',
           temperature: 0.3,
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
     });
@@ -182,6 +198,110 @@ flowchart TD
       coverLetter35Words: letter,
       technicalProposalBody: parsed.technicalProposalBody || '',
       mermaidDiagramCode: mermaid,
+    };
+  }
+
+  /**
+   * Sintetiza queries booleanas optimizadas para Upwork a partir del perfil y las Proof Stories.
+   */
+  async synthesizeQueries(input: SynthesizeQueriesInput): Promise<SynthesizeQueriesOutput> {
+    const dealbreakers = (input.dealbreakerKeywords && input.dealbreakerKeywords.length > 0)
+      ? input.dealbreakerKeywords
+      : ['crypto', 'tutor', 'unpaid', 'commission only', 'internship'];
+
+    if (this.geminiApiKey && !this.geminiApiKey.includes('REPLACE_WITH_YOUR')) {
+      try {
+        const prompt = `You are an elite Upwork Lead Generation Strategist for specialized high-ticket consultants and product agencies.
+Analyze the following contractor positioning profile, transformation offer, and authority proof stories.
+Synthesize exactly 3 to 5 high-intent, targeted search queries strictly formatted for Upwork's native search engine (Lucene/Elasticsearch boolean syntax).
+
+[TRANSFORMATION OFFER]
+Headline: ${input.offerHeadline}
+Target Audience: ${input.targetAudience}
+
+[AUTHORITY PROOF STORIES]
+${input.proofStories.map((s, i) => `#${i + 1} Company/Product: ${s.companyOrProduct} | Impact Metric: ${s.impactMetric} | Domain Tags: ${s.domainTags.join(', ')}`).join('\n')}
+
+[DEALBREAKERS / EXCLUSIONS]
+${dealbreakers.join(', ')}
+
+[OUTPUT REQUIREMENTS]
+1. Target the specific PAIN POINTS, ARCHITECTURAL BOTTLENECKS, and TRANSFORMATIONS solved by these proof stories.
+2. Use valid Upwork boolean operators (AND, OR, NOT) and double quotes for exact multi-word phrases (e.g. ("Design System" OR "Figma Variables") AND ("SaaS" OR "Enterprise")).
+3. Exclude low-ticket noise using NOT (e.g. NOT ("Crypto" OR "Tutor" OR "Unpaid")).
+4. Output STRICT JSON:
+{
+  "searchQueries": [
+    "(\\"Query 1\\" OR \\"...\\") AND (\\"...\\")",
+    "(\\"Query 2\\" OR \\"...\\") AND (\\"...\\")",
+    "(\\"Query 3\\" OR \\"...\\") NOT (\\"...\\")"
+  ],
+  "suggestedMinHourlyRate": 45,
+  "suggestedMinBudgetFixed": 1000,
+  "rationale": "Why these queries target clients needing this exact transformation"
+}`;
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.geminiModel}:generateContent?key=${this.geminiApiKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(15000),
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.2,
+              thinkingConfig: { thinkingBudget: 0 },
+            },
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed.searchQueries) && parsed.searchQueries.length > 0) {
+            return {
+              searchQueries: parsed.searchQueries,
+              suggestedMinHourlyRate: Number(parsed.suggestedMinHourlyRate) || 40,
+              suggestedMinBudgetFixed: Number(parsed.suggestedMinBudgetFixed) || 1000,
+              rationale: parsed.rationale || 'Consultas booleanas generadas dinámicamente con IA.',
+            };
+          }
+        }
+      } catch (err) {
+        this.logger.error('Error sintetizando queries con Gemini, usando fallback determinista:', err);
+      }
+    }
+
+    // Fallback Determinista Inteligente
+    const notClause = `NOT (${dealbreakers.slice(0, 4).map(d => `"${d}"`).join(' OR ')})`;
+    const fallbackQueries: string[] = [];
+
+    // Query 1: Basada en la historia #1
+    if (input.proofStories.length > 0) {
+      const s1 = input.proofStories[0];
+      const tags = s1.domainTags.slice(0, 3).map(t => `"${t}"`).join(' OR ');
+      fallbackQueries.push(`(${tags || '"Design System"'}) AND ("SaaS" OR "Enterprise") ${notClause}`);
+    }
+
+    // Query 2: Basada en la historia #2 o AI UX
+    if (input.proofStories.length > 1) {
+      const s2 = input.proofStories[1];
+      const tags = s2.domainTags.slice(0, 3).map(t => `"${t}"`).join(' OR ');
+      fallbackQueries.push(`(${tags || '"AI UX"'}) AND ("Product" OR "Prototype") ${notClause}`);
+    } else {
+      fallbackQueries.push(`("AI Interaction" OR "Agentic UX" OR "Conversational AI") ${notClause}`);
+    }
+
+    // Query 3: Rediseño / Transformación
+    fallbackQueries.push(`("B2B SaaS" OR "Product Designer") AND ("Redesign" OR "Design Tokens") ${notClause}`);
+
+    return {
+      searchQueries: fallbackQueries,
+      suggestedMinHourlyRate: 40,
+      suggestedMinBudgetFixed: 1000,
+      rationale: 'Consultas combinatorias derivadas directamente de los tags de tus historias de autoridad.',
     };
   }
 }

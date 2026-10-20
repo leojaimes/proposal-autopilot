@@ -36,10 +36,35 @@ mermaid.initialize({
   securityLevel: 'loose'
 });
 
+import {
+  LucideWorkflow,
+  LucideCode,
+  LucideMinus,
+  LucidePlus,
+  LucideRotateCcw,
+  LucideDownload,
+  LucideCheck,
+  LucideCopy,
+  LucideTriangleAlert,
+  LucideMousePointer,
+} from '@lucide/angular';
+
 @Component({
   selector: 'app-mermaid-viewer',
   standalone: true,
-  imports: [CommonModule],
+  imports: [
+    CommonModule,
+    LucideWorkflow,
+    LucideCode,
+    LucideMinus,
+    LucidePlus,
+    LucideRotateCcw,
+    LucideDownload,
+    LucideCheck,
+    LucideCopy,
+    LucideTriangleAlert,
+    LucideMousePointer,
+  ],
   templateUrl: './mermaid-viewer.component.html',
   styleUrls: ['./mermaid-viewer.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,

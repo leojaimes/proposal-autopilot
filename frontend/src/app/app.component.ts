@@ -5,6 +5,7 @@ import { DispatchTerminalComponent } from './features/dispatch/dispatch-terminal
 import { JobExplorerComponent } from './features/explorer/job-explorer.component';
 import { EngineSettingsDrawerComponent } from './features/dispatch/engine-settings-drawer.component';
 import { ZeroStateOnboardingComponent } from './features/onboarding/zero-state-onboarding.component';
+import { LiveScrapeProgressComponent } from './features/dispatch/live-scrape-progress.component';
 import { ReportService } from './core/services/report.service';
 
 @Component({
@@ -17,6 +18,7 @@ import { ReportService } from './core/services/report.service';
     JobExplorerComponent,
     EngineSettingsDrawerComponent,
     ZeroStateOnboardingComponent,
+    LiveScrapeProgressComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -28,9 +30,12 @@ import { ReportService } from './core/services/report.service';
         (openSettings)="isSettingsOpen.set(true)">
       </app-dispatch-header>
 
+      <!-- Live SSE Scraping Activity Banner -->
+      <app-live-scrape-progress></app-live-scrape-progress>
+
       <!-- Main Body: Conditional on Empty State vs Active Data -->
       <div class="flex-1 overflow-hidden flex">
-        @if (report.jobs().length === 0 && !report.isLoading()) {
+        @if (report.jobs().length === 0 && !report.isLoading() && !report.isScrapingInProgress()) {
           <!-- ZERO STATE / GREENFIELD ONBOARDING -->
           <main class="flex-1 overflow-y-auto bg-app">
             <app-zero-state-onboarding></app-zero-state-onboarding>

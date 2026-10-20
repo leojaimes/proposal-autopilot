@@ -18,10 +18,12 @@ import {
 } from './excel-table.models';
 import { ExcelColumnPopoverComponent } from './excel-column-popover.component';
 
+import { LucideZap, LucideSearch } from '@lucide/angular';
+
 @Component({
   selector: 'app-excel-table',
   standalone: true,
-  imports: [CommonModule, FormsModule, ExcelColumnPopoverComponent],
+  imports: [CommonModule, FormsModule, ExcelColumnPopoverComponent, LucideZap, LucideSearch],
   templateUrl: './excel-table.component.html',
   styleUrls: ['./excel-table.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -1,6 +1,8 @@
-import { Controller, Post, Get, Patch, Body, Param, Logger, NotFoundException, Res } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Body, Param, Logger, NotFoundException, Res, Sse, MessageEvent } from '@nestjs/common';
+import { Observable } from 'rxjs';
 import { Response } from 'express';
 import { ApifyService } from './apify.service';
+import { ScrapingProgressService } from './scraping-progress.service';
 import { ApifyJobAdapter } from './adapters/apify-job.adapter';
 import { FitCalculatorService } from '../scoring/services/fit-calculator.service';
 import { ClaudeProposalService } from '../proposals/claude-proposal.service';
@@ -12,6 +14,7 @@ import { BudgetType, JobStatus, StrategicLane, FitTier } from '@prisma/client';
 export interface TriggerScrapeDto {
   keywords?: string[];
   maxResults?: number;
+  limit?: number;
 }
 
 export interface UpdateStatusDto {
@@ -24,6 +27,7 @@ export class ScrapingController {
 
   constructor(
     private readonly apifyService: ApifyService,
+    private readonly progressService: ScrapingProgressService,
     private readonly apifyAdapter: ApifyJobAdapter,
     private readonly fitCalculator: FitCalculatorService,
     private readonly claudeProposal: ClaudeProposalService,
@@ -33,19 +37,67 @@ export class ScrapingController {
   ) {}
 
   /**
-   * Dispara el scraping de Apify, clasifica con taxonomía, calcula Fit 0-100 y genera propuestas
+   * SSE Endpoint: Stream de progreso en tiempo real para un batch específico
+   */
+  @Sse('progress/:batchId')
+  streamBatchProgress(@Param('batchId') batchId: string): Observable<MessageEvent> {
+    return this.progressService.getProgressStream(batchId);
+  }
+
+  /**
+   * SSE Endpoint: Stream de progreso para el tenant activo
+   */
+  @Sse('progress')
+  streamActiveProgress(): Observable<MessageEvent> {
+    const tenantId = this.tenantContext.getTenantId();
+    return this.progressService.getTenantProgressStream(tenantId);
+  }
+
+  /**
+   * Dispara el scraping de Upwork en segundo plano y retorna de inmediato (<100ms).
+   * El cliente se conecta al endpoint SSE /api/scraping/progress/:batchId para recibir el progreso en vivo.
    */
   @Post('trigger')
   async triggerBatch(@Body() body: TriggerScrapeDto) {
     const tenantId = this.tenantContext.getTenantId();
-    const keywords = body.keywords && body.keywords.length > 0 
-      ? body.keywords 
-      : ['UX Designer', 'Product Designer', 'Design Systems', 'AI UX', 'Figma'];
-    const maxResults = body.maxResults || 15;
+    const scrapeConfig = await this.prisma.scrapeConfig.findFirst({ where: { tenantId } });
 
-    this.logger.log(`Disparando batch para Tenant ${tenantId} con ${keywords.length} keywords`);
+    // 1. Resolver keywords dinámicas (Body > ScrapeConfig > Síntesis IA)
+    let keywords = (body.keywords && body.keywords.length > 0) ? body.keywords : scrapeConfig?.searchKeywords;
+    if (!keywords || keywords.length === 0) {
+      const profile = await this.prisma.positioningProfile.findFirst({
+        where: { tenantId, isActive: true },
+        include: { proofStories: true },
+      });
+      if (profile && profile.proofStories.length > 0) {
+        const synthesis = await this.claudeProposal.synthesizeQueries({
+          offerHeadline: profile.offerHeadline,
+          targetAudience: profile.targetAudience,
+          proofStories: profile.proofStories.map(ps => ({
+            companyOrProduct: ps.companyOrProduct,
+            impactMetric: ps.impactMetric,
+            domainTags: ps.domainTags,
+          })),
+        });
+        keywords = synthesis.searchQueries;
+        if (scrapeConfig) {
+          await this.prisma.scrapeConfig.update({
+            where: { id: scrapeConfig.id },
+            data: { searchKeywords: keywords },
+          });
+        }
+      } else {
+        keywords = [
+          '("Design System" OR "Figma Variables") AND ("SaaS" OR "Enterprise")',
+          '("AI Interaction" OR "Agentic UX" OR "Conversational AI")',
+          '("B2B SaaS" OR "Product Designer") AND ("Redesign" OR "Handoff")',
+        ];
+      }
+    }
 
-    // 1. Asegurar que exista un Tenant por defecto para pruebas
+    const maxResults = body.maxResults || body.limit || 30;
+
+    // 2. Asegurar que exista un Tenant por defecto para pruebas
     let tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) {
       tenant = await this.prisma.tenant.create({
@@ -58,7 +110,7 @@ export class ScrapingController {
       });
     }
 
-    // 2. Registrar el inicio del BatchRun
+    // 3. Registrar el inicio del BatchRun en PostgreSQL
     const batchRun = await this.prisma.batchRun.create({
       data: {
         tenantId,
@@ -66,20 +118,120 @@ export class ScrapingController {
       },
     });
 
-    // 3. Ejecutar Scraper de Apify (flash_mage/upwork)
+    this.logger.log(`Iniciando batch asíncrono ${batchRun.id} para Tenant ${tenantId} con ${keywords.length} queries`);
+
+    // 4. Emitir evento inicial en el canal SSE
+    this.progressService.emitProgress({
+      batchId: batchRun.id,
+      tenantId,
+      step: 'STARTING',
+      message: 'Conectando con el motor y preparando queries...',
+      percentage: 5,
+    });
+
+    // 5. Lanzar el pipeline en segundo plano (Desacoplado, no bloqueante)
+    setImmediate(() => {
+      this.executeBatchPipeline(batchRun.id, tenantId, keywords, maxResults).catch(async (err) => {
+        this.logger.error(`Error no controlado en background batch ${batchRun.id}:`, err);
+        await this.prisma.batchRun.update({
+          where: { id: batchRun.id },
+          data: {
+            finishedAt: new Date(),
+            status: 'FAILED',
+          },
+        }).catch(() => {});
+
+        this.progressService.emitProgress({
+          batchId: batchRun.id,
+          tenantId,
+          step: 'ERROR',
+          message: `Error en la extracción: ${err.message || 'Fallo de conexión'}`,
+          percentage: 100,
+          error: err.message,
+        });
+      });
+    });
+
+    // 6. Respuesta INMEDIATA al navegador (<100ms)
+    return {
+      success: true,
+      batchRunId: batchRun.id,
+      batchId: batchRun.id,
+      status: 'RUNNING',
+      message: 'Extracción iniciada en segundo plano con streaming SSE activo',
+      totalQueries: keywords.length,
+      maxResults,
+    };
+  }
+
+  /**
+   * Ejecuta el pipeline completo de extracción, scoring y síntesis de propuestas en background,
+   * emitiendo eventos de progreso continuos mediante SSE.
+   */
+  private async executeBatchPipeline(
+    batchRunId: string,
+    tenantId: string,
+    keywords: string[],
+    maxResults: number,
+  ): Promise<void> {
+    // FASE 1: Scraper de Apify
+    this.progressService.emitProgress({
+      batchId: batchRunId,
+      tenantId,
+      step: 'APIFY_RUNNING',
+      message: `🕷️ Apify buscando hasta ${maxResults} vacantes frescas en Upwork...`,
+      percentage: 15,
+    });
+
     const rawJobs = await this.apifyService.runUpworkScraper(keywords, maxResults);
-    this.logger.log(`Se recibieron ${rawJobs.length} empleos desde Apify`);
+    this.logger.log(`[Batch ${batchRunId}] Se recibieron ${rawJobs.length} empleos desde Apify`);
+
+    if (!rawJobs || rawJobs.length === 0) {
+      await this.prisma.batchRun.update({
+        where: { id: batchRunId },
+        data: {
+          finishedAt: new Date(),
+          jobsFound: 0,
+          highFitCount: 0,
+          mediumFitCount: 0,
+          status: 'COMPLETED',
+        },
+      });
+
+      this.progressService.emitProgress({
+        batchId: batchRunId,
+        tenantId,
+        step: 'COMPLETED',
+        message: 'No se encontraron vacantes nuevas con los filtros especificados.',
+        percentage: 100,
+        totalJobs: 0,
+        highFitCount: 0,
+      });
+      return;
+    }
+
+    // FASE 2: Normalización & Scoring 0-100
+    this.progressService.emitProgress({
+      batchId: batchRunId,
+      tenantId,
+      step: 'SCORING',
+      message: `🧠 ${rawJobs.length} vacantes descargadas. Calculando FitScore 0-100...`,
+      percentage: 40,
+      totalJobs: rawJobs.length,
+    });
 
     let highFitCount = 0;
     let mediumFitCount = 0;
-    const processedJobs = [];
+    const scrapeConfig = await this.prisma.scrapeConfig.findFirst({ where: { tenantId } });
+    const scoredCandidates: Array<{ jobPost: any; evaluation: any }> = [];
 
-    // 4. Procesar, puntuar y guardar cada empleo usando el Normalizador Defensivo
-    for (const raw of rawJobs) {
+    // FASE 2: Normalización & Scoring 0-100 para todas las vacantes
+    for (let idx = 0; idx < rawJobs.length; idx++) {
+      const raw = rawJobs[idx];
       const normalized = this.apifyAdapter.normalizeRaw(raw);
       if (!normalized.externalId) continue;
 
-      // Upsert JobPost con datos reales normalizados
+      // Upsert JobPost
       const jobPost = await this.prisma.jobPost.upsert({
         where: {
           uq_tenant_external_job: {
@@ -89,7 +241,7 @@ export class ScrapingController {
         },
         create: {
           tenantId,
-          batchRunId: batchRun.id,
+          batchRunId,
           externalUpworkId: normalized.externalId,
           title: normalized.title,
           description: normalized.description,
@@ -125,8 +277,7 @@ export class ScrapingController {
         },
       });
 
-      // 5. Cálculo Matemático del FitScore (40/25/20/15 + CAP en 44 + Geo Targeting)
-      const scrapeConfig = await this.prisma.scrapeConfig.findFirst({ where: { tenantId } });
+      // Cálculo Matemático del FitScore
       const evaluation = this.fitCalculator.calculate({
         title: jobPost.title,
         description: jobPost.description,
@@ -182,8 +333,48 @@ export class ScrapingController {
         },
       });
 
-      // 6. Generación Lazy de Propuesta (solo si no es LOW)
-      if (evaluation.fitTier !== 'LOW') {
+      scoredCandidates.push({ jobPost, evaluation });
+
+      // Emisión de progreso durante el scoring
+      if ((idx + 1) % 10 === 0 || idx === rawJobs.length - 1) {
+        const dynamicPct = 40 + Math.round(((idx + 1) / rawJobs.length) * 25);
+        this.progressService.emitProgress({
+          batchId: batchRunId,
+          tenantId,
+          step: 'SCORING',
+          message: `🧠 Calculando FitScore (${idx + 1}/${rawJobs.length}) · ${highFitCount} High Fit detectados...`,
+          percentage: dynamicPct,
+          totalJobs: rawJobs.length,
+          highFitCount,
+          mediumFitCount,
+        });
+      }
+    }
+
+    // FASE 3: Síntesis Automática del "Top 3 Gold" con Gemini (~3-4s total, el resto bajo demanda)
+    const top3Gold = scoredCandidates
+      .filter(c => c.evaluation.fitTier !== 'LOW')
+      .sort((a, b) => b.evaluation.overallScore - a.evaluation.overallScore)
+      .slice(0, 3);
+
+    for (let i = 0; i < top3Gold.length; i++) {
+      const { jobPost, evaluation } = top3Gold[i];
+      const dynamicPct = 65 + Math.round(((i + 1) / (top3Gold.length || 1)) * 30);
+
+      this.progressService.emitProgress({
+        batchId: batchRunId,
+        tenantId,
+        step: 'PROPOSAL_GENERATION',
+        message: `✨ Redactando Top 3 Gold (#${i + 1}/${top3Gold.length}) con Gemini: "${jobPost.title.substring(0, 32)}..."`,
+        percentage: dynamicPct,
+        currentJobIndex: i + 1,
+        totalJobs: top3Gold.length,
+        currentJobTitle: jobPost.title,
+        highFitCount,
+        mediumFitCount,
+      });
+
+      try {
         const proposalResult = await this.claudeProposal.generate({
           jobTitle: jobPost.title,
           jobDescription: jobPost.description,
@@ -208,24 +399,14 @@ export class ScrapingController {
             mermaidDiagramCode: proposalResult.mermaidDiagramCode,
           },
         });
+      } catch (err: any) {
+        this.logger.warn(`Error sintetizando propuesta Top 3 Gold para ${jobPost.id}: ${err.message}`);
       }
-
-      processedJobs.push({
-        id: jobPost.id,
-        externalUpworkId: jobPost.externalUpworkId,
-        title: jobPost.title,
-        overallScore: evaluation.overallScore,
-        fitTier: evaluation.fitTier,
-        strategicLane: evaluation.strategicLane,
-        normalizedRole: evaluation.normalizedRole,
-        suggestedProofStory: evaluation.suggestedProofStory,
-        isCapped: evaluation.isCapped,
-      });
     }
 
-    // Actualizar BatchRun
+    // Actualizar BatchRun como COMPLETED
     await this.prisma.batchRun.update({
-      where: { id: batchRun.id },
+      where: { id: batchRunId },
       data: {
         finishedAt: new Date(),
         jobsFound: rawJobs.length,
@@ -235,15 +416,18 @@ export class ScrapingController {
       },
     });
 
-    return {
-      success: true,
-      batchRunId: batchRun.id,
-      totalScraped: rawJobs.length,
+    // FASE 4: Finalización exitosa
+    this.progressService.emitProgress({
+      batchId: batchRunId,
+      tenantId,
+      step: 'COMPLETED',
+      message: `✅ ¡Lote completado! ${rawJobs.length} vacantes analizadas (${highFitCount} High Fit). Top 3 Gold listas para despacho.`,
+      percentage: 100,
+      totalJobs: rawJobs.length,
       highFitCount,
-      mediumFitCount,
-      lowFitCount: rawJobs.length - (highFitCount + mediumFitCount),
-      jobs: processedJobs,
-    };
+    });
+
+    this.logger.log(`[Batch ${batchRunId}] Pipeline finalizado exitosamente: ${highFitCount} High Fit, ${mediumFitCount} Medium Fit.`);
   }
 
   /**
@@ -541,48 +725,48 @@ export class ScrapingController {
 
       if (ev) {
         if (ev.skillScore >= 80) {
-          drivers.push(`🎯 Rol alineado: ${ev.normalizedRole} (${ev.skillScore} pts)`);
+          drivers.push(`Rol alineado: ${ev.normalizedRole} (${ev.skillScore} pts)`);
         } else if (ev.skillScore <= 35) {
-          drags.push(`🚫 Rol fuera de nicho o baja afinidad (${ev.skillScore} pts)`);
+          drags.push(`Rol fuera de nicho o baja afinidad (${ev.skillScore} pts)`);
         }
 
         if (Number(job.clientTotalSpend || 0) >= 20000) {
-          drivers.push(`💎 Cliente High-Ticket ($${Math.round(Number(job.clientTotalSpend)).toLocaleString()} USD gastados)`);
+          drivers.push(`Cliente High-Ticket ($${Math.round(Number(job.clientTotalSpend)).toLocaleString()} USD gastados)`);
         } else if (Number(job.clientTotalSpend || 0) < 500) {
-          drags.push(`⚠️ Cliente nuevo con baja inversión ($${Math.round(Number(job.clientTotalSpend))} USD)`);
+          drags.push(`Cliente nuevo con baja inversión ($${Math.round(Number(job.clientTotalSpend))} USD)`);
         }
 
         if (Number(job.clientRating || 0) >= 4.8) {
-          drivers.push(`★ Excelente reputación (★ ${Number(job.clientRating).toFixed(1)}/5.0)`);
+          drivers.push(`Excelente reputación (${Number(job.clientRating).toFixed(1)}/5.0)`);
         }
 
         if (job.isPaymentVerified) {
-          drivers.push(`✓ Método de pago verificado`);
+          drivers.push(`Método de pago verificado`);
         } else {
-          drags.push(`⚠️ Método de pago NO verificado (-20 pts)`);
+          drags.push(`Método de pago no verificado (-20 pts)`);
         }
 
         if (isTargetCountry) {
-          drivers.push(`🌍 Mercado prioritario: ${job.clientCountry} (+15 pts)`);
+          drivers.push(`Mercado prioritario: ${job.clientCountry} (+15 pts)`);
         }
         if (isExcludedCountry) {
-          drags.push(`🚫 País en lista negra: ${job.clientCountry}`);
+          drags.push(`País en lista de exclusión: ${job.clientCountry}`);
         }
 
         if (job.proposalsCount <= 5) {
-          drivers.push(`⚡ Ventaja primer postor: Solo ${job.proposalsCount} propuestas`);
+          drivers.push(`Ventaja primer postor: Solo ${job.proposalsCount} propuestas`);
         } else if (job.proposalsCount > 20) {
-          drags.push(`⚠️ Alta competencia: ${job.proposalsCount} propuestas ya enviadas`);
+          drags.push(`Alta competencia: ${job.proposalsCount} propuestas ya enviadas`);
         }
 
         if (ev.recencyScore >= 85) {
-          drivers.push(`🔥 Vacante ultra fresca (<6h)`);
+          drivers.push(`Vacante ultra fresca (<6h)`);
         } else if (ev.recencyScore <= 50) {
-          drags.push(`⏳ Vacante antigua (>24h)`);
+          drags.push(`Vacante antigua (>24h)`);
         }
 
         if (ev.isCapped && ev.capReason) {
-          drags.push(`🛡️ Techo de seguridad: ${ev.capReason}`);
+          drags.push(`Techo de seguridad: ${ev.capReason}`);
         }
       }
 
@@ -791,7 +975,7 @@ export class ScrapingController {
   @Post('restore-preset')
   async restorePreset() {
     const tenantId = this.tenantContext.getTenantId();
-    await this.triggerBatch({ maxResults: 15 });
+    await this.triggerBatch({ maxResults: 30 });
     return { success: true, message: 'Preset restaurado con éxito.' };
   }
 }

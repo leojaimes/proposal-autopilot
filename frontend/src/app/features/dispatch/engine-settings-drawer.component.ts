@@ -6,17 +6,41 @@ import { PipelineStateService } from '../../core/services/pipeline-state.service
 import { ReportService } from '../../core/services/report.service';
 import { ProofStory } from '../../core/models/pipeline.model';
 
+import {
+  LucideSettings,
+  LucidePlus,
+  LucideZap,
+  LucideRocket,
+  LucideTarget,
+  LucideShieldAlert,
+  LucideClock,
+  LucideTrash,
+  LucideRotateCcw,
+} from '@lucide/angular';
+
 @Component({
   selector: 'app-engine-settings-drawer',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    LucideSettings,
+    LucidePlus,
+    LucideZap,
+    LucideRocket,
+    LucideTarget,
+    LucideShieldAlert,
+    LucideClock,
+    LucideTrash,
+    LucideRotateCcw,
+  ],
   templateUrl: './engine-settings-drawer.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class EngineSettingsDrawerComponent {
   public readonly pipeline = inject(PipelineStateService);
+  public readonly report = inject(ReportService);
   private readonly http = inject(HttpClient);
-  private readonly report = inject(ReportService);
   
   public readonly isOpen = input<boolean>(false);
   public readonly closeDrawer = output<void>();
@@ -107,13 +131,58 @@ export class EngineSettingsDrawerComponent {
     this.pipeline.moveProofStory(id, 'UP');
   }
 
+  public readonly selectedBatchSize = signal<number>(30);
+  public readonly newCustomQueryInput = signal<string>('');
+  public readonly isSavingScrapeConfig = signal<boolean>(false);
+  public readonly scrapeConfigSavedMessage = signal<string>('');
+
   public moveStoryDown(id: string): void {
     this.pipeline.moveProofStory(id, 'DOWN');
   }
 
   public triggerScrapeWithActiveProfile(): void {
-    this.report.triggerLiveScrape(15);
+    this.report.triggerLiveScrape(this.selectedBatchSize());
     this.close();
+  }
+
+  public async synthesizeQueries(): Promise<void> {
+    await this.pipeline.synthesizeQueriesWithAi();
+  }
+
+  public addCustomQuery(): void {
+    const val = this.newCustomQueryInput().trim();
+    if (!val) return;
+    this.pipeline.addQuery(val);
+    this.newCustomQueryInput.set('');
+  }
+
+  public removeQuery(q: string): void {
+    this.pipeline.removeQuery(q);
+  }
+
+  public async saveScrapingConfig(): Promise<void> {
+    this.isSavingScrapeConfig.set(true);
+    this.scrapeConfigSavedMessage.set('');
+    try {
+      const queries = this.pipeline.activeQueriesList();
+      await this.http.put(`${this.getApiBase()}/config/scrape`, {
+        searchKeywords: queries.length > 0 ? queries : ['UX Designer', 'Figma'],
+        minBudgetFixed: this.pipeline.minBudgetFixed(),
+        minHourlyRate: this.pipeline.minHourlyRate(),
+        verifiedPaymentOnly: this.pipeline.verifiedPaymentOnly(),
+        targetCountries: this.pipeline.targetCountries(),
+        targetRegions: this.pipeline.targetRegions(),
+        excludedCountries: this.pipeline.excludedCountries(),
+        geoFilterMode: this.pipeline.geoFilterMode(),
+      }).toPromise();
+      this.scrapeConfigSavedMessage.set('¡Filtros y queries guardadas en PostgreSQL!');
+      setTimeout(() => this.scrapeConfigSavedMessage.set(''), 3500);
+    } catch (err) {
+      console.error('Error guardando configuración de scraping:', err);
+      this.scrapeConfigSavedMessage.set('Error guardando configuración.');
+    } finally {
+      this.isSavingScrapeConfig.set(false);
+    }
   }
 
   private getApiBase(): string {

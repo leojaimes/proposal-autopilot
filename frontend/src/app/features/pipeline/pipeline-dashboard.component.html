@@ -158,12 +158,14 @@
                     <p class="leading-relaxed">{{ job.coverLetter }}</p>
                     <div class="mt-2 flex items-center justify-between border-t border-border-subtle/50 pt-1.5">
                       <button (click)="copyCoverLetter(job)"
-                              class="text-[10px] font-semibold flex items-center gap-1 transition-all"
+                              class="text-[10px] font-semibold flex items-center gap-1.5 transition-all"
                               [ngClass]="copiedJobId() === job.id ? 'text-emerald-400' : 'text-brand-primary hover:underline'">
                         @if (copiedJobId() === job.id) {
-                          <span>✓ Copied to clipboard!</span>
+                          <svg lucideCheck class="w-3.5 h-3.5"></svg>
+                          <span>Copied to clipboard!</span>
                         } @else {
-                          <span>📋 Copy 35-word letter</span>
+                          <svg lucideCopy class="w-3.5 h-3.5"></svg>
+                          <span>Copy 35-word letter</span>
                         }
                       </button>
                       @if (job.proposalDocLink) {

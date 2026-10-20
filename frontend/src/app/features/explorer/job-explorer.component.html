@@ -3,8 +3,8 @@
   <!-- Header Title Bar -->
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
     <div>
-      <h1 class="text-xl font-bold tracking-tight text-content-primary flex items-center gap-2">
-        <span>🔍</span>
+      <h1 class="text-xl font-bold tracking-tight text-content-primary flex items-center gap-2.5">
+        <svg lucideSearch class="w-5 h-5 text-brand-primary"></svg>
         <span>Motor de Búsqueda & Explorador Completo</span>
       </h1>
       <p class="text-xs text-content-secondary mt-0.5">
@@ -41,11 +41,9 @@
         @case ('jobTitle') {
           <div class="space-y-1 py-1">
             <a [href]="row.applyLink" target="_blank"
-               class="font-semibold text-content-primary hover:text-brand-primary line-clamp-1 flex items-center gap-1.5 transition-colors">
+               class="font-semibold text-content-primary hover:text-brand-primary line-clamp-1 flex items-center gap-1.5 transition-colors group">
               <span>{{ row.jobTitle }}</span>
-              <svg class="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-brand-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-              </svg>
+              <svg lucideExternalLink class="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-brand-primary"></svg>
             </a>
             <div class="flex items-center gap-1.5 text-[10px] text-content-muted font-mono">
               <span class="bg-surface-elevated px-1.5 py-0.5 rounded border border-border-subtle/50 text-brand-primary font-medium">
@@ -65,18 +63,19 @@
 
         <!-- Client Country Column -->
         @case ('clientCountry') {
-          <div class="flex items-center gap-1 text-content-primary font-medium text-xs">
+          <div class="flex items-center gap-1.5 text-content-primary font-medium text-xs">
             <span>{{ row.clientCountry }}</span>
             @if (row.verifiedPayment === 'Yes') {
-              <span class="text-emerald-400 font-bold" title="Método de Pago Verificado">✓</span>
+              <svg lucideCircleCheck class="w-3.5 h-3.5 text-emerald-400" title="Método de Pago Verificado"></svg>
             }
           </div>
         }
 
         <!-- Client Rating Column -->
         @case ('clientRating') {
-          <span class="font-mono text-xs text-content-secondary">
-            ★ {{ row.clientRating ? row.clientRating.toFixed(1) : '0.0' }}
+          <span class="font-mono text-xs text-content-secondary inline-flex items-center gap-1">
+            <svg lucideStar class="w-3 h-3 fill-amber-400/40 text-amber-400"></svg>
+            <span>{{ row.clientRating ? row.clientRating.toFixed(1) : '0.0' }}</span>
           </span>
         }
 
@@ -126,15 +125,16 @@
                       class="p-1.5 rounded-lg bg-surface-elevated hover:bg-brand-primary text-content-secondary hover:text-white transition-all border border-border-subtle"
                       [title]="copiedId() === row.id ? '¡Copiado!' : 'Copiar Carta de 35 palabras'">
                 @if (copiedId() === row.id) {
-                  <span class="text-emerald-400 font-bold">✓</span>
+                  <svg lucideCheck class="w-3.5 h-3.5 text-emerald-400"></svg>
                 } @else {
-                  <span>📋</span>
+                  <svg lucideCopy class="w-3.5 h-3.5"></svg>
                 }
               </button>
             }
             <a [href]="row.applyLink" target="_blank"
-               class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-brand-primary hover:bg-brand-hover text-white transition-all shadow-sm">
-              Aplicar ↗
+               class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-brand-primary hover:bg-brand-hover text-white transition-all shadow-sm inline-flex items-center gap-1">
+              <span>Aplicar</span>
+              <svg lucideExternalLink class="w-3 h-3"></svg>
             </a>
           </div>
         }

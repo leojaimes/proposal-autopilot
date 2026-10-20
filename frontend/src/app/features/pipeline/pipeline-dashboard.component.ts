@@ -4,10 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { ReportService } from '../../core/services/report.service';
 import { JobReportItem } from '../../core/models/pipeline.model';
 
+import { LucideCopy, LucideCheck } from '@lucide/angular';
+
 @Component({
   selector: 'app-pipeline-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LucideCopy, LucideCheck],
   templateUrl: './pipeline-dashboard.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

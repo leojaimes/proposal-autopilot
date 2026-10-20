@@ -212,7 +212,7 @@ model Proposal {
   id                    String    @id @default(uuid()) @db.Uuid
   jobPostId             String    @unique @map("job_post_id") @db.Uuid
   contactName           String?   @map("contact_name") @db.VarChar(100)
-  coverLetter35Words    String    @map("cover_letter_35_words") @db.VarChar(350)
+  coverLetter35Words    String    @map("cover_letter_35_words") @db.Text
   technicalProposalBody String    @map("technical_proposal_body") @db.Text
   mermaidDiagramCode    String?   @map("mermaid_diagram_code") @db.Text
   publicWalkthroughSlug String?   @unique @map("public_walkthrough_slug") @db.VarChar(100)

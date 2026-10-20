@@ -82,4 +82,14 @@ export class TenantsController {
     const tenantId = this.tenantContext.getTenantId();
     return this.tenantsService.saveCredential(tenantId, body);
   }
+
+  /**
+   * POST /api/config/synthesize-queries
+   * Sintetiza queries booleanas dinámicas a partir de las Proof Stories y la Oferta usando Gemini
+   */
+  @Post('synthesize-queries')
+  async synthesizeQueries() {
+    const tenantId = this.tenantContext.getTenantId();
+    return this.tenantsService.synthesizeSearchQueries(tenantId);
+  }
 }

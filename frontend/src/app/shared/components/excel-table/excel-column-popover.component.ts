@@ -10,10 +10,12 @@ import {
   StringOperator,
 } from './excel-table.models';
 
+import { LucideZap } from '@lucide/angular';
+
 @Component({
   selector: 'app-excel-column-popover',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LucideZap],
   templateUrl: './excel-column-popover.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

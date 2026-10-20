@@ -18,14 +18,26 @@ export class ApifyService {
   /**
    * Ejecuta el actor de extracción de trabajos de Upwork (flash_mage/upwork)
    */
-  async runUpworkScraper(keywords: string[], maxResults: number = 25): Promise<RawApifyUpworkJob[]> {
+  async runUpworkScraper(
+    keywords: string[],
+    maxResults: number = 30,
+    options?: {
+      experienceLevel?: string[];
+      sort?: string;
+    }
+  ): Promise<RawApifyUpworkJob[]> {
     try {
-      this.logger.log(`Iniciando scraping en Apify con keywords: ${keywords.join(', ')} | Max: ${maxResults}`);
+      this.logger.log(`Iniciando scraping en Apify con ${keywords.length} queries: ${keywords.join(' | ')} | Max: ${maxResults}`);
 
-      // Actor probado y verificado: flash_mage/upwork
+      // Actor probado y verificado: flash_mage/upwork con orden Newest y nivel Experto/Intermedio
       const run = await this.client.actor('flash_mage/upwork').call({
         queries: keywords,
         limit: maxResults,
+        sort: options?.sort || 'newest',
+        experience_level: options?.experienceLevel || ['IntermediateLevel', 'ExpertLevel'],
+        hourly: true,
+        fixed: true,
+        authentication: 'no_authentication',
       });
 
       this.logger.log(`Corrida finalizada con status: ${run.status}. Obteniendo dataset...`);

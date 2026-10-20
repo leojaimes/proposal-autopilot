@@ -31,9 +31,14 @@ export interface SaveCredentialDto {
   apiKey: string;
 }
 
+import { ClaudeProposalService } from '../proposals/claude-proposal.service';
+
 @Injectable()
 export class TenantsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly claudeProposal: ClaudeProposalService,
+  ) {}
 
   /**
    * Obtiene la configuración completa del Workspace (Perfil, Historias, Filtros de Scrape, Llaves)
@@ -230,5 +235,54 @@ export class TenantsService {
         lastValidatedAt: new Date(),
       },
     });
+  }
+
+  /**
+   * Sintetiza queries de búsqueda optimizadas para Upwork usando Gemini
+   * basándose en la oferta de transformación y las Proof Stories activas.
+   */
+  async synthesizeSearchQueries(tenantId: string) {
+    const profile = await this.prisma.positioningProfile.findFirst({
+      where: { tenantId, isActive: true },
+      include: { proofStories: true },
+    });
+
+    if (!profile) {
+      throw new NotFoundException(`No se encontró un perfil activo para el tenant ${tenantId}`);
+    }
+
+    const scrapeConfig = await this.prisma.scrapeConfig.findFirst({
+      where: { tenantId },
+    });
+
+    const synthesis = await this.claudeProposal.synthesizeQueries({
+      offerHeadline: profile.offerHeadline,
+      targetAudience: profile.targetAudience,
+      proofStories: profile.proofStories.map(ps => ({
+        companyOrProduct: ps.companyOrProduct,
+        impactMetric: ps.impactMetric,
+        domainTags: ps.domainTags,
+      })),
+    });
+
+    // Actualizar ScrapeConfig con las queries generadas
+    if (scrapeConfig) {
+      await this.prisma.scrapeConfig.update({
+        where: { id: scrapeConfig.id },
+        data: {
+          searchKeywords: synthesis.searchQueries,
+          minHourlyRate: scrapeConfig.minHourlyRate || synthesis.suggestedMinHourlyRate,
+          minBudgetFixed: scrapeConfig.minBudgetFixed || synthesis.suggestedMinBudgetFixed,
+        },
+      });
+    }
+
+    return {
+      success: true,
+      queries: synthesis.searchQueries,
+      suggestedMinHourlyRate: synthesis.suggestedMinHourlyRate,
+      suggestedMinBudgetFixed: synthesis.suggestedMinBudgetFixed,
+      rationale: synthesis.rationale,
+    };
   }
 }

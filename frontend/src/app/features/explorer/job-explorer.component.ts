@@ -6,10 +6,29 @@ import { JobReportItem } from '../../core/models/pipeline.model';
 import { ExcelDataTableComponent } from '../../shared/components/excel-table/excel-table.component';
 import { ExcelColumnDef } from '../../shared/components/excel-table/excel-table.models';
 
+import {
+  LucideSearch,
+  LucideExternalLink,
+  LucideCircleCheck,
+  LucideStar,
+  LucideCheck,
+  LucideCopy,
+} from '@lucide/angular';
+
 @Component({
   selector: 'app-job-explorer',
   standalone: true,
-  imports: [CommonModule, FormsModule, ExcelDataTableComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ExcelDataTableComponent,
+    LucideSearch,
+    LucideExternalLink,
+    LucideCircleCheck,
+    LucideStar,
+    LucideCheck,
+    LucideCopy,
+  ],
   templateUrl: './job-explorer.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
