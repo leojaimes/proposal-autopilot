@@ -155,8 +155,8 @@ export class FitCalculatorService {
       }
     }
 
-    // 5. Cálculo Nominal Deductivo
-    let overallScore = Math.max(0, Math.min(100, baseFitScore - deductions));
+    // 5. Cálculo Nominal Deductivo (Piso de 15 para evitar ceros artificiales)
+    let overallScore = Math.max(15, Math.min(100, baseFitScore - deductions));
 
     // 6. Calidad de Datos
     const dataQualityStatus: 'COMPLETE' | 'INCOMPLETE' =

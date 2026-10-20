@@ -123,20 +123,16 @@ export class RoleClassifierService {
       };
     }
 
-    // 3. Si no coincide con ninguna expresión del usuario:
-    // Verificar si describe tareas operativas tradicionales fuera de nicho
-    const offNicheRegex = /\b(acquisition manager|real estate agent|sales agent|insurance agent|travel agent|bookkeeper|bookkeeping|tax prep|medical billing|customer service rep|graphic designer|photo editing|photo editor|photoshop|video editor|listing photos|reddit ads|facebook ads|media buyer)\b/i;
-    const isOffNiche = offNicheRegex.test(titleLower) || (offNicheRegex.test(descLower) && !/\b(crm|saas|portal|software|platform|api)\b/i.test(titleLower));
-
+    // 3. Si no coincide con ninguna expresión activa de la base de datos
     return {
       matchLevel: 'OFF_NICHE',
       matchedQuery: null,
-      baseFitScore: isOffNiche ? 25 : 40,
+      baseFitScore: 30,
       normalizedRole: title.slice(0, 50),
       lane: StrategicLane.DISQUALIFIED_NOISE,
       isDisqualified: true,
       isIncompatible: false,
-      reason: 'No coincide con las expresiones activas de búsqueda del motor',
+      reason: 'No coincide con las expresiones de búsqueda configuradas en el perfil',
     };
   }
 

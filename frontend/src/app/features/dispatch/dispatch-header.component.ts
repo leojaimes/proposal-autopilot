@@ -11,6 +11,7 @@ import {
   LucideSearch,
   LucideSettings,
   LucideChevronDown,
+  LucideRefreshCw,
 } from '@lucide/angular';
 
 export type AppViewMode = 'TERMINAL' | 'EXPLORER';
@@ -27,6 +28,7 @@ export type AppViewMode = 'TERMINAL' | 'EXPLORER';
     LucideSearch,
     LucideSettings,
     LucideChevronDown,
+    LucideRefreshCw,
   ],
   templateUrl: './dispatch-header.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
