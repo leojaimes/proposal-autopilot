@@ -125,36 +125,45 @@ Return a strictly valid JSON object without markdown formatting wrappers or conv
 
 [STRICT GUIDELINES FOR EACH FIELD]
 1. "contactName":
-   - Detect the hiring manager's first name if mentioned in the job description or client reviews (e.g. "Hi, I'm David", "- Sarah").
-   - If not explicitly mentioned, return "Hiring Team".
+   - Scan the full job description for a name, signature, or company mention (e.g. "thanks, Sara", "Best, John", "I'm Mike from Acme").
+   - If found, return that specific first name (e.g. "Sara").
+   - If NOT found, return "there" (so the letter opens naturally as "Hey there,"). NEVER return "Sir/Madam", "Hiring Manager", or "Hiring Team".
 
 2. "coverLetter35Words":
-   - STRICT CONSTRAINT: Word count MUST be between 30 and 35 words total.
-   - Follow this proven 3-part conversion structure:
-     a) Transferable Authority Hook: Lead with your proof story and exact metric bridged directly to their problem ("Having [metric at ProofStoryCompany], I will [solve core deliverable]...").
-     b) Immediate, punchy solution addressing the client's secondary bottleneck or technical requirement.
-     c) Action CTA pointing to the walkthrough: "I mapped your first 90 days and technical roadmap. Walkthrough link inside."
+   - STRICT CONSTRAINT: Word count MUST be between 30 and 35 words total (including the [link] token).
+   - Greeting:
+     * If contact name found: "Hey [Name]," or "Hi [Name],".
+     * If not found: "Hey there," or "Hi,". NEVER use formal greetings.
+   - Core shape:
+     "Hey [Name], I work with [specific tool/technology from job] daily. Having [audited proof metric at Company], I just mapped the technical architecture for your project. Free walkthrough and roadmap here: [link]."
+   - Punchy, confident, peer-to-peer practitioner. 0 em-dashes (—).
 
 3. "technicalProposalBody":
-   - Comprehensive, professional 4-section Markdown proposal customized specifically to this job:
-     # Strategic Proposal & Roadmap: ${input.jobTitle}
-     ## 1. Executive Summary & Problem Diagnosis
-     ## 2. Technical Architecture & Recommended Approach
-     ## 3. 90-Day Execution Milestones (Phase 1, Phase 2, Phase 3)
-     ## 4. Deliverables & Acceptance Criteria
-   - STRICT NEGATIVE CONSTRAINT: NEVER write ASCII diagrams, box drawings, backtick flowchart blocks, or text pipelines (like '[Call] -> [Audio] | ▼') inside "technicalProposalBody". All architecture diagrams and visual workflows MUST be placed exclusively in "mermaidDiagramCode".
-   - When stating validation benchmarks or metrics, format them clearly as bold bullet headers, for example:
-     - **Concrete Metric**: [Result, e.g. Reduced operational time from X to Y]
-     - **Testing & Validation**: [Audit details, benchmark scope]
+   - First-person ("I"), customized specifically to this project:
+     # Technical Proposal & Execution Roadmap: ${input.jobTitle}
+     ## 1. Executive Summary & Diagnostic Hook
+     A one-line hook demonstrating that I already spent time thinking deeply about this specific project, followed by a short intro pulling from my positioning and proof story (${input.proofStoryCompany || 'Pepper AI'}: ${input.proofStoryMetric || '17,000+ active users'}).
+     
+     ## 2. 5-Step Technical Approach & Methodology
+     Provide a 5 to 6 step technical breakdown with brief reasoning for each step, explicitly naming real industry tools and methods where applicable:
+     - Step 1: Research Synthesis & Heuristic Audit (using Claude for thematic analysis & Qualtrics for structured user research)
+     - Step 2: Information Architecture & Workflow Mapping (defining user states & agentic trigger handoffs)
+     - Step 3: Rapid Prototyping & Component Architecture (using Figma & Figma Make for AI-assisted design tokens and autolayout systems)
+     - Step 4: Agentic Automation & Workflow Integration (using n8n for agentic workflow orchestration and webhook triggers)
+     - Step 5: Usability Testing & Iterative Hardening (standard usability testing, SUS benchmarking, and heuristic evaluation)
+     
+     ## 3. Deliverables & Realistic Timeline
+     Milestone-based delivery (e.g., Phase 1 in Week 1, Phase 2 in Week 2) with concrete artifacts (Figma tokens library, n8n workflow blueprints, usability report).
+   - STRICT NEGATIVE CONSTRAINT: NEVER write ASCII diagrams, box drawings, or text pipelines inside "technicalProposalBody".
 
 4. "mermaidDiagramCode":
-   - Valid, clean Mermaid syntax for a 5-node flowchart (flowchart TD) illustrating the project's execution phases.
+   - A Mermaid flowchart (flowchart TD), 6 NODES MAXIMUM, matching the 5-6 technical breakdown steps.
    - Example format:
 flowchart TD
-  A[Discovery & Audit] --> B[Core Architecture]
-  B --> C[Interactive Prototype]
-  C --> D[QA & Validation]
-  D --> E[Production Delivery]`;
+  A[Discovery & Claude Research] --> B[Information Architecture]
+  B --> C[Figma AI-Assisted Prototype]
+  C --> D[n8n Workflow Automation]
+  D --> E[Usability Testing & Handover]`;
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.geminiModel}:generateContent?key=${this.geminiApiKey}`;
 
