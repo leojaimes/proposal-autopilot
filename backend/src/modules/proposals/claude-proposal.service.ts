@@ -107,12 +107,18 @@ Voice Guidelines: ${Array.isArray(input.voiceRules) ? input.voiceRules.join(', '
   * "At [ProofStoryCompany], I [achieved X metric], and I will apply that same system to [solve client bottleneck]..."
 
 [STRICT HUMANIZER REQUIREMENTS - ZERO AI WRITING TELLS]
+- LANGUAGE: Natural, fluent US English.
+- ACCESSIBILITY & PLAIN ENGLISH: Written in clean, everyday language that ANY client (whether a non-technical founder, CEO, or tech lead) can immediately understand and approve.
+- AVOID PSEUDO-INTELLECTUAL JARGON: Translate complex engineering/design jargon into clear, tangible actions:
+  * Say "testing screens with real users to see where they get confused" instead of "conducting qualitative heuristic evaluation benchmarks".
+  * Say "clean Figma components so developers can build faster" instead of "architecting atomic tokenized design primitives".
+  * Keep sentences active, direct, and under 25 words.
 - NO em dashes (—) anywhere. Zero. Use commas, periods, or standard hyphens (-).
 - NO conversational filler: Never say "I hope this finds you well", "I am thrilled to apply", "I would love to help", "Look no further", "Are you looking for...".
 - NO stock AI buzzwords: Do NOT use "delve", "testament", "tapestry", "seamless", "cutting-edge", "game-changer", "elevate", "pivotal", "beacon", "in today's fast-paced world".
 - NO "Not X but Y" artificial contrasts ("It's not just a design, it's an experience").
 - NO dramatic one-line closers ("That is the real win.", "Let that sink in.").
-- TONE: Direct, authoritative, peer-to-peer practitioner. Sounds like a principal engineer or founder responding concisely on Slack.
+- TONE: Direct, clear, peer-to-peer practitioner. Sounds like a sharp Silicon Valley product engineer communicating plainly on Slack.
 
 [OUTPUT REQUIREMENTS - VALID JSON ONLY]
 Return a strictly valid JSON object without markdown formatting wrappers or conversational commentary:
@@ -190,12 +196,9 @@ flowchart TD
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
     const parsed = JSON.parse(rawText);
 
-    // Sanitize Humanizer rules: Strip any em dashes, clean up mermaid code fences
-    let letter = (parsed.coverLetter35Words || '')
-      .replace(/—/g, ', ')
-      .replace(/–/g, '-')
-      .replace(/\s+/g, ' ')
-      .trim();
+    // Sanitize Humanizer rules: Strip em dashes, stock AI tells, and format cleanly
+    const letter = this.applyHumanizerSanitizer(parsed.coverLetter35Words || '');
+    const proposal = this.applyHumanizerSanitizer(parsed.technicalProposalBody || '');
 
     let mermaid = (parsed.mermaidDiagramCode || 'flowchart TD\n  A[Discovery & Audit] --> B[Architecture & Prototype] --> C[QA & Delivery]')
       .replace(/^```(mermaid)?/im, '')
@@ -203,11 +206,35 @@ flowchart TD
       .trim();
 
     return {
-      contactName: parsed.contactName || 'Hiring Team',
+      contactName: parsed.contactName && parsed.contactName !== 'there' ? parsed.contactName : '',
       coverLetter35Words: letter,
-      technicalProposalBody: parsed.technicalProposalBody || '',
+      technicalProposalBody: proposal,
       mermaidDiagramCode: mermaid,
     };
+  }
+
+  /**
+   * Sanitizador Humanizer: Elimina patrones de IA, guiones largos y clichés
+   */
+  private applyHumanizerSanitizer(text: string): string {
+    if (!text) return '';
+    return text
+      .replace(/—/g, ', ')
+      .replace(/–/g, '-')
+      .replace(/\bdelve\s+into\b/gi, 'examine')
+      .replace(/\bdelve\b/gi, 'explore')
+      .replace(/\bseamlessly\b/gi, 'smoothly')
+      .replace(/\bseamless\b/gi, 'smooth')
+      .replace(/\bcutting-edge\b/gi, 'modern')
+      .replace(/\bgame-changer\b/gi, 'major improvement')
+      .replace(/\belevate\b/gi, 'improve')
+      .replace(/\btapestry\b/gi, 'structure')
+      .replace(/\btestament\s+to\b/gi, 'evidence of')
+      .replace(/\bpivotal\b/gi, 'important')
+      .replace(/\bin\s+today's\s+(?:fast-paced|digital)\s+world\b/gi, 'today')
+      .replace(/\bI\s+hope\s+this\s+(?:email|message|proposal)\s+finds\s+you\s+well[.,!]?\s*/gi, '')
+      .replace(/\bDear\s+(?:Sir\/Madam|Hiring\s+Manager|Client)[.,:]?\s*/gi, 'Hey, ')
+      .trim();
   }
 
   /**
