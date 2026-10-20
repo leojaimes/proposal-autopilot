@@ -144,8 +144,8 @@ describe('Adversarial & Edge-Case Scoring Engine Suite - Deductive Model', () =>
     assert.ok(scoreHot - scoreSaturated >= 20, `La vacante saturada debe perder al menos 20 puntos por competencia. Hot: ${scoreHot}, Saturated: ${scoreSaturated}`);
   });
 
-  // ADV-7: Penalización por Antigüedad (> 3 días)
-  it('ADV-7: Una vacante de hace 5 días debe restar puntos por obsolescencia frente a una de hace 1 hora', () => {
+  // ADV-7: Cero Penalización al Fit por Fecha (La fecha es puramente recencyScore para desempate)
+  it('ADV-7: Una vacante antigua con match perfecto conserva su afinidad (overallScore) pero refleja menor recencyScore', () => {
     const now = new Date();
     const fiveDaysAgo = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000);
     const oneHourAgo = new Date(now.getTime() - 1 * 60 * 60 * 1000);
@@ -166,11 +166,14 @@ describe('Adversarial & Edge-Case Scoring Engine Suite - Deductive Model', () =>
       postedDate: fiveDaysAgo,
     };
 
-    const freshScore = fitCalculator.calculate(inputFresh).overallScore;
-    const oldScore = fitCalculator.calculate(inputOld).overallScore;
+    const freshResult = fitCalculator.calculate(inputFresh);
+    const oldResult = fitCalculator.calculate(inputOld);
 
-    assert.ok(freshScore > oldScore, `La vacante fresca (${freshScore}) debe superar a la vacante antigua (${oldScore})`);
-    assert.ok(freshScore - oldScore >= 15, `Debe penalizar al menos 15 puntos por antigüedad`);
+    // Ambas deben tener 100 en afinidad porque ambas cumplen 100% las keywords
+    assert.strictEqual(freshResult.overallScore, 100);
+    assert.strictEqual(oldResult.overallScore, 100);
+    // Pero la recencia debe reflejar la diferencia para ordenamiento secundario
+    assert.ok(freshResult.recencyScore > oldResult.recencyScore, `La fresca (${freshResult.recencyScore}) debe tener mayor recencyScore que la antigua (${oldResult.recencyScore})`);
   });
 
   // ADV-8: Cliente Nuevo ($0 gastado) con Pago Verificado (No debe ser aplastado injustamente)

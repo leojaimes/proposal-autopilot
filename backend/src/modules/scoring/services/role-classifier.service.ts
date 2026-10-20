@@ -56,43 +56,53 @@ export class RoleClassifierService {
       };
     }
 
-    // 2. Coincidencia Flexible con Expresiones Activas del Motor
+    // 2. Detección de Dominios Físicos, Inmobiliarios o Hardware Ajenos a UI/UX (Solar, CAD Eléctrico, etc.)
+    const incompatibleDomainsRegex = /\b(solar|photovoltaic|electrical\s+(?:design|engineer|drawing|panel|permit)|hvac|plumbing|civil\s+engineer|structural\s+engineer|cnc|microfluidic|jewelry|cad\/cam|autocad\s+(?:permit|dwg|wiring)|pcb\s+layout|hardware\s+engineer|real\s+estate\s+(?:agent|listing|broker)|property\s+manag|leasing\s+agent|realtor|head\s+of\s+listings)\b/i;
+    if (incompatibleDomainsRegex.test(titleLower)) {
+      return {
+        matchLevel: 'INCOMPATIBLE_ROLE',
+        matchedQuery: null,
+        baseFitScore: 20,
+        normalizedRole: 'Disqualified / Non-Digital Domain (Physical/Engineering/Real Estate)',
+        lane: StrategicLane.DISQUALIFIED_NOISE,
+        isDisqualified: true,
+        isIncompatible: true,
+        reason: 'El título corresponde a un dominio físico o industrial ajeno al diseño de producto digital',
+      };
+    }
+
+    // 3. Constructor de Expresión Regular Estricta con Límites de Palabra (\b)
+    const buildQueryRegex = (q: string): RegExp => {
+      const clean = q.toLowerCase().replace(/[\/\-_]/g, ' ').trim();
+      if (/design\s*system/.test(clean)) return /\bdesign\s+systems?\b|\bsystems?\s+design\b/i;
+      if (/ux\s*research/.test(clean)) return /\b(?:ux|user)\s+research(?:er|ing)?\b/i;
+      if (/ui\s*ux/.test(clean) || /ux\s*ui/.test(clean)) return /\b(?:ui\s*[\/\-]?\s*ux|ux\s*[\/\-]?\s*ui|ui\s+ux|ux\s+ui)\b/i;
+      if (/usability\s*test/.test(clean)) return /\busability\s+test(?:ing)?\b/i;
+      if (/vibe\s*coding/.test(clean)) return /\bvibe\s+coding\b/i;
+      if (/agentic/.test(clean)) return /\bagentic(?:\s+workflows?)?\b/i;
+      if (/ai\s*product\s*design/.test(clean)) return /\b(?:ai\s+product\s+design|product\s+designer\s*\(?ai\)?|ai\s+(?:ux|ui))\b/i;
+      if (/ai\s*prototyp/.test(clean)) return /\bai\s+prototyp(?:e|ing|er)\b/i;
+      if (clean === 'figma') return /\bfigma\b/i;
+      const words = clean.split(/\s+/).filter(w => w.length >= 2);
+      const pattern = words.map(w => '\\b' + w).join('\\s+');
+      return new RegExp(pattern, 'i');
+    };
+
+    // 4. Coincidencia Fraseológica con Expresiones Activas del Motor
     let directMatchedQuery: string | null = null;
     let partialMatchedQuery: string | null = null;
 
     for (const query of activeQueries) {
-      const queryLower = query.toLowerCase().trim();
-      // Normalizar separadores y variaciones comunes (ui/ux -> ui ux)
-      const cleanQuery = queryLower.replace(/[\/\-_]/g, ' ');
-      const tokens = cleanQuery.split(/\s+/).filter(t => t.length >= 2);
-      if (tokens.length === 0) continue;
+      const qRegex = buildQueryRegex(query);
 
-      // Stemming simple para variaciones comunes (design/designer, prototype/prototyping, etc.)
-      const normalizeToken = (t: string) => {
-        if (t.startsWith('design')) return 'design';
-        if (t.startsWith('prototyp')) return 'prototyp';
-        if (t.startsWith('agent')) return 'agent';
-        if (t.startsWith('researc')) return 'researc';
-        if (t.startsWith('usabilit')) return 'usabilit';
-        if (t.startsWith('system')) return 'system';
-        if (t.startsWith('architect')) return 'architect';
-        return t;
-      };
-
-      const normalizedTokens = tokens.map(normalizeToken);
-      const cleanTitle = titleLower.replace(/[\/\-_]/g, ' ');
-      const cleanAllText = allText.replace(/[\/\-_]/g, ' ');
-
-      // Comprobar si TODOS los tokens de la query aparecen en el TÍTULO (en cualquier orden)
-      const titleMatchesAll = normalizedTokens.every(tok => cleanTitle.includes(tok));
-      if (titleMatchesAll) {
+      // Comprobar coincidencia exacta en TÍTULO
+      if (qRegex.test(title)) {
         directMatchedQuery = query;
-        break; // Máxima prioridad: match directo en título
+        break; // Máxima prioridad
       }
 
-      // Si no en título, comprobar en el texto completo o skills
-      const fullMatchesAll = normalizedTokens.every(tok => cleanAllText.includes(tok));
-      if (fullMatchesAll && !partialMatchedQuery) {
+      // Si no en título, comprobar en la descripción o skills
+      if (!partialMatchedQuery && (qRegex.test(description) || skills.some(s => qRegex.test(s)))) {
         partialMatchedQuery = query;
       }
     }
