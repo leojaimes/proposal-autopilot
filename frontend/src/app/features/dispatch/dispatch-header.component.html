@@ -102,6 +102,15 @@
         {{ report.jobs().length }}
       </span>
     </button>
+    <button (click)="switchView('RADAR')"
+            [ngClass]="activeView() === 'RADAR' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
+            class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
+      <svg lucideCompass class="w-3.5 h-3.5"></svg>
+      <span>Radar de Mercado</span>
+      <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-300">
+        Live
+      </span>
+    </button>
   </div>
 
   <!-- Right: Telemetry, Shortcuts & CTAs -->

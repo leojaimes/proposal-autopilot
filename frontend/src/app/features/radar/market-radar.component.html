@@ -1,0 +1,433 @@
+<div class="flex flex-col bg-app p-6 space-y-6 min-h-full">
+
+  <!-- HEADER DE LA VISTA -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border-subtle pb-5">
+    <div>
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-2xl bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center text-brand-primary shadow-sm">
+          <svg lucideCompass class="w-5 h-5"></svg>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-content-primary tracking-tight">Radar de Oportunidad de Mercado (Strategic Lane Matrix)</h1>
+          <p class="text-xs text-content-muted">Agregación estadística cuantitativa sobre vacantes reales y el perfil activo del consultor.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2.5">
+      <button (click)="fetchRadarData()"
+              [disabled]="isLoading()"
+              class="px-3.5 py-2 rounded-xl bg-surface-elevated hover:bg-surface-elevated/80 border border-border-subtle text-xs font-semibold text-content-primary flex items-center gap-2 transition-all">
+        <svg lucideRefreshCw class="w-3.5 h-3.5" [class.animate-spin]="isLoading()"></svg>
+        <span>Refrescar Análisis</span>
+      </button>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="flex-1 flex flex-col items-center justify-center py-20 text-content-muted space-y-3">
+      <svg lucideRefreshCw class="w-7 h-7 text-brand-primary animate-spin"></svg>
+      <span class="text-xs font-semibold">Calculando matriz de mercado y medianas estadísticas...</span>
+    </div>
+  } @else if (errorMessage()) {
+    <div class="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2.5">
+      <svg lucideAlertCircle class="w-5 h-5 shrink-0"></svg>
+      <span>{{ errorMessage() }}</span>
+    </div>
+  } @else if (radarData()) {
+
+    <!-- KPI SUMMARY CARDS -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- Top Oportunidad #1 -->
+      <div class="p-4 rounded-2xl bg-surface border border-border-subtle space-y-2 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-content-muted">Top Oportunidad #1</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        </div>
+        <div class="text-sm font-bold text-content-primary truncate">{{ radarData()!.kpis.topCategory }}</div>
+        <p class="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+          <svg lucideTrendingUp class="w-3.5 h-3.5"></svg>
+          <span>Mayor retorno y menor fricción relativa</span>
+        </p>
+      </div>
+
+      <!-- Confiabilidad de Muestra -->
+      <div class="p-4 rounded-2xl bg-surface border border-border-subtle space-y-2 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-content-muted">Muestra Analizada</span>
+          <svg lucideDatabase class="w-4 h-4 text-brand-primary"></svg>
+        </div>
+        <div class="text-sm font-bold text-content-primary">{{ radarData()!.kpis.totalJobsSampled }} vacantes reales</div>
+        <p class="text-[11px] text-content-muted font-medium">PostgreSQL en ventana deslizante activa</p>
+      </div>
+
+      <!-- Competencia Mediana -->
+      <div class="p-4 rounded-2xl bg-surface border border-border-subtle space-y-2 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-content-muted">Mediana de Competencia</span>
+          <svg lucideShield class="w-4 h-4 text-amber-400"></svg>
+        </div>
+        <div class="text-sm font-bold text-content-primary">{{ radarData()!.kpis.medianProposalsAcrossAll }} propuestas / empleo</div>
+        <p class="text-[11px] text-content-muted font-medium">Mediana global de saturación en Upwork</p>
+      </div>
+
+      <!-- Perfil Calibrado -->
+      <div class="p-4 rounded-2xl bg-surface border border-border-subtle space-y-2 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-content-muted">Perfil Evaluador</span>
+          <svg lucideTarget class="w-4 h-4 text-brand-primary"></svg>
+        </div>
+        <div class="text-sm font-bold text-content-primary truncate">{{ radarData()!.kpis.activeProfileName }}</div>
+        <p class="text-[11px] text-content-muted font-medium">Afinidad técnica y roles calculados</p>
+      </div>
+    </div>
+
+    <!-- MATRIZ DE CUADRANTES 2X2 -->
+    <div class="space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-sm font-bold text-content-primary flex items-center gap-2">
+            <svg lucideLayers class="w-4 h-4 text-brand-primary"></svg>
+            <span>Matriz Cuadrante: Fricción vs Retorno</span>
+          </h2>
+          <p class="text-[11px] text-content-muted">Segmentación estratégica para decidir dónde postular antes de gastar Connects.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <!-- Cuadrante 1: Océanos Azules -->
+        <div class="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-base">💎</span>
+              <h3 class="text-xs font-bold text-emerald-400">Cuadrante 1: Océanos Azules</h3>
+            </div>
+            <span class="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">Baja Competencia + Alto Fit</span>
+          </div>
+          <p class="text-[11px] text-content-muted">Nichos con menos de 5 propuestas medianas donde tu perfil encaja al 100%. Aquí se ganan contratos rápido.</p>
+          <div class="space-y-1.5">
+            @for (c of oceanBlueCategories(); track c.category) {
+              <div class="p-2.5 rounded-xl bg-surface/90 border border-border-subtle flex items-center justify-between text-xs">
+                <div>
+                  <span class="font-bold text-content-primary">{{ c.category }}</span>
+                  <span class="text-[10px] text-content-muted ml-2">({{ c.relevantJobsSampled }} vacantes)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">{{ c.medianProposals }} prop.</span>
+                  <button (click)="onDrilldown(c.category)" class="text-brand-primary hover:underline text-[11px] font-bold flex items-center gap-0.5">
+                    <span>Ver</span>
+                    <svg lucideArrowUpRight class="w-3 h-3"></svg>
+                  </button>
+                </div>
+              </div>
+            } @empty {
+              <p class="text-[11px] text-content-muted italic">Muestreando mercado para identificar océanos puros.</p>
+            }
+          </div>
+        </div>
+
+        <!-- Cuadrante 2: Arbitraje Rápido con IA -->
+        <div class="p-4 rounded-2xl bg-blue-500/5 border border-blue-500/20 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-base">⚡</span>
+              <h3 class="text-xs font-bold text-blue-400">Cuadrante 2: Arbitraje Rápido con IA</h3>
+            </div>
+            <span class="text-[10px] font-bold bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">Alta Facilidad IA (80%+)</span>
+          </div>
+          <p class="text-[11px] text-content-muted">Entregables donde la IA hace el 70%+ del trabajo pesado en minutos (Social Media, Traducción, Copy).</p>
+          <div class="space-y-1.5">
+            @for (c of fastTurnaroundCategories(); track c.category) {
+              <div class="p-2.5 rounded-xl bg-surface/90 border border-border-subtle flex items-center justify-between text-xs">
+                <div>
+                  <span class="font-bold text-content-primary">{{ c.category }}</span>
+                  <span class="text-[10px] text-content-muted ml-2">({{ c.relevantJobsSampled }} vacantes)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] font-semibold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-md">{{ c.aiEase }}% IA Ease</span>
+                  <button (click)="onDrilldown(c.category)" class="text-brand-primary hover:underline text-[11px] font-bold flex items-center gap-0.5">
+                    <span>Ver</span>
+                    <svg lucideArrowUpRight class="w-3 h-3"></svg>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Cuadrante 3: Trampas de Ego -->
+        <div class="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-base">⚠️</span>
+              <h3 class="text-xs font-bold text-amber-400">Cuadrante 3: Trampas de Ego</h3>
+            </div>
+            <span class="text-[10px] font-bold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">Alta Saturación (>15 prop.)</span>
+          </div>
+          <p class="text-[11px] text-content-muted">Roles prestigiosos pero hiper-competidos. Requieren propuesta personalizada inmediata para no ser ignorado.</p>
+          <div class="space-y-1.5">
+            @for (c of highCompetitionCategories(); track c.category) {
+              <div class="p-2.5 rounded-xl bg-surface/90 border border-border-subtle flex items-center justify-between text-xs">
+                <div>
+                  <span class="font-bold text-content-primary">{{ c.category }}</span>
+                  <span class="text-[10px] text-content-muted ml-2">({{ c.relevantJobsSampled }} vacantes)</span>
+                </div>
+                <span class="text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md">{{ c.medianProposals }} prop. medianas</span>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Cuadrante 4: Zona Excluida -->
+        <div class="p-4 rounded-2xl bg-red-500/5 border border-red-500/20 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-base">🚫</span>
+              <h3 class="text-xs font-bold text-red-400">Cuadrante 4: Zona de Descalificación</h3>
+            </div>
+            <span class="text-[10px] font-bold bg-red-500/20 text-red-300 px-2 py-0.5 rounded-full">Freno de Mano Activo</span>
+          </div>
+          <p class="text-[11px] text-content-muted">Trabajos de bajo margen o ajenos a tu posicionamiento (WordPress, Shopify, asistencia básica).</p>
+          <div class="space-y-1.5">
+            @for (c of excludedCategories(); track c.category) {
+              <div class="p-2.5 rounded-xl bg-surface/90 border border-border-subtle flex items-center justify-between text-xs">
+                <span class="font-bold text-content-primary">{{ c.category }}</span>
+                <span class="text-[10px] font-semibold text-red-400 bg-red-500/10 px-2 py-0.5 rounded-md">Excluded (Score {{ c.overallOpportunity }})</span>
+              </div>
+            }
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TABLA COMPLETA ANALÍTICA -->
+    <div class="space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-sm font-bold text-content-primary flex items-center gap-2">
+            <svg lucideTrendingUp class="w-4 h-4 text-brand-primary"></svg>
+            <span>Matriz Cuantitativa Completa de Oportunidades</span>
+          </h2>
+          <p class="text-[11px] text-content-muted">Ordenada por Overall Opportunity DESC. Haz clic en "Explorar" para ver los empleos de cada nicho.</p>
+        </div>
+
+        <!-- Filtro Core / Adjacent / All -->
+        <div class="flex items-center gap-1.5 bg-surface-elevated p-1 rounded-xl border border-border-subtle">
+          <button (click)="filterLane.set('ALL')"
+                  [class.bg-brand-primary]="filterLane() === 'ALL'"
+                  [class.text-white]="filterLane() === 'ALL'"
+                  [class.text-content-muted]="filterLane() !== 'ALL'"
+                  class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all">
+            Todas ({{ radarData()!.categories.length }})
+          </button>
+          <button (click)="filterLane.set('CORE_ADJACENT')"
+                  [class.bg-brand-primary]="filterLane() === 'CORE_ADJACENT'"
+                  [class.text-white]="filterLane() === 'CORE_ADJACENT'"
+                  [class.text-content-muted]="filterLane() !== 'CORE_ADJACENT'"
+                  class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all">
+            Solo Core & Adjacent
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto rounded-2xl border border-border-subtle bg-surface shadow-sm">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-surface-elevated/70 border-b border-border-subtle text-[10px] font-bold uppercase text-content-muted tracking-wider">
+              <th class="py-3 px-3 w-12 text-center">Rank</th>
+              <th class="py-3 px-4">Categoría</th>
+              <th class="py-3 px-3 text-center">Lane</th>
+              <th class="py-3 px-3 text-center font-bold text-brand-primary">Overall Opp.</th>
+              <th class="py-3 px-3 text-center">Market Score</th>
+              <th class="py-3 px-3 text-center">Personal Fit</th>
+              <th class="py-3 px-3 text-center">Jobs / hr</th>
+              <th class="py-3 px-3 text-center">Med. Prop.</th>
+              <th class="py-3 px-3 text-center">% &lt;10 Prop.</th>
+              <th class="py-3 px-3 text-right">Tarifa / h</th>
+              <th class="py-3 px-3 text-right">Pres. Fijo</th>
+              <th class="py-3 px-3 text-center">% Verif.</th>
+              <th class="py-3 px-3 text-center">Skill Aff.</th>
+              <th class="py-3 px-3 text-center">AI Ease</th>
+              <th class="py-3 px-3 text-center">Muestra</th>
+              <th class="py-3 px-4 text-center">Acción</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border-subtle/50">
+            @for (row of categories(); track row.category) {
+              <tr class="hover:bg-surface-elevated/40 transition-colors">
+                
+                <!-- Rank -->
+                <td class="py-3 px-3 text-center font-mono font-bold">
+                  @if (row.rank === 1) {
+                    <span class="inline-block w-6 h-6 rounded-full bg-amber-400/20 text-amber-300 leading-6 text-center text-xs">🥇</span>
+                  } @else if (row.rank === 2) {
+                    <span class="inline-block w-6 h-6 rounded-full bg-slate-300/20 text-slate-300 leading-6 text-center text-xs">🥈</span>
+                  } @else if (row.rank === 3) {
+                    <span class="inline-block w-6 h-6 rounded-full bg-amber-600/20 text-amber-500 leading-6 text-center text-xs">🥉</span>
+                  } @else {
+                    <span class="text-content-muted">{{ row.rank }}</span>
+                  }
+                </td>
+
+                <!-- Categoría -->
+                <td class="py-3 px-4 font-bold text-content-primary">
+                  {{ row.category }}
+                </td>
+
+                <!-- Lane -->
+                <td class="py-3 px-3 text-center">
+                  @if (row.lane === 'Core') {
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300">Core</span>
+                  } @else if (row.lane === 'Adjacent') {
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/20 text-blue-300">Adjacent</span>
+                  } @else {
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-500/20 text-red-300">Excluded</span>
+                  }
+                </td>
+
+                <!-- Overall Opportunity -->
+                <td class="py-3 px-3 text-center">
+                  <span class="px-2.5 py-1 rounded-xl text-xs font-black shadow-sm"
+                        [ngClass]="getOppBadgeClass(row.overallOpportunity)">
+                    {{ row.overallOpportunity }}
+                  </span>
+                </td>
+
+                <!-- Market Score -->
+                <td class="py-3 px-3 text-center font-mono font-semibold text-content-primary">
+                  {{ row.marketScore }}
+                </td>
+
+                <!-- Personal Fit -->
+                <td class="py-3 px-3 text-center font-mono font-semibold text-content-primary">
+                  {{ row.personalFit }}
+                </td>
+
+                <!-- New jobs / hr -->
+                <td class="py-3 px-3 text-center font-mono text-content-muted">
+                  {{ row.newJobsPerHour }}
+                </td>
+
+                <!-- Median Proposals -->
+                <td class="py-3 px-3 text-center font-mono font-bold"
+                    [ngClass]="getProposalClass(row.medianProposals)">
+                  {{ row.medianProposals }}
+                </td>
+
+                <!-- % < 10 Proposals -->
+                <td class="py-3 px-3 text-center font-mono">
+                  <span [class.text-emerald-400]="row.pctUnder10Proposals >= 70"
+                        [class.text-content-muted]="!(row.pctUnder10Proposals >= 70)">
+                    {{ row.pctUnder10Proposals }}%
+                  </span>
+                </td>
+
+                <!-- Tarifa Horaria -->
+                <td class="py-3 px-3 text-right font-mono font-semibold text-content-primary">
+                  ${{ row.medianHourly }}
+                </td>
+
+                <!-- Presupuesto Fijo -->
+                <td class="py-3 px-3 text-right font-mono font-semibold text-emerald-400">
+                  ${{ row.medianFixed }}
+                </td>
+
+                <!-- % Clientes Verificados -->
+                <td class="py-3 px-3 text-center font-mono text-content-muted">
+                  {{ row.pctVerifiedClients }}%
+                </td>
+
+                <!-- Skill Affinity -->
+                <td class="py-3 px-3 text-center font-mono text-content-muted">
+                  {{ row.skillAffinity }}
+                </td>
+
+                <!-- AI Ease -->
+                <td class="py-3 px-3 text-center font-mono text-blue-400 font-semibold">
+                  {{ row.aiEase }}
+                </td>
+
+                <!-- Muestra Sampled -->
+                <td class="py-3 px-3 text-center font-mono text-content-muted text-[11px]">
+                  {{ row.relevantJobsSampled }}
+                </td>
+
+                <!-- Acción 1-Click Drilldown -->
+                <td class="py-3 px-4 text-center">
+                  <button (click)="onDrilldown(row.category)"
+                          class="px-2.5 py-1 rounded-lg bg-surface-elevated hover:bg-brand-primary hover:text-white border border-border-subtle text-[11px] font-semibold text-content-primary flex items-center justify-center gap-1 transition-all mx-auto shadow-sm">
+                    <span>Explorar</span>
+                    <svg lucideArrowUpRight class="w-3 h-3"></svg>
+                  </button>
+                </td>
+
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SECCIÓN METODOLOGÍA & DE DÓNDE SALE CADA VALOR -->
+    <div class="rounded-2xl border border-border-subtle bg-surface shadow-sm overflow-hidden">
+      
+      <button (click)="toggleMethodology()"
+              class="w-full p-4 flex items-center justify-between text-left hover:bg-surface-elevated/40 transition-colors">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-xl bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center text-brand-primary">
+            <svg lucideDatabase class="w-4 h-4"></svg>
+          </div>
+          <div>
+            <h3 class="text-xs font-bold text-content-primary">📖 Metodología & Procedencia de Datos: De dónde sale cada valor</h3>
+            <p class="text-[11px] text-content-muted">Auditoría técnica de columnas, fórmulas matemáticas y tablas en PostgreSQL (Cero datos inventados).</p>
+          </div>
+        </div>
+        <div class="text-content-muted">
+          @if (isMethodologyOpen()) {
+            <svg lucideChevronUp class="w-4 h-4"></svg>
+          } @else {
+            <svg lucideChevronDown class="w-4 h-4"></svg>
+          }
+        </div>
+      </button>
+
+      @if (isMethodologyOpen()) {
+        <div class="p-4 border-t border-border-subtle space-y-4 text-xs">
+          <div class="p-3 rounded-xl bg-surface-elevated/60 border border-border-subtle text-[11px] text-content-muted leading-relaxed">
+            <span class="font-bold text-content-primary">Principio de Transparencia de Datos:</span>
+            Cada indicador de esta tabla proviene exclusivamente de la agregación de las <strong>290 vacantes extraídas de Upwork</strong> y la taxonomía del <strong>perfil activo del consultor</strong>. No se utiliza ningún valor sintético ni estático. A continuación se desglosa el origen de cada campo:
+          </div>
+
+          <div class="overflow-x-auto rounded-xl border border-border-subtle">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-surface-elevated/80 border-b border-border-subtle text-[10px] font-bold uppercase text-content-muted tracking-wider">
+                  <th class="py-2.5 px-3">Métrica / Columna</th>
+                  <th class="py-2.5 px-3">Tabla PostgreSQL</th>
+                  <th class="py-2.5 px-3">Columnas Origen</th>
+                  <th class="py-2.5 px-4">Fórmula Matemática / Algoritmo</th>
+                  <th class="py-2.5 px-4">¿Para qué le sirve al Consultor?</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border-subtle/50 text-[11px]">
+                @for (p of radarData()!.provenance; track p.field) {
+                  <tr class="hover:bg-surface-elevated/30">
+                    <td class="py-2 px-3 font-bold text-content-primary whitespace-nowrap">{{ p.field }}</td>
+                    <td class="py-2 px-3 font-mono text-brand-primary">{{ p.table }}</td>
+                    <td class="py-2 px-3 font-mono text-content-muted">{{ p.columns }}</td>
+                    <td class="py-2 px-4 text-content-primary">{{ p.formula }}</td>
+                    <td class="py-2 px-4 text-content-muted">{{ p.purpose }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+    </div>
+
+  }
+</div>

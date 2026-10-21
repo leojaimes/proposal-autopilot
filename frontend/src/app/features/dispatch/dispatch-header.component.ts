@@ -22,9 +22,10 @@ import {
   LucideTarget,
   LucideBriefcase,
   LucideX,
+  LucideCompass,
 } from '@lucide/angular';
 
-export type AppViewMode = 'TERMINAL' | 'EXPLORER';
+export type AppViewMode = 'TERMINAL' | 'EXPLORER' | 'RADAR';
 
 @Component({
   selector: 'app-dispatch-header',
@@ -48,6 +49,7 @@ export type AppViewMode = 'TERMINAL' | 'EXPLORER';
     LucideTarget,
     LucideBriefcase,
     LucideX,
+    LucideCompass,
   ],
   templateUrl: './dispatch-header.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,

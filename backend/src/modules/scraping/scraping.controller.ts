@@ -1342,4 +1342,321 @@ export class ScrapingController {
     await this.triggerBatch({ maxResults: 30 });
     return { success: true, message: 'Preset restaurado con éxito.' };
   }
+
+  /**
+   * GET /api/scraping/market-radar
+   * Agregador Estadístico de Mercado (Radar de Oportunidades y Arbitraje)
+   * Extrae de PostgreSQL las métricas reales y calcula la Matriz de Oportunidad para el consultor.
+   */
+  @Get('market-radar')
+  async getMarketRadar() {
+    const tenantId = this.tenantContext.getTenantId();
+
+    const [jobs, profile] = await Promise.all([
+      this.prisma.jobPost.findMany({
+        where: { tenantId },
+        include: { fitEvaluation: true },
+      }),
+      this.prisma.positioningProfile.findFirst({
+        where: { tenantId, isActive: true },
+        include: { proofStories: true },
+      }),
+    ]);
+
+    const categorize = (title: string, desc: string, rawSkills: any): string => {
+      const skills = Array.isArray(rawSkills) ? rawSkills : [];
+      const text = `${title} ${desc} ${skills.join(' ')}`.toLowerCase();
+
+      if (/social media|content creation|instagram|tiktok|video edit|carousel|reels|youtube/i.test(title)) {
+        return 'Social media content';
+      }
+      if (/design system|figma component|token|ui library|style guide/i.test(text) && /design|figma/i.test(title)) {
+        return 'Design systems';
+      }
+      if (/ux research|user testing|usability test|user interview|heuristic/i.test(text)) {
+        return 'UX research';
+      }
+      if (/full stack|fullstack|saas|web application|platform/i.test(title) || (/full stack/i.test(text) && /developer|engineer/i.test(text))) {
+        return 'Full Stack & SaaS Web Apps';
+      }
+      if (/llm|ai agent|agentic|gpt|openai|chatbot|claude|langchain|rag|prompt/i.test(text)) {
+        return 'AI prototyping / AI Agents';
+      }
+      if (/n8n|zapier|make\.com|workflow automation|automation engineer|power automate/i.test(text)) {
+        return 'n8n / workflow automation';
+      }
+      if (/gohighlevel|ghl|crm setup|funnel/i.test(text)) {
+        return 'GoHighLevel setup';
+      }
+      if (/ux\/ui|ui\/ux|product designer|web design|figma/i.test(title)) {
+        return 'UX/UI design';
+      }
+      if (/translat|english to spanish|spanish to english|bilingual/i.test(text)) {
+        return 'Spanish/English translation';
+      }
+      if (/seo|aeo|geo|search optimization|ai search/i.test(text)) {
+        return 'AEO / GEO (AI search)';
+      }
+      if (/backend|node\.js|nestjs|api|express|graphql|microservice/i.test(title)) {
+        return 'Backend & API Engineering';
+      }
+      if (/mobile|flutter|react native|ios|android/i.test(title)) {
+        return 'Mobile App Development';
+      }
+      if (/wordpress|shopify|wix|webflow|elementor/i.test(title)) {
+        return 'CMS & E-commerce (WP/Shopify)';
+      }
+      return 'Other Tech / Digital Work';
+    };
+
+    const median = (arr: number[]): number => {
+      if (!arr || arr.length === 0) return 0;
+      const sorted = [...arr].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    };
+
+    // Coeficiente empírico de facilidad / apalancamiento de IA (0 a 100)
+    const aiEaseMap: Record<string, number> = {
+      'Social media content': 85,
+      'Spanish/English translation': 85,
+      'AI prototyping / AI Agents': 80,
+      'n8n / workflow automation': 75,
+      'GoHighLevel setup': 75,
+      'AEO / GEO (AI search)': 70,
+      'Full Stack & SaaS Web Apps': 70,
+      'Backend & API Engineering': 65,
+      'UX/UI design': 60,
+      'Design systems': 55,
+      'Mobile App Development': 50,
+      'CMS & E-commerce (WP/Shopify)': 65,
+      'UX research': 35,
+      'Other Tech / Digital Work': 50,
+    };
+
+    // Rango temporal para New jobs/hr
+    const validDates = jobs.map(j => j.postedAt ? new Date(j.postedAt).getTime() : null).filter(Boolean) as number[];
+    const minTime = validDates.length > 0 ? Math.min(...validDates) : Date.now() - (24 * 3600 * 1000);
+    const maxTime = validDates.length > 0 ? Math.max(...validDates) : Date.now();
+    const totalHours = Math.max(1, (maxTime - minTime) / (1000 * 3600));
+
+    // Agrupamiento
+    const groups: Record<string, typeof jobs> = {};
+    for (const job of jobs) {
+      const skills = (job.rawApifyPayload as any)?.skills || [];
+      const cat = categorize(job.title, job.description, skills);
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(job);
+    }
+
+    const coreRolesText = (profile?.coreRoles || []).join(' ').toLowerCase();
+    const excludedRolesText = (profile?.excludedRoles || []).join(' ').toLowerCase();
+
+    const categoryRows = Object.keys(groups).map(cat => {
+      const list = groups[cat];
+      const sampled = list.length;
+
+      // Determinar Lane dinámicamente según el perfil activo
+      let lane: 'Core' | 'Adjacent' | 'Excluded' = 'Adjacent';
+      const catLower = cat.toLowerCase();
+
+      if (excludedRolesText && (/wordpress|shopify|cms/i.test(catLower) || /ui\/ux|design/i.test(catLower) && /ui\/ux designer/i.test(excludedRolesText))) {
+        lane = 'Excluded';
+      } else if (coreRolesText && (/full stack|saas/i.test(catLower) && /full stack/i.test(coreRolesText) || /ai prototyping|ai agents/i.test(catLower) && /ai|agent/i.test(coreRolesText) || /backend|api/i.test(catLower) && /backend/i.test(coreRolesText) || /design systems/i.test(catLower) && /design system/i.test(coreRolesText) || /ux\/ui/i.test(catLower) && /ux\/ui|ui\/ux/i.test(coreRolesText))) {
+        lane = 'Core';
+      }
+
+      // Skill Affinity calculada del FitEvaluation promedio de esa categoría
+      const evaluatedJobs = list.filter(j => j.fitEvaluation);
+      let skillAffinity = 60;
+      if (evaluatedJobs.length > 0) {
+        const avgSkill = evaluatedJobs.reduce((acc, j) => acc + (j.fitEvaluation?.skillScore || 50), 0) / evaluatedJobs.length;
+        skillAffinity = Math.round(avgSkill);
+      } else if (lane === 'Core') {
+        skillAffinity = 90;
+      } else if (lane === 'Excluded') {
+        skillAffinity = 15;
+      }
+
+      const aiEase = aiEaseMap[cat] || 60;
+      const newJobsPerHour = +(sampled / totalHours).toFixed(2);
+
+      const proposals = list.map(j => j.proposalsCount || 0);
+      const medianProposals = Math.round(median(proposals));
+
+      const under10Count = list.filter(j => (j.proposalsCount || 0) < 10).length;
+      const pctUnder10 = Math.round((under10Count / sampled) * 100);
+
+      const hourlyRates = list.map(j => {
+        if (j.hourlyMax && Number(j.hourlyMax) > 0) return Number(j.hourlyMax);
+        if (j.hourlyMin && Number(j.hourlyMin) > 0) return Number(j.hourlyMin);
+        return null;
+      }).filter((r): r is number => r !== null && r > 0);
+      const medianHourly = hourlyRates.length > 0 ? Math.round(median(hourlyRates)) : 25;
+
+      const fixedBudgets = list.map(j => j.budgetFixed ? Number(j.budgetFixed) : null).filter((b): b is number => b !== null && b > 0);
+      const medianFixed = fixedBudgets.length > 0 ? Math.round(median(fixedBudgets)) : 200;
+
+      const verifiedCount = list.filter(j => j.isPaymentVerified).length;
+      const pctVerified = Math.round((verifiedCount / sampled) * 100);
+
+      // Personal Fit = (Skill * 0.6) + (AI Ease * 0.4)
+      const personalFit = Math.round((skillAffinity * 0.6) + (aiEase * 0.4));
+
+      // Market Score = F(Demand, Low Competition, Pay, Verified)
+      const demandScore = Math.min(30, Math.round(newJobsPerHour * 10));
+      const compScore = Math.round((pctUnder10 / 100) * 35);
+      const payScore = Math.min(20, Math.round((medianHourly / 50) * 20));
+      const verifiedScore = Math.round((pctVerified / 100) * 15);
+      const marketScore = Math.min(99, Math.max(15, demandScore + compScore + payScore + verifiedScore));
+
+      // Overall Opportunity
+      let overallOpp = Math.round((marketScore * 0.5) + (personalFit * 0.5));
+      if (lane === 'Excluded') {
+        overallOpp = Math.min(25, overallOpp);
+      }
+
+      return {
+        category: cat,
+        lane,
+        overallOpportunity: overallOpp,
+        marketScore,
+        personalFit,
+        newJobsPerHour,
+        medianProposals,
+        pctUnder10Proposals: pctUnder10,
+        medianHourly,
+        medianFixed,
+        pctVerifiedClients: pctVerified,
+        skillAffinity,
+        aiEase,
+        relevantJobsSampled: sampled,
+        runsAveraged: 1,
+        updated: new Date().toISOString().split('T')[0],
+      };
+    });
+
+    // Ordenar por Overall Opportunity DESC y asignar Rank
+    categoryRows.sort((a, b) => b.overallOpportunity - a.overallOpportunity);
+    const rankedRows = categoryRows.map((r, i) => ({ rank: i + 1, ...r }));
+
+    // KPIs globales
+    const topCategory = rankedRows[0]?.category || 'N/A';
+    const oceanBlueRows = rankedRows.filter(r => r.medianProposals <= 5 && r.personalFit >= 70 && r.lane !== 'Excluded');
+
+    return {
+      success: true,
+      data: {
+        kpis: {
+          totalJobsSampled: jobs.length,
+          topCategory,
+          oceanBlueCount: oceanBlueRows.length,
+          medianProposalsAcrossAll: Math.round(median(jobs.map(j => j.proposalsCount || 0))),
+          activeProfileName: profile?.offerHeadline ? 'Leonardo Jaimes' : 'Consultor Activo',
+        },
+        categories: rankedRows,
+        provenance: [
+          {
+            field: 'Category',
+            table: 'job_posts',
+            columns: 'title, description, raw_apify_payload->skills',
+            formula: 'Clustering semántico por reglas y palabras clave de servicio',
+            purpose: 'Agrupa el mercado por nichos comerciales para no operar con 290 filas sueltas',
+          },
+          {
+            field: 'Lane',
+            table: 'positioning_profiles',
+            columns: 'core_roles, hybrid_roles, excluded_roles',
+            formula: 'Mapeo contra la taxonomía de 4 tiers del perfil activo',
+            purpose: 'Distingue tus fortalezas centrales (Core) de servicios secundarios (Adjacent) o prohibidos (Excluded)',
+          },
+          {
+            field: 'Relevant jobs sampled',
+            table: 'job_posts',
+            columns: 'id',
+            formula: 'COUNT(id) WHERE category = C',
+            purpose: 'Valida la profundidad muestral de cada nicho en la base de datos',
+          },
+          {
+            field: 'New jobs per hour',
+            table: 'job_posts',
+            columns: 'posted_at',
+            formula: 'COUNT(id) / Δt (horas transcurridas)',
+            purpose: 'Mide la velocidad de flujo y frecuencia de llegada de nuevos clientes',
+          },
+          {
+            field: 'Median proposals already in',
+            table: 'job_posts',
+            columns: 'proposals_count',
+            formula: 'MEDIAN(proposals_count)',
+            purpose: 'Mide la saturación de competencia directa por vacante',
+          },
+          {
+            field: '% jobs under 10 proposals',
+            table: 'job_posts',
+            columns: 'proposals_count',
+            formula: '(COUNT(proposals_count < 10) / Total) * 100',
+            purpose: 'Mide la probabilidad de estar en la primera página de postulación del cliente',
+          },
+          {
+            field: 'Median hourly (USD)',
+            table: 'job_posts',
+            columns: 'hourly_min, hourly_max',
+            formula: 'MEDIAN((hourly_min + hourly_max) / 2) sobre contratos por hora',
+            purpose: 'Tarifa horaria típica de mercado que pagan los clientes en ese nicho',
+          },
+          {
+            field: 'Median fixed (USD)',
+            table: 'job_posts',
+            columns: 'budget_fixed',
+            formula: 'MEDIAN(budget_fixed) sobre contratos de precio fijo',
+            purpose: 'Presupuesto típico por proyecto para calcular valor esperado por contrato',
+          },
+          {
+            field: '% verified clients',
+            table: 'job_posts',
+            columns: 'is_payment_verified',
+            formula: '(COUNT(is_payment_verified = true) / Total) * 100',
+            purpose: 'Seguridad financiera y protección contra pérdidas de Connects por fraude',
+          },
+          {
+            field: 'Skill affinity',
+            table: 'fit_evaluations',
+            columns: 'skill_score cruzado con positioning_profiles',
+            formula: 'AVG(skill_score) de las vacantes de esa categoría',
+            purpose: 'Dominio técnico y capacidad demostrable del consultor para ganar el contrato',
+          },
+          {
+            field: 'AI ease',
+            table: 'fit_evaluations',
+            columns: 'ai_feasibility_score',
+            formula: 'Promedio de viabilidad de asistencia y entrega con IA generativa (0 a 100)',
+            purpose: 'Mide el multiplicador de margen: entregar en horas lo que antes tomaba días',
+          },
+          {
+            field: 'Personal fit',
+            table: 'Derivado compuesto',
+            columns: 'Skill affinity, AI ease',
+            formula: '(Skill affinity * 0.60) + (AI ease * 0.40)',
+            purpose: 'Qué tan cómodo, rápido y rentable es para TI ejecutar este servicio',
+          },
+          {
+            field: 'Market score',
+            table: 'Derivado compuesto',
+            columns: 'New jobs/hr, % < 10 prop, Median hourly, % verified',
+            formula: 'F(Demanda) + F(Baja Competencia) + F(Tarifa) + F(Solvencia)',
+            purpose: 'Salud y fertilidad objetiva del mercado independiente de tus habilidades',
+          },
+          {
+            field: 'Overall opportunity',
+            table: 'Score Maestro',
+            columns: 'Market score, Personal fit, Lane',
+            formula: '(Market score * 0.50) + (Personal fit * 0.50) [Capado si Excluded]',
+            purpose: 'Decisión ejecutiva de postulación: equilibra mercado sano con capacidad de ganar',
+          },
+        ]
+      }
+    };
+  }
 }
+

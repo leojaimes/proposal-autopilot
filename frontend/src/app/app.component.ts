@@ -6,6 +6,7 @@ import { JobExplorerComponent } from './features/explorer/job-explorer.component
 import { EngineSettingsDrawerComponent } from './features/dispatch/engine-settings-drawer.component';
 import { ZeroStateOnboardingComponent } from './features/onboarding/zero-state-onboarding.component';
 import { LiveScrapeProgressComponent } from './features/dispatch/live-scrape-progress.component';
+import { MarketRadarComponent } from './features/radar/market-radar.component';
 import { ReportService } from './core/services/report.service';
 
 @Component({
@@ -19,6 +20,7 @@ import { ReportService } from './core/services/report.service';
     EngineSettingsDrawerComponent,
     ZeroStateOnboardingComponent,
     LiveScrapeProgressComponent,
+    MarketRadarComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -44,9 +46,13 @@ import { ReportService } from './core/services/report.service';
           <!-- ACTIVE APPLICATION -->
           @if (currentView() === 'TERMINAL') {
             <app-dispatch-terminal class="flex-1 flex overflow-hidden"></app-dispatch-terminal>
-          } @else {
+          } @else if (currentView() === 'EXPLORER') {
             <main class="flex-1 overflow-y-auto bg-app">
               <app-job-explorer></app-job-explorer>
+            </main>
+          } @else {
+            <main class="flex-1 overflow-y-auto bg-app">
+              <app-market-radar (drilldownCategory)="handleDrilldown($event)"></app-market-radar>
             </main>
           }
         }
@@ -64,4 +70,9 @@ export class AppComponent {
   public readonly report = inject(ReportService);
   public readonly currentView = signal<AppViewMode>('TERMINAL');
   public readonly isSettingsOpen = signal<boolean>(false);
+
+  public handleDrilldown(category: string): void {
+    this.currentView.set('EXPLORER');
+  }
 }
+
