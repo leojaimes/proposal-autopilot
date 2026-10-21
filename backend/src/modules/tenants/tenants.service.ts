@@ -19,6 +19,7 @@ export interface CreateProofStoryDto {
 }
 
 export interface FullProfileSyncDto {
+  personaName?: string;
   offerHeadline: string;
   targetAudience: string;
   voiceRules?: string[];
@@ -71,6 +72,7 @@ export class TenantsService {
       where: { id: tenantId },
       include: {
         positioningProfiles: {
+          orderBy: { isActive: 'desc' },
           include: { proofStories: true },
         },
         scrapeConfigs: true,
@@ -164,13 +166,24 @@ export class TenantsService {
    * Sincroniza atómicamente el perfil completo (Oferta, Audiencia, Taxonomía, Queries, Filtros y Proof Stories)
    */
   async syncFullProfile(tenantId: string, dto: FullProfileSyncDto) {
-    const tenant = await this.getTenantConfig(tenantId);
-    let profile = tenant.positioningProfiles[0];
+    const personaName = dto.personaName?.trim() || 'Consultor';
+
+    // Desactivar todos los perfiles actuales del tenant
+    await this.prisma.positioningProfile.updateMany({
+      where: { tenantId },
+      data: { isActive: false },
+    });
+
+    // Buscar si ya existe un perfil con ese personaName
+    let profile = await this.prisma.positioningProfile.findFirst({
+      where: { tenantId, personaName },
+    });
 
     if (!profile) {
       profile = await this.prisma.positioningProfile.create({
         data: {
           tenantId,
+          personaName,
           offerHeadline: dto.offerHeadline,
           targetAudience: dto.targetAudience,
           voiceRules: dto.voiceRules || ['First person peer-to-peer', 'No em dashes anywhere', 'Sell result before tool'],
@@ -178,11 +191,12 @@ export class TenantsService {
           hybridRoles: dto.hybridRoles,
           tangentialRoles: dto.tangentialRoles,
           excludedRoles: dto.excludedRoles,
+          isActive: true,
         },
         include: { proofStories: true },
       });
     } else {
-      await this.prisma.positioningProfile.update({
+      profile = await this.prisma.positioningProfile.update({
         where: { id: profile.id },
         data: {
           offerHeadline: dto.offerHeadline,
@@ -192,11 +206,14 @@ export class TenantsService {
           hybridRoles: dto.hybridRoles,
           tangentialRoles: dto.tangentialRoles,
           excludedRoles: dto.excludedRoles,
+          isActive: true,
         },
+        include: { proofStories: true },
       });
     }
 
     // Actualizar configuración de Scraping
+    const tenant = await this.getTenantConfig(tenantId);
     let config = tenant.scrapeConfigs[0];
     if (config) {
       await this.prisma.scrapeConfig.update({
@@ -226,6 +243,35 @@ export class TenantsService {
           },
         });
       }
+    }
+
+    return this.getTenantConfig(tenantId);
+  }
+
+  /**
+   * Activa un perfil existente por su nombre o id
+   */
+  async activateProfile(tenantId: string, personaNameOrId: string) {
+    const profile = await this.prisma.positioningProfile.findFirst({
+      where: {
+        tenantId,
+        OR: [
+          { id: personaNameOrId.length === 36 ? personaNameOrId : undefined },
+          { personaName: { contains: personaNameOrId, mode: 'insensitive' } },
+        ],
+      },
+    });
+
+    if (profile) {
+      await this.prisma.positioningProfile.updateMany({
+        where: { tenantId },
+        data: { isActive: false },
+      });
+
+      await this.prisma.positioningProfile.update({
+        where: { id: profile.id },
+        data: { isActive: true },
+      });
     }
 
     return this.getTenantConfig(tenantId);

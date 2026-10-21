@@ -38,6 +38,16 @@ export class TenantsController {
   }
 
   /**
+   * POST /api/config/activate-profile
+   * Activa un perfil existente por su nombre o id
+   */
+  @Post('activate-profile')
+  async activateProfile(@Body() body: { personaName: string }) {
+    const tenantId = this.tenantContext.getTenantId();
+    return this.tenantsService.activateProfile(tenantId, body.personaName);
+  }
+
+  /**
    * PUT /api/config/positioning
    * Actualiza el posicionamiento (Offer Headline, Target Audience, Voice Rules)
    */

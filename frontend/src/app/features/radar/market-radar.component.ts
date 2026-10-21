@@ -1,6 +1,7 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed, output, OnInit } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, output, OnInit, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
+import { PipelineStateService } from '../../core/services/pipeline-state.service';
 import {
   LucideSparkles,
   LucideTrendingUp,
@@ -56,6 +57,7 @@ export interface RadarData {
     oceanBlueCount: number;
     medianProposalsAcrossAll: number;
     activeProfileName: string;
+    evaluatorSummary?: string;
   };
   categories: MarketCategoryRow[];
   provenance: ProvenanceRow[];
@@ -89,6 +91,7 @@ export interface RadarData {
 })
 export class MarketRadarComponent implements OnInit {
   private readonly http = inject(HttpClient);
+  public readonly pipeline = inject(PipelineStateService);
 
   public readonly drilldownCategory = output<string>();
 
@@ -99,20 +102,31 @@ export class MarketRadarComponent implements OnInit {
   public readonly isMethodologyOpen = signal<boolean>(true);
   public readonly selectedQuadrant = signal<string | null>(null);
 
+  constructor() {
+    effect(() => {
+      // Re-ejecutar el análisis cuando cambia el perfil activo en la cabina
+      this.pipeline.activeProfileId();
+      this.fetchRadarData();
+    });
+  }
+
   private getApiBase(): string {
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     return isLocalhost ? 'http://localhost:7000/api' : '/api';
   }
 
   public ngOnInit(): void {
-    this.fetchRadarData();
+    // Inicializado reactivamente por el effect
   }
 
   public fetchRadarData(): void {
     this.isLoading.set(true);
     this.errorMessage.set('');
 
-    this.http.get<any>(`${this.getApiBase()}/scraping/market-radar`)
+    const personaName = this.pipeline.activeProfile()?.name || '';
+    const url = `${this.getApiBase()}/scraping/market-radar?personaName=${encodeURIComponent(personaName)}`;
+
+    this.http.get<any>(url)
       .subscribe({
         next: (res) => {
           this.isLoading.set(false);

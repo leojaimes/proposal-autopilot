@@ -78,8 +78,12 @@
           <span class="text-[11px] font-bold uppercase tracking-wider text-content-muted">Perfil Evaluador</span>
           <svg lucideTarget class="w-4 h-4 text-brand-primary"></svg>
         </div>
-        <div class="text-sm font-bold text-content-primary truncate">{{ radarData()!.kpis.activeProfileName }}</div>
-        <p class="text-[11px] text-content-muted font-medium">Afinidad técnica y roles calculados</p>
+        <div class="text-sm font-bold text-content-primary truncate" [title]="radarData()!.kpis.activeProfileName">
+          {{ radarData()!.kpis.activeProfileName }}
+        </div>
+        <p class="text-[11px] text-content-muted font-medium truncate" [title]="radarData()!.kpis.evaluatorSummary || 'Taxonomía y afinidad calculada'">
+          {{ radarData()!.kpis.evaluatorSummary || 'Taxonomía y afinidad calculada' }}
+        </p>
       </div>
     </div>
 

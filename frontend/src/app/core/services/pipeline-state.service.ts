@@ -76,6 +76,95 @@ const DEFAULT_PROFILES: CalibrationProfile[] = [
         tags: ['0-to-1 Product', 'GenAI', 'Founder']
       }
     ]
+  },
+  {
+    id: 'LEONARDO_PRESET',
+    name: 'Leonardo Jaimes: Senior Full Stack & AI Architect',
+    roleTitle: 'Senior Full Stack Developer & AI Systems Architect',
+    offerText: 'I build AI-driven multi-tenant SaaS platforms that automate content generation, decision-making, and publishing, reducing production time by over 80% and ensuring brand consistency for your business.',
+    targetAudience: 'Founders, CTOs, and technical leaders of fast-growing SaaS startups, digital agencies, and media companies seeking to leverage AI for content automation and scalable web/mobile solutions.',
+    keywords: 'Full Stack Developer, Backend Engineer, Node.js Developer, NestJS, Vue.js, Nuxt.js, AI Agent Architect, Automation Engineer, SaaS Platform, Multi-Tenant SaaS',
+    minHourlyRate: 50,
+    minBudgetFixed: 1000,
+    verifiedPaymentOnly: true,
+    weightSkill: 40,
+    weightAi: 25,
+    weightClient: 20,
+    weightRecency: 15,
+    targetCountries: ['United States', 'United Kingdom', 'Canada', 'Australia'],
+    targetRegions: ['North America', 'Western Europe'],
+    excludedCountries: [],
+    geoFilterMode: 'WEIGHTED_PREFERENCE',
+    coreRoles: [
+      'Full Stack Developer',
+      'Backend Engineer',
+      'Node.js Developer',
+      'Vue.js Developer',
+      'Nuxt.js Developer',
+      'MongoDB Developer',
+      'NestJS Developer'
+    ],
+    hybridRoles: [
+      'AI Agent Architect',
+      'Automation Engineer',
+      'Multi-Tenant SaaS Architect',
+      'Prompt Engineer',
+      'Spec-Driven Developer',
+      'Workflow Orchestration Specialist'
+    ],
+    tangentialRoles: [
+      'Frontend Lead',
+      'Mobile Developer (Flutter)',
+      'REST API Designer',
+      'Technical Lead'
+    ],
+    excludedRoles: [
+      'UI/UX Designer',
+      'Graphic Designer',
+      'Manual QA Tester',
+      'Data Entry Specialist',
+      'Virtual Assistant',
+      'Telemarketing',
+      'WordPress Developer',
+      'Shopify Developer'
+    ],
+    proofStories: [
+      {
+        id: 'SPOTLIGHT_AI_PLATFORM',
+        company: 'AI Publications Platform (SaaS)',
+        metric: '80% Reduction in Content Production Time',
+        description: 'Architected and built an autonomous AI multi-tenant publications platform automating content generation and distribution.',
+        tags: ['AI Agent Design', 'Multi-Tenant SaaS', 'Content Automation', 'Vue/Nuxt', 'Node.js/NestJS']
+      },
+      {
+        id: 'PEPPERTIX_WEB',
+        company: 'PepperTix Web Application',
+        metric: 'Increased User Engagement & SEO',
+        description: 'Built scalable Vue/Nuxt.js web application with optimized rendering, responsive design and accessibility.',
+        tags: ['Frontend Development', 'Vue/Nuxt.js', 'Responsive Design', 'SEO Optimization']
+      },
+      {
+        id: 'PEPPERTIX_BACKEND',
+        company: 'PepperTix Backend',
+        metric: 'Ensured High-Availability Database Integration',
+        description: 'Engineered Node.js/Express REST APIs with MongoDB aggregation pipelines and user session security.',
+        tags: ['Backend Development', 'Node.js/Express.js', 'RESTful APIs', 'MongoDB']
+      },
+      {
+        id: 'PEPPER_VIDEOS_MOBILE',
+        company: 'Pepper Videos Mobile',
+        metric: 'Cross-Platform Clean Architecture',
+        description: 'Developed Flutter mobile application using Clean Architecture with real-time video feeds and push notifications.',
+        tags: ['Mobile Development', 'Flutter', 'Clean Architecture', 'Video Streaming']
+      },
+      {
+        id: 'PEPPER_BOT',
+        company: 'Pepper Bot',
+        metric: 'Conversational Event Search Functionality',
+        description: 'Engineered Dialogflow & LLM conversational chatbot integrated with Facebook Messenger Graph API.',
+        tags: ['Chatbot Development', 'Dialogflow', 'ChatGPT', 'Facebook Messenger']
+      }
+    ]
   }
 ];
 
@@ -135,9 +224,9 @@ export class PipelineStateService {
     try {
       const stored = localStorage.getItem('proposal_autopilot_profiles');
       if (stored) {
-        const list: CalibrationProfile[] = JSON.parse(stored);
+        let list: CalibrationProfile[] = JSON.parse(stored);
         // Migrar cualquier perfil previo a Armando
-        return list.map(p => {
+        list = list.map(p => {
           if (p.id === 'BO_PRESET' || p.name.includes('Bo:')) {
             return {
               ...p,
@@ -148,6 +237,17 @@ export class PipelineStateService {
           }
           return p;
         });
+
+        // Asegurar que tanto Armando como Leonardo estén en la lista
+        const hasLeonardo = list.some(p => p.id === 'LEONARDO_PRESET' || p.name.toLowerCase().includes('leonardo'));
+        if (!hasLeonardo && DEFAULT_PROFILES[1]) {
+          list.push(DEFAULT_PROFILES[1]);
+        }
+        const hasArmando = list.some(p => p.id === 'ARMANDO_PRESET' || p.name.toLowerCase().includes('armando'));
+        if (!hasArmando && DEFAULT_PROFILES[0]) {
+          list.unshift(DEFAULT_PROFILES[0]);
+        }
+        return list;
       }
       return DEFAULT_PROFILES;
     } catch {
@@ -196,6 +296,16 @@ export class PipelineStateService {
     this.tangentialRoles.set(profile.tangentialRoles || []);
     this.excludedRoles.set(profile.excludedRoles || []);
     this.persist();
+
+    // Sincronizar activación con PostgreSQL
+    this.activateProfileInBackend(profile.name);
+  }
+
+  public activateProfileInBackend(personaName: string): void {
+    this.http.post(`${this.getApiBase()}/config/activate-profile`, { personaName }).subscribe({
+      next: () => console.log(`✅ Perfil [${personaName}] activado en PostgreSQL`),
+      error: (err) => console.warn(`⚠️ Error activando perfil en backend:`, err)
+    });
   }
 
   public toggleTargetCountry(country: string): void {

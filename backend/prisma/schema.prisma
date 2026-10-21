@@ -91,6 +91,7 @@ model TenantCredential {
 model PositioningProfile {
   id             String       @id @default(uuid()) @db.Uuid
   tenantId       String       @map("tenant_id") @db.Uuid
+  personaName    String       @default("Consultor") @map("persona_name") @db.VarChar(150)
   offerHeadline  String       @map("offer_headline") @db.VarChar(255)
   targetAudience String       @map("target_audience") @db.Text
   voiceRules     Json         @default("[]") @map("voice_rules")

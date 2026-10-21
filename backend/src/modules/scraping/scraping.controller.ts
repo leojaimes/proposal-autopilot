@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Patch, Body, Param, Logger, NotFoundException, Res, Sse, MessageEvent } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Body, Param, Query, Logger, NotFoundException, Res, Sse, MessageEvent } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { Response } from 'express';
 import { ApifyService } from './apify.service';
@@ -1349,19 +1349,39 @@ export class ScrapingController {
    * Extrae de PostgreSQL las métricas reales y calcula la Matriz de Oportunidad para el consultor.
    */
   @Get('market-radar')
-  async getMarketRadar() {
+  async getMarketRadar(@Query('personaName') personaNameQuery?: string) {
     const tenantId = this.tenantContext.getTenantId();
 
-    const [jobs, profile] = await Promise.all([
-      this.prisma.jobPost.findMany({
-        where: { tenantId },
-        include: { fitEvaluation: true },
-      }),
-      this.prisma.positioningProfile.findFirst({
+    let profile = personaNameQuery
+      ? await this.prisma.positioningProfile.findFirst({
+          where: {
+            tenantId,
+            personaName: { contains: personaNameQuery.split(':')[0].trim(), mode: 'insensitive' },
+          },
+          include: { proofStories: true },
+        })
+      : null;
+
+    if (!profile) {
+      profile = await this.prisma.positioningProfile.findFirst({
         where: { tenantId, isActive: true },
         include: { proofStories: true },
-      }),
-    ]);
+      });
+    } else if (!profile.isActive) {
+      await this.prisma.positioningProfile.updateMany({
+        where: { tenantId },
+        data: { isActive: false },
+      });
+      await this.prisma.positioningProfile.update({
+        where: { id: profile.id },
+        data: { isActive: true },
+      });
+    }
+
+    const jobs = await this.prisma.jobPost.findMany({
+      where: { tenantId },
+      include: { fitEvaluation: true },
+    });
 
     const categorize = (title: string, desc: string, rawSkills: any): string => {
       const skills = Array.isArray(rawSkills) ? rawSkills : [];
@@ -1552,7 +1572,10 @@ export class ScrapingController {
           topCategory,
           oceanBlueCount: oceanBlueRows.length,
           medianProposalsAcrossAll: Math.round(median(jobs.map(j => j.proposalsCount || 0))),
-          activeProfileName: profile?.offerHeadline ? 'Leonardo Jaimes' : 'Consultor Activo',
+          activeProfileName: (profile as any)?.personaName || profile?.offerHeadline?.slice(0, 45) || 'Consultor Activo',
+          evaluatorSummary: profile
+            ? `${(profile.coreRoles || []).slice(0, 3).join(', ')} · ${profile.coreRoles?.length || 0} Core · ${profile.proofStories?.length || 0} Proof Stories`
+            : 'Sin perfil configurado',
         },
         categories: rankedRows,
         provenance: [
