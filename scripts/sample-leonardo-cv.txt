@@ -1,0 +1,47 @@
+LEONARDO JAIMES ESTEVEZ
+FULL STACK DEVELOPER
+leo777jaimes@gmail.com | +52 9999000935 | LinkedIn: linkedIn
+
+SUMMARY
+Full Stack Developer with 10+ years of experience building scalable web and mobile applications. Specialized in Vue, Nuxt, Node.js, and MongoDB, with strong focus on AI-driven systems, automation, and spec-driven development. Currently building a multi-tenant SaaS platform that automates content generation, decision-making, and publishing based on real-time events and trends.
+
+TECHNICAL SKILLS
+AI & Automation: AI Agent Design, Prompt Engineering, Gemini, OpenAI, LangChain / Tavily, Spec-Driven Dev (SDD), Workflow Orchestration
+Backend Development: NestJS, Node.js, REST APIs, Multi-Tenant SaaS, Auth & RBAC, MongoDB, Firebase Storage
+Frontend Development: Vue, Nuxt, React, Next.js, TypeScript, Responsive Design
+Tools & Delivery: Git, Docker, Agile/Scrum, Jira, TDD, Unit & Integration Testing
+
+EXPERIENCE
+Full Stack Developer 01/2020 - Present
+Spotlight Studio Mérida, Yucatán, México
+AI Publications Platform (SaaS)
+Designed and led development of a multi-tenant SaaS platform that automates social media content creation and publishing for multiple clients from a single system. The platform detects real-world events and trends in real time, generates branded visual content automatically, and schedules posts across social networks without manual intervention. Reduced content production time by over 80% per campaign while maintaining brand consistency across all clients. Built with scalability, security, and maintainability as core principles — structured to grow with the business.
+
+PepperTix Web Application
+Led frontend development for PepperTix, a ticket resale web platform, utilizing Vue and Nuxt.js to deliver a responsive and scalable user experience. Improved SEO performance and platform accessibility, resulting in increased user engagement. Collaborated closely with UX and QA teams to ensure high-quality deliverables.
+
+Pepper Tix Backend
+Developed backend services to support PepperTix features using Node.js and Express.js. Designed and maintained RESTful APIs to handle ticket transactions, user management, and notifications. Ensured database integration and data consistency with MongoDB.
+
+Pepper Videos Mobile
+Developed the Pepper Videos mobile application using Flutter, enabling users to search for videos, follow artists, and receive notifications. Implemented Clean Architecture principles ensuring scalability, testability, and maintainability.
+
+Pepper Bot
+Built a conversational event search chatbot for Facebook Messenger using Graph API, Messenger, Dialogflow, and ChatGPT.
+
+Independent Software Developer / Professional Transition 2017 – 2019
+Independent Remote
+Focused on autonomous deep learning, updating technical stack to modern JavaScript frameworks (Vue.js, Node.js), and exploring emerging cloud architectures. Delivered freelance web development solutions and technical consulting for local clients, ensuring high-performance standards and responsive designs. Dedicated time to professional upskilling, system design exploration, and personal engineering projects.
+
+Application Development Assistant 01/2013 - 12/2016
+Fundación de la Mujer Floridablanca, Santander, Colombia
+Assisted with operational issue resolution, debugging, and refactoring. Documented bugs and supported the development team. Worked with internal tools and SQL Server.
+
+EDUCATION
+Telecommunications Engineering 2015
+Unidades Tecnológicas de Santander Bucaramanga, Colombia
+Information Systems Analysis and Development 2005
+Servicio Nacional de Aprendizaje SENA Santander, Colombia
+
+LANGUAGES
+Spanish: Native English: B1+

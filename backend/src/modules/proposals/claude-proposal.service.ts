@@ -48,6 +48,35 @@ export interface SynthesizeTaxonomyOutput {
   rationale: string;
 }
 
+export interface SynthesizeProfileFromCvOutput {
+  personaName: string;
+  offerHeadline: string;
+  targetAudience: string;
+  voiceRules: string[];
+  proofStories: Array<{
+    keyCode: string;
+    companyOrProduct: string;
+    impactMetric: string;
+    domainTags: string[];
+  }>;
+  taxonomy: {
+    coreRoles: string[];
+    hybridRoles: string[];
+    tangentialRoles: string[];
+    excludedRoles: string[];
+  };
+  scrapingConfig: {
+    searchKeywords: string[];
+    minHourlyRate: number;
+    minBudgetFixed: number;
+    targetCountries: string[];
+  };
+  scoringRationale: {
+    strengthsDetected: string[];
+    scoringExplanation: string;
+  };
+}
+
 @Injectable()
 export class ClaudeProposalService {
   private readonly logger = new Logger(ClaudeProposalService.name);
@@ -423,6 +452,178 @@ Output STRICT JSON:
         }
       } catch (err: any) {
         this.logger.error(`Error sintetizando taxonomía con Gemini: ${err.message}. Usando fallback.`);
+      }
+    }
+
+    return fallback;
+  }
+
+  /**
+   * Sintetiza un Perfil de Posicionamiento completo (Oferta, Audiencia, Proof Stories,
+   * Taxonomía de 4 capas, Queries Upwork y Explicación de Scoring) a partir del texto
+   * de un CV, perfil de LinkedIn o notas de experiencia del usuario.
+   */
+  async synthesizeProfileFromCv(rawText: string): Promise<SynthesizeProfileFromCvOutput> {
+    const trimmed = (rawText || '').trim();
+    if (!trimmed) {
+      throw new Error('El texto del CV o resumen de experiencia no puede estar vacío.');
+    }
+
+    const fallback: SynthesizeProfileFromCvOutput = {
+      personaName: 'Consultor Especialista',
+      offerHeadline: 'High-Impact Engineering & Architecture for scaling tech products and startups.',
+      targetAudience: 'Founders, CTOs, and technical leaders needing senior architecture and fast execution.',
+      voiceRules: ['First person peer-to-peer', 'No em dashes anywhere', 'Sell result before tool'],
+      proofStories: [
+        {
+          keyCode: 'FLAGSHIP_PROJECT',
+          companyOrProduct: 'Plataforma Principal',
+          impactMetric: '+40% de eficiencia y escalabilidad demostrada',
+          domainTags: ['Architecture', 'SaaS', 'Full Stack'],
+        },
+      ],
+      taxonomy: {
+        coreRoles: ['Software Engineer', 'Full Stack Developer', 'Architect'],
+        hybridRoles: ['Automation Engineer', 'AI Prototyper'],
+        tangentialRoles: ['Technical Consultant'],
+        excludedRoles: ['Virtual Assistant', 'Data Entry', 'Telemarketing', 'Customer Support'],
+      },
+      scrapingConfig: {
+        searchKeywords: ['("Full Stack" OR "Engineer") AND ("SaaS" OR "Cloud")'],
+        minHourlyRate: 45,
+        minBudgetFixed: 1000,
+        targetCountries: ['United States', 'United Kingdom', 'Canada', 'Australia', 'Germany'],
+      },
+      scoringRationale: {
+        strengthsDetected: ['Ingeniería de software', 'Arquitectura'],
+        scoringExplanation: 'Se priorizan vacantes con alta demanda técnica y clientes con método de pago verificado.',
+      },
+    };
+
+    if (this.geminiApiKey && !this.geminiApiKey.includes('REPLACE_WITH_YOUR')) {
+      try {
+        const prompt = `You are an elite Positioning & Lead Generation Architect for top 1% independent consultants on Upwork.
+Analyze the following CV / LinkedIn summary / raw experience text.
+Extract their true technical strengths, projects, achievements, and market positioning.
+Synthesize a fully calibrated contractor profile for our multi-tier scoring engine.
+
+[RAW CV / EXPERIENCE TEXT]
+${trimmed.substring(0, 10000)}
+
+[STRATEGIC INSTRUCTIONS]
+1. personaName: Formal name followed by their core positioning title (e.g. "Leonardo Jaimes: Senior Full Stack & AI Architect").
+2. offerHeadline: A punchy, value-first transformation statement (max 200 chars). Sell the business outcome, not just a list of tools.
+3. targetAudience: Specific Ideal Customer Profile (ICP) with high buying power (e.g. "Founders, CTOs, and technical leaders of fast-growing SaaS startups...").
+4. proofStories: Extract exactly 3 to 5 REAL projects/companies mentioned in the text.
+   - keyCode: SNAKE_CASE uppercase identifier (e.g. SPOTLIGHT_AI, PEPPERTIX).
+   - companyOrProduct: Name of the company or product.
+   - impactMetric: Tangible, quantified impact metric (e.g. "80% Reduction in Content Production Time", "$40B Annual Bookings", "17,000+ Users").
+   - domainTags: 3 to 5 skill/technology tags.
+5. taxonomy (The 4-tier semantic role boundaries):
+   - coreRoles (1.0 - 100% Fit): The 5 to 7 exact primary roles where the candidate is a top-tier expert (e.g. "Full Stack Developer", "Backend Engineer", "NestJS Developer").
+   - hybridRoles (0.8 - 80% Fit): 4 to 6 modern cross-disciplinary roles combining their skills (e.g. "AI Agent Architect", "Automation Engineer").
+   - tangentialRoles (0.4 - 40% Fit): 2 to 4 border roles that touch product or tech.
+   - excludedRoles (0.0 - Immediate Disqualifiers): 5 to 8 incompatible roles or low-ticket noise that would waste connects (e.g. UI/UX design if they are a pure backend dev, or telemarketing, virtual assistant, data entry, manual QA).
+6. scrapingConfig:
+   - searchKeywords: 4 to 5 high-intent Upwork boolean search queries using Lucene syntax (e.g. '("Full Stack" OR "Fullstack") AND ("NestJS" OR "Vue")').
+   - minHourlyRate: Recommended minimum hourly rate ($USD) matching their seniority.
+   - minBudgetFixed: Recommended minimum fixed budget ($USD).
+   - targetCountries: Top paying countries (United States, United Kingdom, Canada, Australia, Germany, Ireland).
+7. scoringRationale:
+   - strengthsDetected: Array of 3 to 6 key strengths and advantages detected in the candidate.
+   - scoringExplanation: Clear, concise explanation (in Spanish) of how the scoring will evaluate jobs: which technical matches earn 100% score and which roles/factors trigger an immediate disqualification.
+
+Output STRICT JSON:
+{
+  "personaName": "...",
+  "offerHeadline": "...",
+  "targetAudience": "...",
+  "voiceRules": ["First person peer-to-peer", "No em dashes anywhere", "Sell result before tool"],
+  "proofStories": [
+    {
+      "keyCode": "...",
+      "companyOrProduct": "...",
+      "impactMetric": "...",
+      "domainTags": ["..."]
+    }
+  ],
+  "taxonomy": {
+    "coreRoles": ["..."],
+    "hybridRoles": ["..."],
+    "tangentialRoles": ["..."],
+    "excludedRoles": ["..."]
+  },
+  "scrapingConfig": {
+    "searchKeywords": ["..."],
+    "minHourlyRate": 50,
+    "minBudgetFixed": 1000,
+    "targetCountries": ["United States", "United Kingdom", "Canada", "Australia", "Germany"]
+  },
+  "scoringRationale": {
+    "strengthsDetected": ["..."],
+    "scoringExplanation": "..."
+  }
+}`;
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.geminiModel}:generateContent?key=${this.geminiApiKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(20000),
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.2,
+              thinkingConfig: { thinkingBudget: 0 },
+            },
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+          const parsed = JSON.parse(raw);
+
+          if (parsed.personaName && parsed.offerHeadline && Array.isArray(parsed.proofStories)) {
+            return {
+              personaName: parsed.personaName,
+              offerHeadline: parsed.offerHeadline,
+              targetAudience: parsed.targetAudience || fallback.targetAudience,
+              voiceRules: Array.isArray(parsed.voiceRules) ? parsed.voiceRules : fallback.voiceRules,
+              proofStories: parsed.proofStories.map((s: any) => ({
+                keyCode: (s.keyCode || s.companyOrProduct || 'STORY').toUpperCase().replace(/\s+/g, '_'),
+                companyOrProduct: s.companyOrProduct || 'Empresa / Producto',
+                impactMetric: s.impactMetric || 'Impacto cuantificado relevante',
+                domainTags: Array.isArray(s.domainTags) ? s.domainTags : ['General'],
+              })),
+              taxonomy: {
+                coreRoles: Array.isArray(parsed.taxonomy?.coreRoles) ? parsed.taxonomy.coreRoles : fallback.taxonomy.coreRoles,
+                hybridRoles: Array.isArray(parsed.taxonomy?.hybridRoles) ? parsed.taxonomy.hybridRoles : fallback.taxonomy.hybridRoles,
+                tangentialRoles: Array.isArray(parsed.taxonomy?.tangentialRoles) ? parsed.taxonomy.tangentialRoles : fallback.taxonomy.tangentialRoles,
+                excludedRoles: Array.isArray(parsed.taxonomy?.excludedRoles) ? parsed.taxonomy.excludedRoles : fallback.taxonomy.excludedRoles,
+              },
+              scrapingConfig: {
+                searchKeywords: Array.isArray(parsed.scrapingConfig?.searchKeywords) && parsed.scrapingConfig.searchKeywords.length > 0
+                  ? parsed.scrapingConfig.searchKeywords
+                  : fallback.scrapingConfig.searchKeywords,
+                minHourlyRate: Number(parsed.scrapingConfig?.minHourlyRate) || 45,
+                minBudgetFixed: Number(parsed.scrapingConfig?.minBudgetFixed) || 1000,
+                targetCountries: Array.isArray(parsed.scrapingConfig?.targetCountries)
+                  ? parsed.scrapingConfig.targetCountries
+                  : fallback.scrapingConfig.targetCountries,
+              },
+              scoringRationale: {
+                strengthsDetected: Array.isArray(parsed.scoringRationale?.strengthsDetected)
+                  ? parsed.scoringRationale.strengthsDetected
+                  : ['Experiencia técnica senior'],
+                scoringExplanation: parsed.scoringRationale?.scoringExplanation || 'Scoring deductivo calibrado automáticamente.',
+              },
+            };
+          }
+        }
+      } catch (err: any) {
+        this.logger.error(`Error sintetizando perfil con Gemini: ${err.message}. Usando fallback.`);
       }
     }
 

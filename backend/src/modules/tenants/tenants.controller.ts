@@ -1,4 +1,5 @@
-import { Controller, Get, Put, Post, Delete, Body, Param } from '@nestjs/common';
+import { Controller, Get, Put, Post, Delete, Body, Param, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { 
   TenantsService, 
   UpdatePositioningDto, 
@@ -112,5 +113,20 @@ export class TenantsController {
   async synthesizeTaxonomy() {
     const tenantId = this.tenantContext.getTenantId();
     return this.tenantsService.synthesizeTaxonomy(tenantId);
+  }
+
+  /**
+   * POST /api/config/synthesize-profile-from-cv
+   * Sintetiza el perfil completo, taxonomía 4 capas, queries de Upwork y rationale de scoring
+   * a partir de texto plano o archivo subido (.pdf, .txt, .md).
+   */
+  @Post('synthesize-profile-from-cv')
+  @UseInterceptors(FileInterceptor('file'))
+  async synthesizeProfileFromCv(
+    @Body('rawText') rawText?: string,
+    @UploadedFile() file?: any,
+  ) {
+    const tenantId = this.tenantContext.getTenantId();
+    return this.tenantsService.synthesizeProfileFromCv(tenantId, rawText, file);
   }
 }

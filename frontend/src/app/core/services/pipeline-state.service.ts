@@ -299,6 +299,47 @@ export class PipelineStateService {
     this.selectProfile(newProfile.id);
   }
 
+  /**
+   * Crea y activa un perfil completo a partir de la síntesis de IA (CV Ingestor)
+   */
+  public createFromSynthesis(data: any): CalibrationProfile {
+    const name = data.personaName && data.positioningTitle 
+      ? `${data.personaName}: ${data.positioningTitle}`
+      : (data.personaName || 'Leonardo Jaimes: Full Stack & AI Architect');
+
+    const newProfile: CalibrationProfile = {
+      id: 'PROFILE_' + Date.now(),
+      name: name,
+      roleTitle: data.positioningTitle || 'Senior Full Stack & AI Architect',
+      offerText: data.offerHeadline || '',
+      targetAudience: data.targetAudience || '',
+      keywords: data.scrapingConfig?.searchKeywords?.join(', ') || '',
+      minHourlyRate: data.scrapingConfig?.minHourlyRate || 50,
+      minBudgetFixed: data.scrapingConfig?.minBudgetFixed || 1000,
+      verifiedPaymentOnly: true,
+      weightSkill: 40,
+      weightAi: 25,
+      weightClient: 20,
+      weightRecency: 15,
+      targetCountries: data.scrapingConfig?.targetCountries || ['United States', 'United Kingdom', 'Canada', 'Australia'],
+      coreRoles: data.taxonomy?.coreRoles || [],
+      hybridRoles: data.taxonomy?.hybridRoles || [],
+      tangentialRoles: data.taxonomy?.tangentialRoles || [],
+      excludedRoles: data.taxonomy?.excludedRoles || [],
+      proofStories: (data.proofStories || []).map((s: any) => ({
+        id: s.keyCode || ('STORY_' + Math.random().toString(36).substring(7)),
+        company: s.companyOrProduct,
+        metric: s.impactMetric,
+        description: s.impactMetric,
+        tags: s.domainTags || [],
+      })),
+    };
+
+    this.profiles.update(list => [...list, newProfile]);
+    this.selectProfile(newProfile.id);
+    return newProfile;
+  }
+
   public deleteProfile(profileId: string): void {
     if (this.profiles().length <= 1) return; // Keep at least one profile
     this.profiles.update(list => list.filter(p => p.id !== profileId));

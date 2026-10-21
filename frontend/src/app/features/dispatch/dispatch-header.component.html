@@ -167,56 +167,211 @@
   </div>
 </header>
 
-<!-- MODAL CREAR NUEVO PERFIL DE CERO (OTRA PERSONA) -->
+<!-- MODAL CREAR NUEVO PERFIL (IA UNIVERSAL INGESTOR O MANUAL) -->
 @if (isCreateProfileModalOpen()) {
-  <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="w-full max-w-md bg-surface border border-border-subtle rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
+  <div class="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl bg-surface border border-border-subtle rounded-3xl p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
       
+      <!-- Modal Header -->
       <div class="flex items-center justify-between border-b border-border-subtle pb-3">
         <div class="flex items-center gap-2.5">
           <div class="w-8 h-8 rounded-xl bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center text-brand-primary">
-            <svg lucideUser class="w-4 h-4"></svg>
+            <svg lucideSparkles class="w-4 h-4"></svg>
           </div>
           <div>
-            <h3 class="text-sm font-bold text-content-primary">Crear Perfil de Calibración</h3>
-            <p class="text-[11px] text-content-muted">Configura una nueva persona u oferta desde cero</p>
+            <h3 class="text-sm font-bold text-content-primary">Configurar Perfil de Calibración</h3>
+            <p class="text-[11px] text-content-muted">Alimenta el motor con tus proyectos reales o crea una persona manualmente</p>
           </div>
         </div>
-        <button (click)="isCreateProfileModalOpen.set(false)" class="text-content-muted hover:text-content-primary text-xs">✕</button>
+        <button (click)="isCreateProfileModalOpen.set(false)" class="text-content-muted hover:text-content-primary text-xs p-1">✕</button>
       </div>
 
-      <div class="space-y-4">
-        <div>
-          <label class="block text-xs font-bold text-content-primary mb-1">Nombre de la Persona o Especialidad</label>
-          <input type="text"
-                 [ngModel]="newPersonName()"
-                 (ngModelChange)="newPersonName.set($event)"
-                 placeholder="Ej: Armando (Fullstack & AI) o María (Mobile UX)..."
-                 class="w-full bg-surface-elevated border border-border-subtle rounded-xl p-3 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
-          <span class="text-[10px] text-content-muted mt-1 block">Este perfil nacerá limpio (0 historias) para que agregues sus propias credenciales.</span>
-        </div>
-
-        <div>
-          <label class="block text-xs font-bold text-content-primary mb-1">Rol Profesional Principal</label>
-          <input type="text"
-                 [ngModel]="newPersonRole()"
-                 (ngModelChange)="newPersonRole.set($event)"
-                 placeholder="Ej: Senior Fullstack Engineer, UX Research Lead..."
-                 class="w-full bg-surface-elevated border border-border-subtle rounded-xl p-3 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
-        </div>
+      <!-- Mode Selector Tabs -->
+      <div class="flex border-b border-border-subtle/50 pb-2 gap-2">
+        <button (click)="modalTab.set('AI')"
+                [class.bg-brand-primary]="modalTab() === 'AI'"
+                [class.text-white]="modalTab() === 'AI'"
+                [class.bg-surface-elevated]="modalTab() !== 'AI'"
+                [class.text-content-muted]="modalTab() !== 'AI'"
+                class="px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all">
+          <svg lucideSparkles class="w-3.5 h-3.5"></svg>
+          <span>✨ Ingesta con IA (CV / Experiencia)</span>
+        </button>
+        <button (click)="modalTab.set('MANUAL')"
+                [class.bg-brand-primary]="modalTab() === 'MANUAL'"
+                [class.text-white]="modalTab() === 'MANUAL'"
+                [class.bg-surface-elevated]="modalTab() !== 'MANUAL'"
+                [class.text-content-muted]="modalTab() !== 'MANUAL'"
+                class="px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all">
+          <svg lucideUser class="w-3.5 h-3.5"></svg>
+          <span>Modo Manual</span>
+        </button>
       </div>
 
-      <div class="flex justify-end gap-2 pt-2 border-t border-border-subtle">
-        <button (click)="isCreateProfileModalOpen.set(false)"
-                class="px-4 py-2 rounded-xl text-content-muted hover:text-content-primary text-xs font-semibold">
-          Cancelar
-        </button>
-        <button (click)="confirmCreateProfile()"
-                [disabled]="!newPersonName().trim()"
-                class="px-5 py-2 rounded-xl bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold shadow-md disabled:opacity-50 transition-all">
-          Crear y Calibrar de Cero
-        </button>
+      <!-- Scrollable Content Body -->
+      <div class="flex-1 overflow-y-auto space-y-4 pr-1">
+
+        @if (modalTab() === 'AI') {
+          <!-- TAB IA: Ingesta de CV / Texto -->
+          @if (!synthesisResult()) {
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-bold text-content-primary flex items-center gap-1.5">
+                  <svg lucideFileText class="w-3.5 h-3.5 text-brand-primary"></svg>
+                  <span>Pega tu CV, Biografía o Resumen de Proyectos</span>
+                </label>
+                <button (click)="loadLeonardoCv()"
+                        type="button"
+                        class="text-[11px] text-brand-primary hover:underline font-semibold flex items-center gap-1">
+                  <span>⚡ Cargar CV de Leonardo</span>
+                </button>
+              </div>
+
+              <textarea [ngModel]="rawCvText()"
+                        (ngModelChange)="rawCvText.set($event)"
+                        rows="7"
+                        placeholder="Pega aquí tu CV completo, experiencia, proyectos clave (Spotlight Studio, PepperTix, etc.) y fortalezas técnicas..."
+                        class="w-full bg-surface-elevated border border-border-subtle rounded-2xl p-3 text-xs text-content-primary font-mono placeholder:text-content-muted/60 focus:outline-none focus:border-brand-primary transition-all resize-none"></textarea>
+
+              <!-- Drag and drop zone -->
+              <div (dragover)="$event.preventDefault()"
+                   (drop)="onFileDrop($event)"
+                   class="border border-dashed border-border-subtle/80 hover:border-brand-primary/60 rounded-2xl p-3 text-center bg-surface-elevated/40 transition-all cursor-pointer relative">
+                <input type="file"
+                       (change)="onFileInputChange($event)"
+                       accept=".pdf,.txt,.md"
+                       class="absolute inset-0 opacity-0 cursor-pointer">
+                <div class="flex items-center justify-center gap-2">
+                  <svg lucideUpload class="w-4 h-4 text-brand-primary"></svg>
+                  <span class="text-xs text-content-primary font-semibold">
+                    {{ selectedFileName() || 'O arrastra tu archivo .pdf, .txt, .md aquí' }}
+                  </span>
+                  @if (selectedFileName()) {
+                    <button (click)="clearFile(); $event.stopPropagation()" class="text-xs text-red-400 hover:text-red-300 ml-2">✕</button>
+                  }
+                </div>
+              </div>
+
+              @if (errorMessage()) {
+                <div class="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
+                  <svg lucideAlertCircle class="w-4 h-4 shrink-0"></svg>
+                  <span>{{ errorMessage() }}</span>
+                </div>
+              }
+
+              <button (click)="synthesizeProfile()"
+                      [disabled]="isSynthesizing() || (!rawCvText().trim() && !selectedFile())"
+                      class="w-full py-2.5 rounded-xl bg-gradient-to-r from-brand-primary to-emerald-600 hover:opacity-95 text-white text-xs font-bold shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 transition-all">
+                @if (isSynthesizing()) {
+                  <svg lucideRefreshCw class="w-4 h-4 animate-spin"></svg>
+                  <span>Sintetizando proyectos y taxonomía con IA...</span>
+                } @else {
+                  <svg lucideSparkles class="w-4 h-4"></svg>
+                  <span>Sintetizar Proyectos, Taxonomía y Scoring</span>
+                }
+              </button>
+            </div>
+          } @else {
+            <!-- PREVIEW CARD DE SÍNTESIS -->
+            <div class="space-y-3.5 animate-in fade-in duration-200">
+              <div class="p-4 rounded-2xl bg-brand-primary/10 border border-brand-primary/20 space-y-3">
+                
+                <div class="flex items-start justify-between">
+                  <div>
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-brand-primary bg-brand-primary/20 px-2 py-0.5 rounded-md">Perfil Extraído</span>
+                    <h4 class="text-sm font-bold text-content-primary mt-1">{{ synthesisResult().personaName }}</h4>
+                    <p class="text-xs text-content-muted font-medium">{{ synthesisResult().positioningTitle }}</p>
+                  </div>
+                  <button (click)="synthesisResult.set(null)" class="text-xs text-content-muted hover:text-content-primary">Editar CV</button>
+                </div>
+
+                <!-- Proof Stories con Métricas -->
+                <div>
+                  <span class="text-[10px] font-bold uppercase text-content-muted block mb-1.5">Historias de Autoridad (Proof Stories)</span>
+                  <div class="space-y-1.5">
+                    @for (story of synthesisResult().proofStories; track story.keyCode) {
+                      <div class="p-2 rounded-xl bg-surface border border-border-subtle flex items-center justify-between text-xs">
+                        <span class="font-bold text-content-primary">{{ story.companyOrProduct }}</span>
+                        <span class="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">{{ story.impactMetric }}</span>
+                      </div>
+                    }
+                  </div>
+                </div>
+
+                <!-- Taxonomía 4 Tiers -->
+                <div>
+                  <span class="text-[10px] font-bold uppercase text-content-muted block mb-1.5">Taxonomía Semántica (Afinidad de Rol)</span>
+                  <div class="flex flex-wrap gap-1">
+                    @for (role of synthesisResult().taxonomy.coreRoles; track role) {
+                      <span class="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-semibold">Core: {{ role }}</span>
+                    }
+                    @for (role of synthesisResult().taxonomy.excludedRoles?.slice(0, 3); track role) {
+                      <span class="text-[10px] px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 font-semibold">Excluido: {{ role }}</span>
+                    }
+                  </div>
+                </div>
+
+                <!-- Explicación Algorítmica de Scoring -->
+                @if (synthesisResult().scoringRationale?.scoringExplanation) {
+                  <div class="p-2.5 rounded-xl bg-surface/80 border border-border-subtle text-[11px] space-y-1">
+                    <span class="font-bold text-content-primary block">¿Por qué se da este scoring?</span>
+                    <p class="text-content-muted">{{ synthesisResult().scoringRationale.scoringExplanation }}</p>
+                  </div>
+                }
+              </div>
+
+              <!-- Botón Activar y Re-evaluar -->
+              <button (click)="activateSynthesizedProfile()"
+                      [disabled]="isActivating()"
+                      class="w-full py-2.5 rounded-xl bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold shadow-lg flex items-center justify-center gap-2 transition-all">
+                @if (isActivating()) {
+                  <svg lucideRefreshCw class="w-4 h-4 animate-spin"></svg>
+                  <span>Activando y Re-evaluando 290 vacantes ($0 USD)...</span>
+                } @else {
+                  <svg lucideCheckCircle2 class="w-4 h-4"></svg>
+                  <span>Activar Perfil y Re-evaluar Leads de Inmediato</span>
+                }
+              </button>
+            </div>
+          }
+        } @else {
+          <!-- TAB MANUAL: Creación de Persona desde cero -->
+          <div class="space-y-4 pt-2">
+            <div>
+              <label class="block text-xs font-bold text-content-primary mb-1">Nombre de la Persona o Especialidad</label>
+              <input type="text"
+                     [ngModel]="newPersonName()"
+                     (ngModelChange)="newPersonName.set($event)"
+                     placeholder="Ej: Armando (Fullstack & AI) o María (Mobile UX)..."
+                     class="w-full bg-surface-elevated border border-border-subtle rounded-xl p-3 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
+              <span class="text-[10px] text-content-muted mt-1 block">Este perfil nacerá limpio (0 historias) para que agregues sus propias credenciales.</span>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-content-primary mb-1">Rol Profesional Principal</label>
+              <input type="text"
+                     [ngModel]="newPersonRole()"
+                     (ngModelChange)="newPersonRole.set($event)"
+                     placeholder="Ej: Senior Fullstack Engineer, UX Research Lead..."
+                     class="w-full bg-surface-elevated border border-border-subtle rounded-xl p-3 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-border-subtle">
+              <button (click)="isCreateProfileModalOpen.set(false)"
+                      class="px-4 py-2 rounded-xl text-content-muted hover:text-content-primary text-xs font-semibold">
+                Cancelar
+              </button>
+              <button (click)="confirmCreateProfile()"
+                      [disabled]="!newPersonName().trim()"
+                      class="px-5 py-2 rounded-xl bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold shadow-md disabled:opacity-50 transition-all">
+                Crear y Calibrar de Cero
+              </button>
+            </div>
+          </div>
+        }
+
       </div>
     </div>
   </div>
 }
+

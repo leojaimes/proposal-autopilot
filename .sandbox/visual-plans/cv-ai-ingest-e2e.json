@@ -1,0 +1,98 @@
+{
+  "version": 2,
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "maxDiffPixels": 1000,
+  "stepTimeoutMs": 20000,
+  "scenarioTimeoutMs": 120000,
+  "scenarios": [
+    {
+      "id": "cv-ai-ingest-flow",
+      "profile": "proposal-autopilot",
+      "steps": [
+        {
+          "action": "goto",
+          "path": "http://localhost:7001"
+        },
+        {
+          "action": "waitFor",
+          "selector": "header button:has-text('Activo')",
+          "state": "visible"
+        },
+        {
+          "action": "click",
+          "selector": "header button:has-text('Activo')"
+        },
+        {
+          "action": "click",
+          "selector": "button:has-text('Crear Perfil de Cero')"
+        },
+        {
+          "action": "waitFor",
+          "selector": "textarea[placeholder*='Pega aquí tu CV completo']",
+          "state": "visible"
+        },
+        {
+          "action": "screenshot",
+          "id": "01-profile-modal-ai-tab",
+          "checkpoint": "Modal de creación de perfil abierto en pestaña de Ingesta Inteligente con IA"
+        },
+        {
+          "action": "click",
+          "selector": "button:has-text('⚡ Cargar CV de Leonardo')"
+        },
+        {
+          "action": "screenshot",
+          "id": "02-cv-loaded-in-modal",
+          "checkpoint": "CV de Leonardo Jaimes cargado en el área de texto"
+        },
+        {
+          "action": "click",
+          "selector": "button:has-text('Sintetizar Proyectos, Taxonomía y Scoring')"
+        },
+        {
+          "action": "waitFor",
+          "selector": "span:has-text('Perfil Extraído')",
+          "state": "visible",
+          "timeoutMs": 30000
+        },
+        {
+          "action": "screenshot",
+          "id": "03-ai-synthesis-preview",
+          "checkpoint": "Preview en tiempo real del perfil sintetizado con Proof Stories y Scoring Rationale"
+        },
+        {
+          "action": "click",
+          "selector": "button:has-text('Activar Perfil y Re-evaluar Leads de Inmediato')"
+        },
+        {
+          "action": "waitFor",
+          "selector": ".fixed.inset-0",
+          "state": "hidden",
+          "timeoutMs": 15000
+        },
+        {
+          "action": "screenshot",
+          "id": "04-activated-cabina-despacho",
+          "checkpoint": "Cabina de Despacho con Leads Oro evaluados para el perfil de Leonardo"
+        },
+        {
+          "action": "click",
+          "selector": "button:has-text('Motor de Búsqueda')"
+        },
+        {
+          "action": "waitFor",
+          "selector": "table, [data-testid='job-explorer-table']",
+          "state": "visible"
+        },
+        {
+          "action": "screenshot",
+          "id": "05-motor-busqueda-scored-leads",
+          "checkpoint": "Motor de búsqueda con leads puntuados según la afinidad técnica de Leonardo"
+        }
+      ]
+    }
+  ]
+}

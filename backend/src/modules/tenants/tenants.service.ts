@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 
 export interface UpdatePositioningDto {
@@ -430,6 +430,39 @@ export class TenantsService {
       tangentialRoles: updated.tangentialRoles,
       excludedRoles: updated.excludedRoles,
       rationale: synthesis.rationale,
+    };
+  }
+
+  /**
+   * Sintetiza el perfil completo a partir de texto o archivo (.pdf, .txt, .md)
+   */
+  async synthesizeProfileFromCv(tenantId: string, rawText?: string, file?: { buffer: Buffer; originalname: string }) {
+    let textToProcess = rawText || '';
+
+    if (file && file.buffer) {
+      const ext = (file.originalname || '').toLowerCase();
+      if (ext.endsWith('.pdf')) {
+        try {
+          const pdfParse = require('pdf-parse');
+          const pdfData = await pdfParse(file.buffer);
+          textToProcess = pdfData.text || '';
+        } catch (err: any) {
+          throw new BadRequestException(`Error procesando archivo PDF: ${err.message}`);
+        }
+      } else {
+        textToProcess = file.buffer.toString('utf-8');
+      }
+    }
+
+    if (!textToProcess.trim()) {
+      throw new BadRequestException('Se requiere texto de CV o un archivo (.pdf, .txt, .md) válido.');
+    }
+
+    const synthesis = await this.claudeProposal.synthesizeProfileFromCv(textToProcess);
+
+    return {
+      success: true,
+      data: synthesis,
     };
   }
 }
