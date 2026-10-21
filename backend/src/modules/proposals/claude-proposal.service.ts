@@ -66,9 +66,9 @@ export class ClaudeProposalService {
     const company = input.proofStoryCompany || input.proofStoryKey;
     const metric = input.proofStoryMetric || '17,000+ users and high availability';
     return {
-      contactName: 'Hiring Team',
-      coverLetter35Words: `Hi, I built and scaled ${company} (${metric}). I reviewed your requirements and designed the complete system architecture for ${input.jobTitle}. I mapped your first 90 days and roadmap breakdown. Walkthrough link inside.`,
-      technicalProposalBody: `# Roadmap & Strategic Proposal for ${input.jobTitle}\n\n## 1. Executive Summary & Problem Diagnosis\nStrategic diagnosis and 90-day execution roadmap tailored for ${input.jobTitle}. Focusing on direct transformation, architecture clarity, and rapid execution.\n\n## 2. Technical Architecture & Recommended Approach\nModular system design, token-based architecture, and developer-ready specifications.\n\n## 3. 90-Day Execution Milestones\n- Phase 1: Requirements Audit & Architecture Blueprint\n- Phase 2: Core Implementation & Interactive Prototype\n- Phase 3: QA, Performance Hardening & Production Delivery\n\n## 4. Deliverables & Acceptance Criteria\nComplete production source files, responsive components, documentation, and handover walk-through.`,
+      contactName: '',
+      coverLetter35Words: `Hey there, I work with product architecture daily. Having scaled ${company} (${metric}), I mapped the exact technical breakdown for your project. Free walkthrough here: [link].`,
+      technicalProposalBody: `# Roadmap & Strategic Proposal for ${input.jobTitle}\n\n## 1. Executive Summary & Problem Diagnosis\nStrategic diagnosis and execution roadmap tailored for ${input.jobTitle}. Focusing on direct transformation, architecture clarity, and rapid execution.\n\n## 2. Technical Architecture & Recommended Approach\nModular system design, token-based architecture, and developer-ready specifications.\n\n## 3. Agile 2-to-3 Week Execution Milestones\n- Phase 1 (Week 1): Requirements Audit & Interactive Figma Prototype (Day 5)\n- Phase 2 (Week 2): Design System & Responsive Core UI\n- Phase 3 (Week 3): Usability Testing, Automation & Production Handover\n\n## 4. Deliverables & Acceptance Criteria\nComplete production source files, responsive components, documentation, and handover walk-through.`,
       mermaidDiagramCode: `flowchart TD\n  A[Requirements Audit] --> B[Architecture Blueprint]\n  B --> C[Interactive Prototype]\n  C --> D[QA & Validation]\n  D --> E[Production Delivery]`
     };
   }

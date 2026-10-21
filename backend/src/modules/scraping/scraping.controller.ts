@@ -694,6 +694,105 @@ export class ScrapingController {
   }
 
   /**
+   * POST /api/scraping/synthesize-batch
+   * Genera propuestas en lote para los empleos de alto fitScore (Highest Fit Score First).
+   */
+  @Post('synthesize-batch')
+  async synthesizeBatch(
+    @Body() body: { minScore?: number; overwrite?: boolean; limit?: number },
+  ) {
+    const tenantId = this.tenantContext.getTenantId();
+    const minScore = body?.minScore ?? 75;
+    const overwrite = body?.overwrite ?? false;
+    const limit = body?.limit ?? 10;
+
+    const profile = await this.prisma.positioningProfile.findFirst({
+      where: { tenantId, isActive: true },
+      include: { proofStories: true },
+    });
+
+    const candidates = await this.prisma.jobPost.findMany({
+      where: {
+        tenantId,
+        fitEvaluation: {
+          overallScore: { gte: minScore },
+        },
+        ...(overwrite ? {} : { proposal: null }),
+      },
+      include: {
+        fitEvaluation: true,
+        proposal: true,
+      },
+      orderBy: {
+        fitEvaluation: {
+          overallScore: 'desc',
+        },
+      },
+      take: limit,
+    });
+
+    this.logger.log(`⚡ Iniciando síntesis en lote para ${candidates.length} empleos (minScore: ${minScore})`);
+
+    const results = [];
+    for (const job of candidates) {
+      const selectedStory = profile?.proofStories.find(
+        s => s.keyCode === job.fitEvaluation?.suggestedProofStory
+      ) || profile?.proofStories?.[0];
+
+      try {
+        const proposalResult = await this.claudeProposal.generate({
+          jobTitle: job.title,
+          jobDescription: job.description,
+          clientCountry: job.clientCountry || undefined,
+          proofStoryKey: selectedStory?.keyCode || 'PEPPER_AI',
+          proofStoryCompany: selectedStory?.companyOrProduct || 'Pepper AI',
+          proofStoryMetric: selectedStory?.impactMetric || '17,000+ active users',
+          offerHeadline: profile?.offerHeadline || 'AI-native UX & High-Scale Product Architecture',
+          targetAudience: profile?.targetAudience || 'Seed-to-Series B SaaS founders and product leads',
+          voiceRules: (profile?.voiceRules as string[]) || [],
+          normalizedRole: job.fitEvaluation?.normalizedRole || 'Senior Product Specialist',
+        });
+
+        const proposal = await this.prisma.proposal.upsert({
+          where: { jobPostId: job.id },
+          create: {
+            jobPostId: job.id,
+            contactName: proposalResult.contactName,
+            coverLetter35Words: proposalResult.coverLetter35Words,
+            technicalProposalBody: proposalResult.technicalProposalBody,
+            mermaidDiagramCode: proposalResult.mermaidDiagramCode,
+            publicWalkthroughSlug: `p-${job.id.substring(0, 8)}`,
+          },
+          update: {
+            contactName: proposalResult.contactName,
+            coverLetter35Words: proposalResult.coverLetter35Words,
+            technicalProposalBody: proposalResult.technicalProposalBody,
+            mermaidDiagramCode: proposalResult.mermaidDiagramCode,
+          },
+        });
+
+        results.push({
+          jobId: job.id,
+          title: job.title,
+          overallScore: job.fitEvaluation?.overallScore,
+          contactName: proposal.contactName,
+          wordCount: proposal.coverLetter35Words.split(/\s+/).filter(Boolean).length,
+          slug: proposal.publicWalkthroughSlug,
+        });
+      } catch (err) {
+        this.logger.error(`Error sintetizando propuesta para job ${job.id}:`, err);
+      }
+    }
+
+    return {
+      success: true,
+      processed: results.length,
+      candidatesFound: candidates.length,
+      results,
+    };
+  }
+
+  /**
    * GET /api/scraping/jobs/:id/technical-proposal-pdf
    * Genera y descarga la propuesta técnica ejecutiva completa en PDF vía Gotenberg con diagramas Mermaid vectoriales.
    */
