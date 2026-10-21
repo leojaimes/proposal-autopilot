@@ -251,4 +251,25 @@ describe('Adversarial & Edge-Case Scoring Engine Suite - Deductive Model', () =>
     assert.equal(result.overallScore, 100, `El Golden Lead debe alcanzar 100 perfecto, obtenido: ${result.overallScore}`);
     assert.equal(result.isCapped, false);
   });
+
+  // ADV-12: El Desarrollador Full Stack con mención a Agentic Workflows (El caso reportado por Leonardo)
+  it('ADV-12: Debe descalificar "Full Stack Developer: Agentic Workflows, APIs, React" por ser rol de ingeniería de software (<= 25 pts)', () => {
+    const input: FitCalculationInput = {
+      title: 'Full Stack Developer: Agentic Workflows, APIs, React',
+      description: 'Senior Full Stack Developer / Technical Lead / Scrum Master. Looking for a developer with experience in databases, APIs, React, and agentic workflows.',
+      activeQueries: userActiveQueries,
+      clientCountry: 'United States',
+      clientTotalSpend: 77813,
+      clientRating: 4.9,
+      proposalsCount: 0,
+      isPaymentVerified: true,
+      postedDate: new Date(),
+    };
+
+    const result = fitCalculator.calculate(input);
+    assert.equal(result.fitTier, 'LOW', 'Debe ser categorizado como LOW FIT');
+    assert.ok(result.overallScore <= 25, `El score debe ser <= 25, obtenido: ${result.overallScore}`);
+    assert.equal(result.isCapped, true, 'Debe activar techo de seguridad');
+    assert.equal(result.strategicLane, StrategicLane.DISQUALIFIED_NOISE);
+  });
 });

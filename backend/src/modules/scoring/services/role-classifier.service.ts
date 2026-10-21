@@ -71,7 +71,27 @@ export class RoleClassifierService {
       };
     }
 
-    // 3. Constructor de Expresión Regular Estricta con Límites de Palabra (\b)
+    // 3. Detección de Roles de Desarrollo / Programación / Ingeniería de Software Pura
+    // Armando es Senior UI/UX Researcher & Product Designer, NO desarrollador de software (full stack, react, backend, APIs, etc.)
+    const softwareDevRegex = /\b(?:full\s*stack|backend|front\s*end|software|devops|data\s+engineer|ml\s+engineer|machine\s+learning|firmware|embedded|systems?)\s+(?:developer|engineer|programmer|coder|architect)\b|\b(?:developer|programmer|software\s+engineer|web\s+developer|app\s+developer|react\s+developer|python\s+developer|node\s+developer|mobile\s+developer|ios\s+developer|android\s+developer|flutter\s+developer|solidity\s+developer|scrum\s+master|technical\s+lead|tech\s+lead|engineering\s+manager)\b/i;
+    if (softwareDevRegex.test(titleLower)) {
+      // Excepción: Solo si explícitamente busca un diseñador UI/UX o investigador como rol principal
+      const isDesignRole = /\b(?:ui\s*[\/\-]?\s*ux\s+design(?:er)?|ux\s*[\/\-]?\s*ui\s+design(?:er)?|ux\s+research(?:er)?|product\s+designer?)\b/i.test(titleLower);
+      if (!isDesignRole) {
+        return {
+          matchLevel: 'INCOMPATIBLE_ROLE',
+          matchedQuery: null,
+          baseFitScore: 20,
+          normalizedRole: 'Disqualified / Pure Software Engineering or Developer Role',
+          lane: StrategicLane.DISQUALIFIED_NOISE,
+          isDisqualified: true,
+          isIncompatible: true,
+          reason: 'El título corresponde a un rol de desarrollo de software / ingeniería, ajeno al perfil de UI/UX & Research de Armando',
+        };
+      }
+    }
+
+    // 4. Constructor de Expresión Regular Estricta con Límites de Palabra (\b)
     const buildQueryRegex = (q: string): RegExp => {
       const clean = q.toLowerCase().replace(/[\/\-_]/g, ' ').trim();
       if (/design\s*system/.test(clean)) return /\bdesign\s+systems?\b|\bsystems?\s+design\b/i;
@@ -79,7 +99,7 @@ export class RoleClassifierService {
       if (/ui\s*ux/.test(clean) || /ux\s*ui/.test(clean)) return /\b(?:ui\s*[\/\-]?\s*ux|ux\s*[\/\-]?\s*ui|ui\s+ux|ux\s+ui)\b/i;
       if (/usability\s*test/.test(clean)) return /\busability\s+test(?:ing)?\b/i;
       if (/vibe\s*coding/.test(clean)) return /\bvibe\s+coding\b/i;
-      if (/agentic/.test(clean)) return /\bagentic(?:\s+workflows?)?\b/i;
+      if (/agentic/.test(clean)) return /\bagentic\s+(?:workflow\s+design|workflows?\s+design|ux|ui|product\s+design)\b/i;
       if (/ai\s*product\s*design/.test(clean)) return /\b(?:ai\s+product\s+design|product\s+designer\s*\(?ai\)?|ai\s+(?:ux|ui))\b/i;
       if (/ai\s*prototyp/.test(clean)) return /\bai\s+prototyp(?:e|ing|er)\b/i;
       if (clean === 'figma') return /\bfigma\b/i;
