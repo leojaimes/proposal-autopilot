@@ -29,10 +29,15 @@ export class ApifyService {
     try {
       this.logger.log(`Iniciando scraping en Apify con ${keywords.length} queries: ${keywords.join(' | ')} | Max: ${maxResults}`);
 
-      // Actor flash_mage/upwork: el parámetro oficial es 'query' (Search/Keywords) y orden 'relevance' (Best Match)
+      // Actor flash_mage/upwork: el schema exige un máximo estricto de 5 items en 'query'
+      const sanitizedQueries = (keywords && keywords.length > 0)
+        ? keywords.slice(0, 5)
+        : ['UI/UX design', 'UX/UI designer', 'UX research', 'design system', 'AI product design'];
+
+      this.logger.log(`Enviando ${sanitizedQueries.length} queries a Apify (máx 5 permitido por actor): ${sanitizedQueries.join(' | ')}`);
+
       const run = await this.client.actor('flash_mage/upwork').call({
-        query: keywords,
-        queries: keywords, // Dual para compatibilidad
+        query: sanitizedQueries,
         limit: maxResults,
         sort: options?.sort || 'relevance',
         experience_level: options?.experienceLevel || ['IntermediateLevel', 'ExpertLevel'],
