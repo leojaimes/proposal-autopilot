@@ -1262,10 +1262,60 @@ export class ScrapingController {
       updatedCount++;
     }
 
+    // FASE 2: Intervención IA únicamente en el Top 3 Gold de los empleos re-procesados
+    const topCandidates = await this.prisma.jobPost.findMany({
+      where: {
+        tenantId,
+        fitEvaluation: {
+          fitTier: { not: 'LOW' },
+        },
+      },
+      include: { fitEvaluation: true },
+      orderBy: {
+        fitEvaluation: { overallScore: 'desc' },
+      },
+      take: 3,
+    });
+
+    let top3Generated = 0;
+    for (const candidate of topCandidates) {
+      if (!candidate.fitEvaluation) continue;
+      try {
+        const proposalResult = await this.claudeProposal.generate({
+          jobTitle: candidate.title,
+          jobDescription: candidate.description,
+          proofStoryKey: candidate.fitEvaluation.suggestedProofStory || undefined,
+          normalizedRole: candidate.fitEvaluation.normalizedRole,
+        });
+
+        await this.prisma.proposal.upsert({
+          where: { jobPostId: candidate.id },
+          create: {
+            jobPostId: candidate.id,
+            contactName: proposalResult.contactName,
+            coverLetter35Words: proposalResult.coverLetter35Words,
+            technicalProposalBody: proposalResult.technicalProposalBody,
+            mermaidDiagramCode: proposalResult.mermaidDiagramCode,
+            publicWalkthroughSlug: `p-${candidate.id.substring(0, 8)}`,
+          },
+          update: {
+            contactName: proposalResult.contactName,
+            coverLetter35Words: proposalResult.coverLetter35Words,
+            technicalProposalBody: proposalResult.technicalProposalBody,
+            mermaidDiagramCode: proposalResult.mermaidDiagramCode,
+          },
+        });
+        top3Generated++;
+      } catch (err: any) {
+        this.logger.warn(`Error generando propuesta IA en reprocess para ${candidate.id}: ${err.message}`);
+      }
+    }
+
     return {
       success: true,
       reprocessedCount: updatedCount,
-      message: `Se re-procesaron ${updatedCount} empleos con sus descripciones y métricas reales a costo $0.`,
+      top3GoldGenerated: top3Generated,
+      message: `Se re-evaluaron ${updatedCount} empleos ($0 tokens) y la IA redactó el Top ${top3Generated} Gold.`,
     };
   }
 

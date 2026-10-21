@@ -260,6 +260,28 @@ export class ReportService {
     window.open(this.baseUrl + '/report/csv', '_blank');
   }
 
+  public isReprocessing = signal<boolean>(false);
+  public reprocessMessage = signal<string | null>(null);
+
+  public reprocessLeads() {
+    this.isReprocessing.set(true);
+    this.reprocessMessage.set('Re-evaluando vacantes con tu perfil actual...');
+    return this.http.post<{ success: boolean; reprocessedCount: number; top3GoldGenerated: number; message: string }>(`${this.baseUrl}/reprocess`, {}).pipe(
+      tap((res) => {
+        this.isReprocessing.set(false);
+        this.reprocessMessage.set(res.message);
+        this.refresh();
+        setTimeout(() => this.reprocessMessage.set(null), 5000);
+      }),
+      catchError((err) => {
+        this.isReprocessing.set(false);
+        this.reprocessMessage.set('Error re-procesando vacantes.');
+        setTimeout(() => this.reprocessMessage.set(null), 5000);
+        return of({ success: false, reprocessedCount: 0, top3GoldGenerated: 0, message: err.message });
+      })
+    );
+  }
+
   public downloadTechnicalProposalPdf(jobId: string, jobTitle?: string) {
     return this.http.get(`${this.baseUrl}/jobs/${jobId}/technical-proposal-pdf`, {
       responseType: 'blob',

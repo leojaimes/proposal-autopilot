@@ -92,4 +92,8 @@ export class DispatchHeaderComponent {
       this.pipeline.deleteProfile(id);
     }
   }
+
+  public handleReprocess(): void {
+    this.report.reprocessLeads().subscribe();
+  }
 }
