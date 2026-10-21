@@ -103,8 +103,10 @@ model PositioningProfile {
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
-  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   proofStories   ProofStory[]
+  fitEvaluations FitEvaluation[]
+  proposals      Proposal[]
 
   @@map("positioning_profiles")
 }
@@ -179,10 +181,10 @@ model JobPost {
   rawApifyPayload   Json?          @map("raw_apify_payload")
   createdAt         DateTime       @default(now()) @map("created_at")
 
-  tenant            Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  batchRun          BatchRun?      @relation(fields: [batchRunId], references: [id], onDelete: SetNull)
-  fitEvaluation     FitEvaluation?
-  proposal          Proposal?
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  batchRun          BatchRun?       @relation(fields: [batchRunId], references: [id], onDelete: SetNull)
+  fitEvaluations    FitEvaluation[]
+  proposals         Proposal[]
 
   @@unique([tenantId, externalUpworkId], name: "uq_tenant_external_job")
   @@index([tenantId, postedAt(sort: Desc)])
@@ -190,42 +192,49 @@ model JobPost {
 }
 
 model FitEvaluation {
-  id                   String        @id @default(uuid()) @db.Uuid
-  jobPostId            String        @unique @map("job_post_id") @db.Uuid
-  overallScore         Int           @map("overall_score")
-  fitTier              FitTier       @map("fit_tier")
-  strategicLane        StrategicLane @default(DISQUALIFIED_NOISE) @map("strategic_lane")
-  normalizedRole       String        @map("normalized_role") @db.VarChar(100)
-  skillScore           Int           @map("skill_score") // 40%
-  aiFeasibilityScore   Int           @map("ai_feasibility_score") // 25%
-  clientQualityScore   Int           @map("client_quality_score") // 20%
-  recencyScore         Int           @map("recency_score") // 15%
-  isCapped             Boolean       @default(false) @map("is_capped")
-  capReason            String?       @map("cap_reason") @db.VarChar(255)
-  summaryRationale     String        @map("summary_rationale") @db.Text
-  detectedGaps         String?       @map("detected_gaps") @db.Text
-  suggestedProofStory  String?       @map("suggested_proof_story") @db.VarChar(50)
-  evaluatedAt          DateTime      @default(now()) @map("evaluated_at")
+  id                   String              @id @default(uuid()) @db.Uuid
+  jobPostId            String              @map("job_post_id") @db.Uuid
+  positioningProfileId String?             @map("positioning_profile_id") @db.Uuid
+  status               JobStatus           @default(NEEDS_REVIEW)
+  overallScore         Int                 @map("overall_score")
+  fitTier              FitTier             @map("fit_tier")
+  strategicLane        StrategicLane       @default(DISQUALIFIED_NOISE) @map("strategic_lane")
+  normalizedRole       String              @map("normalized_role") @db.VarChar(100)
+  skillScore           Int                 @map("skill_score") // 40%
+  aiFeasibilityScore   Int                 @map("ai_feasibility_score") // 25%
+  clientQualityScore   Int                 @map("client_quality_score") // 20%
+  recencyScore         Int                 @map("recency_score") // 15%
+  isCapped             Boolean             @default(false) @map("is_capped")
+  capReason            String?             @map("cap_reason") @db.VarChar(255)
+  summaryRationale     String              @map("summary_rationale") @db.Text
+  detectedGaps         String?             @map("detected_gaps") @db.Text
+  suggestedProofStory  String?             @map("suggested_proof_story") @db.VarChar(50)
+  evaluatedAt          DateTime            @default(now()) @map("evaluated_at")
 
-  jobPost              JobPost       @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+  jobPost              JobPost             @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+  positioningProfile   PositioningProfile? @relation(fields: [positioningProfileId], references: [id], onDelete: Cascade)
 
+  @@unique([jobPostId, positioningProfileId], name: "uq_job_post_profile")
   @@index([overallScore(sort: Desc)])
   @@map("fit_evaluations")
 }
 
 model Proposal {
-  id                    String    @id @default(uuid()) @db.Uuid
-  jobPostId             String    @unique @map("job_post_id") @db.Uuid
-  contactName           String?   @map("contact_name") @db.VarChar(100)
-  coverLetter35Words    String    @map("cover_letter_35_words") @db.Text
-  technicalProposalBody String    @map("technical_proposal_body") @db.Text
-  mermaidDiagramCode    String?   @map("mermaid_diagram_code") @db.Text
-  publicWalkthroughSlug String?   @unique @map("public_walkthrough_slug") @db.VarChar(100)
-  googleDocUrl          String?   @map("google_doc_url") @db.Text
-  appliedAt             DateTime? @map("applied_at")
-  createdAt             DateTime  @default(now()) @map("created_at")
+  id                    String              @id @default(uuid()) @db.Uuid
+  jobPostId             String              @map("job_post_id") @db.Uuid
+  positioningProfileId  String?             @map("positioning_profile_id") @db.Uuid
+  contactName           String?             @map("contact_name") @db.VarChar(100)
+  coverLetter35Words    String              @map("cover_letter_35_words") @db.Text
+  technicalProposalBody String              @map("technical_proposal_body") @db.Text
+  mermaidDiagramCode    String?             @map("mermaid_diagram_code") @db.Text
+  publicWalkthroughSlug String?             @unique @map("public_walkthrough_slug") @db.VarChar(100)
+  googleDocUrl          String?             @map("google_doc_url") @db.Text
+  appliedAt             DateTime?           @map("applied_at")
+  createdAt             DateTime            @default(now()) @map("created_at")
 
-  jobPost               JobPost   @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+  jobPost               JobPost             @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+  positioningProfile    PositioningProfile? @relation(fields: [positioningProfileId], references: [id], onDelete: Cascade)
 
+  @@unique([jobPostId, positioningProfileId], name: "uq_proposal_job_profile")
   @@map("proposals")
 }

@@ -42,6 +42,38 @@ export class ScrapingController {
   ) {}
 
   /**
+   * Resuelve el PositioningProfile activo (por query parameter o por flag isActive)
+   */
+  private async resolveActiveProfile(personaNameQuery?: string) {
+    const tenantId = this.tenantContext.getTenantId();
+    if (personaNameQuery) {
+      const clean = personaNameQuery.split(':')[0].trim();
+      const profile = await this.prisma.positioningProfile.findFirst({
+        where: {
+          tenantId,
+          personaName: { contains: clean, mode: 'insensitive' },
+        },
+        include: { proofStories: true },
+      });
+      if (profile) return profile;
+    }
+
+    let active = await this.prisma.positioningProfile.findFirst({
+      where: { tenantId, isActive: true },
+      include: { proofStories: true },
+    });
+
+    if (!active) {
+      active = await this.prisma.positioningProfile.findFirst({
+        where: { tenantId },
+        include: { proofStories: true },
+      });
+    }
+
+    return active;
+  }
+
+  /**
    * SSE Endpoint: Stream de progreso en tiempo real para un batch específico
    */
   @Sse('progress/:batchId')
@@ -317,41 +349,49 @@ export class ScrapingController {
       if (evaluation.fitTier === 'HIGH') highFitCount++;
       if (evaluation.fitTier === 'MEDIUM') mediumFitCount++;
 
-      // Guardar FitEvaluation
-      await this.prisma.fitEvaluation.upsert({
-        where: { jobPostId: jobPost.id },
-        create: {
-          jobPostId: jobPost.id,
-          overallScore: evaluation.overallScore,
-          fitTier: evaluation.fitTier as FitTier,
-          strategicLane: evaluation.strategicLane as StrategicLane,
-          normalizedRole: evaluation.normalizedRole,
-          skillScore: evaluation.skillScore,
-          aiFeasibilityScore: evaluation.aiFeasibilityScore,
-          clientQualityScore: evaluation.clientQualityScore,
-          recencyScore: evaluation.recencyScore,
-          isCapped: evaluation.isCapped,
-          capReason: evaluation.capReason,
-          summaryRationale: evaluation.summaryRationale,
-          detectedGaps: evaluation.detectedGaps,
-          suggestedProofStory: evaluation.suggestedProofStory,
-        },
-        update: {
-          overallScore: evaluation.overallScore,
-          fitTier: evaluation.fitTier as FitTier,
-          strategicLane: evaluation.strategicLane as StrategicLane,
-          normalizedRole: evaluation.normalizedRole,
-          skillScore: evaluation.skillScore,
-          aiFeasibilityScore: evaluation.aiFeasibilityScore,
-          clientQualityScore: evaluation.clientQualityScore,
-          recencyScore: evaluation.recencyScore,
-          isCapped: evaluation.isCapped,
-          capReason: evaluation.capReason,
-          summaryRationale: evaluation.summaryRationale,
-          detectedGaps: evaluation.detectedGaps,
-          suggestedProofStory: evaluation.suggestedProofStory,
-        },
-      });
+      // Guardar FitEvaluation vinculado al activeProfile
+      if (activeProfile) {
+        await this.prisma.fitEvaluation.upsert({
+          where: {
+            uq_job_post_profile: {
+              jobPostId: jobPost.id,
+              positioningProfileId: activeProfile.id,
+            },
+          },
+          create: {
+            jobPostId: jobPost.id,
+            positioningProfileId: activeProfile.id,
+            overallScore: evaluation.overallScore,
+            fitTier: evaluation.fitTier as FitTier,
+            strategicLane: evaluation.strategicLane as StrategicLane,
+            normalizedRole: evaluation.normalizedRole,
+            skillScore: evaluation.skillScore,
+            aiFeasibilityScore: evaluation.aiFeasibilityScore,
+            clientQualityScore: evaluation.clientQualityScore,
+            recencyScore: evaluation.recencyScore,
+            isCapped: evaluation.isCapped,
+            capReason: evaluation.capReason,
+            summaryRationale: evaluation.summaryRationale,
+            detectedGaps: evaluation.detectedGaps,
+            suggestedProofStory: evaluation.suggestedProofStory,
+          },
+          update: {
+            overallScore: evaluation.overallScore,
+            fitTier: evaluation.fitTier as FitTier,
+            strategicLane: evaluation.strategicLane as StrategicLane,
+            normalizedRole: evaluation.normalizedRole,
+            skillScore: evaluation.skillScore,
+            aiFeasibilityScore: evaluation.aiFeasibilityScore,
+            clientQualityScore: evaluation.clientQualityScore,
+            recencyScore: evaluation.recencyScore,
+            isCapped: evaluation.isCapped,
+            capReason: evaluation.capReason,
+            summaryRationale: evaluation.summaryRationale,
+            detectedGaps: evaluation.detectedGaps,
+            suggestedProofStory: evaluation.suggestedProofStory,
+          },
+        });
+      }
 
       scoredCandidates.push({ jobPost, evaluation });
 
@@ -408,23 +448,31 @@ export class ScrapingController {
           normalizedRole: evaluation.normalizedRole,
         });
 
-        await this.prisma.proposal.upsert({
-          where: { jobPostId: jobPost.id },
-          create: {
-            jobPostId: jobPost.id,
-            contactName: proposalResult.contactName,
-            coverLetter35Words: proposalResult.coverLetter35Words,
-            technicalProposalBody: proposalResult.technicalProposalBody,
-            mermaidDiagramCode: proposalResult.mermaidDiagramCode,
-            publicWalkthroughSlug: `p-${jobPost.id.substring(0, 8)}`,
-          },
-          update: {
-            contactName: proposalResult.contactName,
-            coverLetter35Words: proposalResult.coverLetter35Words,
-            technicalProposalBody: proposalResult.technicalProposalBody,
-            mermaidDiagramCode: proposalResult.mermaidDiagramCode,
-          },
-        });
+        if (activeProfile) {
+          await this.prisma.proposal.upsert({
+            where: {
+              uq_proposal_job_profile: {
+                jobPostId: jobPost.id,
+                positioningProfileId: activeProfile.id,
+              },
+            },
+            create: {
+              jobPostId: jobPost.id,
+              positioningProfileId: activeProfile.id,
+              contactName: proposalResult.contactName,
+              coverLetter35Words: proposalResult.coverLetter35Words,
+              technicalProposalBody: proposalResult.technicalProposalBody,
+              mermaidDiagramCode: proposalResult.mermaidDiagramCode,
+              publicWalkthroughSlug: `p-${jobPost.id.substring(0, 8)}-${(activeProfile.personaName || 'lead').toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 4)}`,
+            },
+            update: {
+              contactName: proposalResult.contactName,
+              coverLetter35Words: proposalResult.coverLetter35Words,
+              technicalProposalBody: proposalResult.technicalProposalBody,
+              mermaidDiagramCode: proposalResult.mermaidDiagramCode,
+            },
+          });
+        }
       } catch (err: any) {
         this.logger.warn(`Error sintetizando propuesta Top 3 Gold para ${jobPost.id}: ${err.message}`);
       }
@@ -457,31 +505,60 @@ export class ScrapingController {
   }
 
   /**
-   * Obtiene todos los empleos calificados del tenant ordenados por score
+   * Obtiene todos los empleos calificados del tenant ordenados por score para el perfil activo
    */
   @Get('jobs')
-  async getJobs() {
+  async getJobs(@Query('personaName') personaNameQuery?: string) {
     const tenantId = this.tenantContext.getTenantId();
-    return this.prisma.jobPost.findMany({
-      where: { tenantId },
+    const activeProfile = await this.resolveActiveProfile(personaNameQuery);
+
+    const jobs = await this.prisma.jobPost.findMany({
+      where: {
+        tenantId,
+        ...(activeProfile ? {
+          fitEvaluations: {
+            some: { positioningProfileId: activeProfile.id },
+          },
+        } : {}),
+      },
       include: {
-        fitEvaluation: true,
-        proposal: true,
+        fitEvaluations: {
+          where: activeProfile ? { positioningProfileId: activeProfile.id } : undefined,
+          take: 1,
+        },
+        proposals: {
+          where: activeProfile ? { positioningProfileId: activeProfile.id } : undefined,
+          take: 1,
+        },
       },
       orderBy: [
-        { fitEvaluation: { overallScore: 'desc' } },
         { postedAt: 'desc' },
       ],
       take: 50,
     });
+
+    const mapped = jobs.map((job) => {
+      const fitEval = job.fitEvaluations[0] || null;
+      const prop = job.proposals[0] || null;
+      return {
+        ...job,
+        status: fitEval?.status || job.status,
+        fitEvaluation: fitEval,
+        proposal: prop,
+      };
+    });
+
+    return mapped.sort((a, b) => (b.fitEvaluation?.overallScore || 0) - (a.fitEvaluation?.overallScore || 0));
   }
 
   /**
-   * Re-evalúa el score de todos los empleos almacenados usando el nuevo motor de scoring
+   * Re-evalúa el score de todos los empleos almacenados usando el nuevo motor de scoring para el perfil activo
    */
   @Post('rescore-all')
-  async rescoreAllJobs() {
+  async rescoreAllJobs(@Query('personaName') personaNameQuery?: string) {
     const tenantId = this.tenantContext.getTenantId();
+    const activeProfile = await this.resolveActiveProfile(personaNameQuery);
+
     const jobs = await this.prisma.jobPost.findMany({
       where: { tenantId },
     });
@@ -530,6 +607,12 @@ export class ScrapingController {
         description: job.description || '',
         skills,
         activeQueries: scrapeConfig?.searchKeywords || [],
+        taxonomy: activeProfile ? {
+          coreRoles: activeProfile.coreRoles,
+          hybridRoles: activeProfile.hybridRoles,
+          tangentialRoles: activeProfile.tangentialRoles,
+          excludedRoles: activeProfile.excludedRoles,
+        } : undefined,
         clientTotalSpend: Number(job.clientTotalSpend || 0),
         clientRating: Number(job.clientRating || 0),
         clientCountry: clientCountry || undefined,
@@ -540,52 +623,76 @@ export class ScrapingController {
         excludedCountries: scrapeConfig?.excludedCountries || [],
       });
 
-      await this.prisma.fitEvaluation.upsert({
-        where: { jobPostId: job.id },
-        create: {
-          jobPostId: job.id,
-          overallScore: evaluation.overallScore,
-          fitTier: evaluation.fitTier as FitTier,
-          strategicLane: evaluation.strategicLane as StrategicLane,
-          normalizedRole: evaluation.normalizedRole,
-          skillScore: evaluation.skillScore,
-          aiFeasibilityScore: evaluation.aiFeasibilityScore,
-          clientQualityScore: evaluation.clientQualityScore,
-          recencyScore: evaluation.recencyScore,
-          isCapped: evaluation.isCapped,
-          capReason: evaluation.capReason,
-          summaryRationale: evaluation.summaryRationale,
-          detectedGaps: evaluation.detectedGaps,
-          suggestedProofStory: evaluation.suggestedProofStory,
-        },
-        update: {
-          overallScore: evaluation.overallScore,
-          fitTier: evaluation.fitTier as FitTier,
-          strategicLane: evaluation.strategicLane as StrategicLane,
-          normalizedRole: evaluation.normalizedRole,
-          skillScore: evaluation.skillScore,
-          aiFeasibilityScore: evaluation.aiFeasibilityScore,
-          clientQualityScore: evaluation.clientQualityScore,
-          recencyScore: evaluation.recencyScore,
-          isCapped: evaluation.isCapped,
-          capReason: evaluation.capReason,
-          summaryRationale: evaluation.summaryRationale,
-          detectedGaps: evaluation.detectedGaps,
-          suggestedProofStory: evaluation.suggestedProofStory,
-        },
-      });
+      if (activeProfile) {
+        await this.prisma.fitEvaluation.upsert({
+          where: {
+            uq_job_post_profile: {
+              jobPostId: job.id,
+              positioningProfileId: activeProfile.id,
+            },
+          },
+          create: {
+            jobPostId: job.id,
+            positioningProfileId: activeProfile.id,
+            overallScore: evaluation.overallScore,
+            fitTier: evaluation.fitTier as FitTier,
+            strategicLane: evaluation.strategicLane as StrategicLane,
+            normalizedRole: evaluation.normalizedRole,
+            skillScore: evaluation.skillScore,
+            aiFeasibilityScore: evaluation.aiFeasibilityScore,
+            clientQualityScore: evaluation.clientQualityScore,
+            recencyScore: evaluation.recencyScore,
+            isCapped: evaluation.isCapped,
+            capReason: evaluation.capReason,
+            summaryRationale: evaluation.summaryRationale,
+            detectedGaps: evaluation.detectedGaps,
+            suggestedProofStory: evaluation.suggestedProofStory,
+          },
+          update: {
+            overallScore: evaluation.overallScore,
+            fitTier: evaluation.fitTier as FitTier,
+            strategicLane: evaluation.strategicLane as StrategicLane,
+            normalizedRole: evaluation.normalizedRole,
+            skillScore: evaluation.skillScore,
+            aiFeasibilityScore: evaluation.aiFeasibilityScore,
+            clientQualityScore: evaluation.clientQualityScore,
+            recencyScore: evaluation.recencyScore,
+            isCapped: evaluation.isCapped,
+            capReason: evaluation.capReason,
+            summaryRationale: evaluation.summaryRationale,
+            detectedGaps: evaluation.detectedGaps,
+            suggestedProofStory: evaluation.suggestedProofStory,
+          },
+        });
+      }
       updated++;
     }
 
-    return { message: `Re-evaluadas ${updated} vacantes exitosamente`, updatedCount: updated };
+    return { message: `Re-evaluadas ${updated} vacantes exitosamente para ${activeProfile?.personaName || 'perfil activo'}`, updatedCount: updated };
   }
 
   /**
-   * Actualiza el estado de un empleo (APPROVED, SKIPPED, APPLIED)
+   * Actualiza el estado de un empleo (APPROVED, SKIPPED, APPLIED) para el perfil activo
    */
   @Patch('jobs/:id/status')
-  async updateStatus(@Param('id') id: string, @Body() body: UpdateStatusDto) {
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() body: UpdateStatusDto,
+    @Query('personaName') personaNameQuery?: string,
+  ) {
     const tenantId = this.tenantContext.getTenantId();
+    const activeProfile = await this.resolveActiveProfile(personaNameQuery);
+
+    if (activeProfile) {
+      await this.prisma.fitEvaluation.updateMany({
+        where: {
+          jobPostId: id,
+          positioningProfileId: activeProfile.id,
+        },
+        data: { status: body.status as JobStatus },
+      });
+    }
+
     return this.prisma.jobPost.updateMany({
       where: { id, tenantId },
       data: { status: body.status as JobStatus },
@@ -594,20 +701,16 @@ export class ScrapingController {
 
   /**
    * GET /api/scraping/proof-stories
-   * Retorna las Historias de Autoridad disponibles y la Oferta Específica (Headline) del Tenant
+   * Retorna las Historias de Autoridad disponibles y la Oferta Específica (Headline) del Perfil Activo
    */
   @Get('proof-stories')
-  async getAvailableProofStories() {
-    const tenantId = this.tenantContext.getTenantId();
-    const profile = await this.prisma.positioningProfile.findFirst({
-      where: { tenantId, isActive: true },
-      include: { proofStories: true },
-    });
+  async getAvailableProofStories(@Query('personaName') personaNameQuery?: string) {
+    const activeProfile = await this.resolveActiveProfile(personaNameQuery);
 
     return {
-      offerHeadline: profile?.offerHeadline || 'AI-native UX & High-Scale Product Architecture',
-      targetAudience: profile?.targetAudience || 'Seed-to-Series B SaaS founders and product leads',
-      proofStories: profile?.proofStories.map(ps => ({
+      offerHeadline: activeProfile?.offerHeadline || 'AI-native UX & High-Scale Product Architecture',
+      targetAudience: activeProfile?.targetAudience || 'Seed-to-Series B SaaS founders and product leads',
+      proofStories: activeProfile?.proofStories.map(ps => ({
         id: ps.id,
         keyCode: ps.keyCode,
         companyOrProduct: ps.companyOrProduct,
@@ -625,14 +728,23 @@ export class ScrapingController {
   @Post('jobs/:id/regenerate-proposal')
   async regenerateProposal(
     @Param('id') jobId: string,
-    @Body() body: { proofStoryKey?: string },
+    @Body() body: { proofStoryKey?: string; personaName?: string },
+    @Query('personaName') personaNameQuery?: string,
   ) {
     const tenantId = this.tenantContext.getTenantId();
+    const activeProfile = await this.resolveActiveProfile(body?.personaName || personaNameQuery);
+
     const job = await this.prisma.jobPost.findFirst({
       where: { id: jobId, tenantId },
       include: {
-        fitEvaluation: true,
-        proposal: true,
+        fitEvaluations: {
+          where: activeProfile ? { positioningProfileId: activeProfile.id } : undefined,
+          take: 1,
+        },
+        proposals: {
+          where: activeProfile ? { positioningProfileId: activeProfile.id } : undefined,
+          take: 1,
+        },
       },
     });
 
@@ -640,21 +752,18 @@ export class ScrapingController {
       throw new NotFoundException(`Job con ID ${jobId} no encontrado`);
     }
 
-    const profile = await this.prisma.positioningProfile.findFirst({
-      where: { tenantId, isActive: true },
-      include: { proofStories: true },
-    });
+    const fitEval = job.fitEvaluations[0] || null;
 
     // 1. Seleccionar la historia de autoridad solicitada o la sugerida
-    const requestedKey = body.proofStoryKey || job.fitEvaluation?.suggestedProofStory;
-    let selectedStory = profile?.proofStories.find(
-      s => s.keyCode === requestedKey || s.id === requestedKey
+    const requestedKey = body?.proofStoryKey || fitEval?.suggestedProofStory;
+    let selectedStory = activeProfile?.proofStories?.find(
+      s => s.keyCode === requestedKey || s.id === requestedKey,
     );
-    if (!selectedStory && profile?.proofStories && profile.proofStories.length > 0) {
-      selectedStory = profile.proofStories[0];
+    if (!selectedStory && activeProfile?.proofStories && activeProfile.proofStories.length > 0) {
+      selectedStory = activeProfile.proofStories[0];
     }
 
-    this.logger.log(`🤖 Regenerando propuesta Tri-Factor con IA para Job ${job.id} usando ProofStory ${selectedStory?.keyCode}`);
+    this.logger.log(`🤖 Regenerando propuesta Tri-Factor con IA para Job ${job.id} (Perfil: ${activeProfile?.personaName}) usando ProofStory ${selectedStory?.keyCode}`);
 
     // 2. Invocar ClaudeProposalService (Gemini 3.8 Flash)
     const proposalResult = await this.claudeProposal.generate({
@@ -664,22 +773,32 @@ export class ScrapingController {
       proofStoryKey: selectedStory?.keyCode || 'PEPPER_AI',
       proofStoryCompany: selectedStory?.companyOrProduct || 'Pepper AI',
       proofStoryMetric: selectedStory?.impactMetric || '17,000+ users and seed funding',
-      offerHeadline: profile?.offerHeadline || 'AI-native UX & High-Scale Product Architecture',
-      targetAudience: profile?.targetAudience || 'Seed-to-Series B SaaS founders and product leads',
-      voiceRules: (profile?.voiceRules as string[]) || [],
-      normalizedRole: job.fitEvaluation?.normalizedRole || 'Senior Product Specialist',
+      offerHeadline: activeProfile?.offerHeadline || 'AI-native UX & High-Scale Product Architecture',
+      targetAudience: activeProfile?.targetAudience || 'Seed-to-Series B SaaS founders and product leads',
+      voiceRules: (activeProfile?.voiceRules as string[]) || [],
+      normalizedRole: fitEval?.normalizedRole || 'Senior Product Specialist',
     });
 
-    // 3. Upsert en base de datos
+    if (!activeProfile) {
+      throw new NotFoundException('Perfil de posicionamiento no encontrado');
+    }
+
+    // 3. Upsert en base de datos con uq_proposal_job_profile
     const proposal = await this.prisma.proposal.upsert({
-      where: { jobPostId: job.id },
+      where: {
+        uq_proposal_job_profile: {
+          jobPostId: job.id,
+          positioningProfileId: activeProfile.id,
+        },
+      },
       create: {
         jobPostId: job.id,
+        positioningProfileId: activeProfile.id,
         contactName: proposalResult.contactName,
         coverLetter35Words: proposalResult.coverLetter35Words,
         technicalProposalBody: proposalResult.technicalProposalBody,
         mermaidDiagramCode: proposalResult.mermaidDiagramCode,
-        publicWalkthroughSlug: `p-${job.id.substring(0, 8)}`,
+        publicWalkthroughSlug: `p-${job.id.substring(0, 8)}-${(activeProfile.personaName || 'lead').toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 4)}`,
       },
       update: {
         contactName: proposalResult.contactName,
@@ -690,9 +809,14 @@ export class ScrapingController {
     });
 
     // 4. Actualizar suggestedProofStory si fue alterada
-    if (selectedStory && job.fitEvaluation) {
+    if (selectedStory && fitEval) {
       await this.prisma.fitEvaluation.update({
-        where: { jobPostId: job.id },
+        where: {
+          uq_job_post_profile: {
+            jobPostId: job.id,
+            positioningProfileId: activeProfile.id,
+          },
+        },
         data: { suggestedProofStory: selectedStory.keyCode },
       });
     }
@@ -715,45 +839,54 @@ export class ScrapingController {
    */
   @Post('synthesize-batch')
   async synthesizeBatch(
-    @Body() body: { minScore?: number; overwrite?: boolean; limit?: number },
+    @Body() body: { minScore?: number; overwrite?: boolean; limit?: number; personaName?: string },
+    @Query('personaName') personaNameQuery?: string,
   ) {
     const tenantId = this.tenantContext.getTenantId();
     const minScore = body?.minScore ?? 75;
     const overwrite = body?.overwrite ?? false;
     const limit = body?.limit ?? 10;
-
-    const profile = await this.prisma.positioningProfile.findFirst({
-      where: { tenantId, isActive: true },
-      include: { proofStories: true },
-    });
+    const activeProfile = await this.resolveActiveProfile(body?.personaName || personaNameQuery);
 
     const candidates = await this.prisma.jobPost.findMany({
       where: {
         tenantId,
-        fitEvaluation: {
-          overallScore: { gte: minScore },
+        fitEvaluations: {
+          some: {
+            positioningProfileId: activeProfile?.id,
+            overallScore: { gte: minScore },
+          },
         },
-        ...(overwrite ? {} : { proposal: null }),
+        ...(overwrite || !activeProfile ? {} : {
+          proposals: {
+            none: { positioningProfileId: activeProfile.id },
+          },
+        }),
       },
       include: {
-        fitEvaluation: true,
-        proposal: true,
-      },
-      orderBy: {
-        fitEvaluation: {
-          overallScore: 'desc',
+        fitEvaluations: {
+          where: activeProfile ? { positioningProfileId: activeProfile.id } : undefined,
+          take: 1,
+        },
+        proposals: {
+          where: activeProfile ? { positioningProfileId: activeProfile.id } : undefined,
+          take: 1,
         },
       },
       take: limit,
     });
 
-    this.logger.log(`⚡ Iniciando síntesis en lote para ${candidates.length} empleos (minScore: ${minScore})`);
+    // Ordenar en memoria por fitScore desc
+    candidates.sort((a, b) => ((b.fitEvaluations[0]?.overallScore || 0) - (a.fitEvaluations[0]?.overallScore || 0)));
+
+    this.logger.log(`⚡ Iniciando síntesis en lote para ${candidates.length} empleos (minScore: ${minScore}, Perfil: ${activeProfile?.personaName})`);
 
     const results = [];
     for (const job of candidates) {
-      const selectedStory = profile?.proofStories.find(
-        s => s.keyCode === job.fitEvaluation?.suggestedProofStory
-      ) || profile?.proofStories?.[0];
+      const fitEval = job.fitEvaluations[0];
+      const selectedStory = activeProfile?.proofStories?.find(
+        s => s.keyCode === fitEval?.suggestedProofStory,
+      ) || activeProfile?.proofStories?.[0];
 
       try {
         const proposalResult = await this.claudeProposal.generate({
@@ -763,38 +896,46 @@ export class ScrapingController {
           proofStoryKey: selectedStory?.keyCode || 'PEPPER_AI',
           proofStoryCompany: selectedStory?.companyOrProduct || 'Pepper AI',
           proofStoryMetric: selectedStory?.impactMetric || '17,000+ active users',
-          offerHeadline: profile?.offerHeadline || 'AI-native UX & High-Scale Product Architecture',
-          targetAudience: profile?.targetAudience || 'Seed-to-Series B SaaS founders and product leads',
-          voiceRules: (profile?.voiceRules as string[]) || [],
-          normalizedRole: job.fitEvaluation?.normalizedRole || 'Senior Product Specialist',
+          offerHeadline: activeProfile?.offerHeadline || 'AI-native UX & High-Scale Product Architecture',
+          targetAudience: activeProfile?.targetAudience || 'Seed-to-Series B SaaS founders and product leads',
+          voiceRules: (activeProfile?.voiceRules as string[]) || [],
+          normalizedRole: fitEval?.normalizedRole || 'Senior Product Specialist',
         });
 
-        const proposal = await this.prisma.proposal.upsert({
-          where: { jobPostId: job.id },
-          create: {
-            jobPostId: job.id,
-            contactName: proposalResult.contactName,
-            coverLetter35Words: proposalResult.coverLetter35Words,
-            technicalProposalBody: proposalResult.technicalProposalBody,
-            mermaidDiagramCode: proposalResult.mermaidDiagramCode,
-            publicWalkthroughSlug: `p-${job.id.substring(0, 8)}`,
-          },
-          update: {
-            contactName: proposalResult.contactName,
-            coverLetter35Words: proposalResult.coverLetter35Words,
-            technicalProposalBody: proposalResult.technicalProposalBody,
-            mermaidDiagramCode: proposalResult.mermaidDiagramCode,
-          },
-        });
+        if (activeProfile) {
+          const proposal = await this.prisma.proposal.upsert({
+            where: {
+              uq_proposal_job_profile: {
+                jobPostId: job.id,
+                positioningProfileId: activeProfile.id,
+              },
+            },
+            create: {
+              jobPostId: job.id,
+              positioningProfileId: activeProfile.id,
+              contactName: proposalResult.contactName,
+              coverLetter35Words: proposalResult.coverLetter35Words,
+              technicalProposalBody: proposalResult.technicalProposalBody,
+              mermaidDiagramCode: proposalResult.mermaidDiagramCode,
+              publicWalkthroughSlug: `p-${job.id.substring(0, 8)}-${(activeProfile.personaName || 'lead').toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 4)}`,
+            },
+            update: {
+              contactName: proposalResult.contactName,
+              coverLetter35Words: proposalResult.coverLetter35Words,
+              technicalProposalBody: proposalResult.technicalProposalBody,
+              mermaidDiagramCode: proposalResult.mermaidDiagramCode,
+            },
+          });
 
-        results.push({
-          jobId: job.id,
-          title: job.title,
-          overallScore: job.fitEvaluation?.overallScore,
-          contactName: proposal.contactName,
-          wordCount: proposal.coverLetter35Words.split(/\s+/).filter(Boolean).length,
-          slug: proposal.publicWalkthroughSlug,
-        });
+          results.push({
+            jobId: job.id,
+            title: job.title,
+            overallScore: fitEval?.overallScore,
+            contactName: proposal.contactName,
+            wordCount: proposal.coverLetter35Words.split(/\s+/).filter(Boolean).length,
+            slug: proposal.publicWalkthroughSlug,
+          });
+        }
       } catch (err) {
         this.logger.error(`Error sintetizando propuesta para job ${job.id}:`, err);
       }
@@ -816,13 +957,22 @@ export class ScrapingController {
   async downloadTechnicalProposalPdf(
     @Param('id') id: string,
     @Res() res: Response,
+    @Query('personaName') personaNameQuery?: string,
   ) {
     const tenantId = this.tenantContext.getTenantId();
+    const activeProfile = await this.resolveActiveProfile(personaNameQuery);
+
     const job = await this.prisma.jobPost.findFirst({
       where: { id, tenantId },
       include: {
-        proposal: true,
-        fitEvaluation: true,
+        proposals: {
+          where: activeProfile ? { positioningProfileId: activeProfile.id } : undefined,
+          take: 1,
+        },
+        fitEvaluations: {
+          where: activeProfile ? { positioningProfileId: activeProfile.id } : undefined,
+          take: 1,
+        },
       },
     });
 
@@ -830,21 +980,19 @@ export class ScrapingController {
       throw new NotFoundException(`No se encontró el empleo con ID ${id}`);
     }
 
-    if (!job.proposal?.technicalProposalBody) {
+    const proposal = job.proposals[0];
+    const fitEvaluation = job.fitEvaluations[0];
+
+    if (!proposal?.technicalProposalBody) {
       throw new NotFoundException(`El empleo no cuenta con propuesta técnica generada`);
     }
-
-    // Datos del perfil activo
-    const profile = await this.prisma.positioningProfile.findFirst({
-      where: { tenantId, isActive: true },
-    });
 
     let proofStoryCompany = 'Pepper AI';
     let proofStoryMetric = '17,000+ users and seed funding';
 
-    if (job.fitEvaluation?.suggestedProofStory) {
+    if (fitEvaluation?.suggestedProofStory) {
       const story = await this.prisma.proofStory.findFirst({
-        where: { keyCode: job.fitEvaluation.suggestedProofStory },
+        where: { keyCode: fitEvaluation.suggestedProofStory },
       });
       if (story) {
         proofStoryCompany = story.companyOrProduct;
@@ -865,13 +1013,13 @@ export class ScrapingController {
       budget: budgetStr,
       clientRating: Number(job.clientRating || 0),
       clientTotalSpend: Number(job.clientTotalSpend || 0),
-      contactName: job.proposal.contactName || 'Hiring Team',
-      coverLetter35Words: job.proposal.coverLetter35Words || '',
-      technicalProposalBody: job.proposal.technicalProposalBody,
-      mermaidDiagramCode: job.proposal.mermaidDiagramCode || '',
+      contactName: proposal.contactName || 'Hiring Team',
+      coverLetter35Words: proposal.coverLetter35Words || '',
+      technicalProposalBody: proposal.technicalProposalBody,
+      mermaidDiagramCode: proposal.mermaidDiagramCode || '',
       proofStoryCompany,
       proofStoryMetric,
-      profileHeadline: profile?.offerHeadline,
+      profileHeadline: activeProfile?.offerHeadline,
     });
 
     const sanitizedFilename = (job.title || 'Technical_Proposal')
@@ -892,17 +1040,30 @@ export class ScrapingController {
    * Genera el informe plano exacto con las 17 columnas de la tabla diaria de Upwork
    */
   @Get('report')
-  async getDailyReport() {
+  async getDailyReport(@Query('personaName') personaNameQuery?: string) {
     const tenantId = this.tenantContext.getTenantId();
+    const activeProfile = await this.resolveActiveProfile(personaNameQuery);
     const [jobs, scrapeConfig] = await Promise.all([
       this.prisma.jobPost.findMany({
-        where: { tenantId },
+        where: {
+          tenantId,
+          ...(activeProfile ? {
+            fitEvaluations: {
+              some: { positioningProfileId: activeProfile.id },
+            },
+          } : {}),
+        },
         include: {
-          fitEvaluation: true,
-          proposal: true,
+          fitEvaluations: {
+            where: activeProfile ? { positioningProfileId: activeProfile.id } : undefined,
+            take: 1,
+          },
+          proposals: {
+            where: activeProfile ? { positioningProfileId: activeProfile.id } : undefined,
+            take: 1,
+          },
         },
         orderBy: [
-          { fitEvaluation: { overallScore: 'desc' } },
           { postedAt: 'desc' },
         ],
       }),
@@ -912,7 +1073,15 @@ export class ScrapingController {
     const targetCountries = (scrapeConfig?.targetCountries || []).map((c: string) => c.trim().toLowerCase());
     const excludedCountries = (scrapeConfig?.excludedCountries || []).map((c: string) => c.trim().toLowerCase());
 
-    return jobs.map((job) => {
+    const mapped = jobs.map((rawJob) => {
+      const fitEvaluation = rawJob.fitEvaluations[0] || null;
+      const proposal = rawJob.proposals[0] || null;
+      const job = {
+        ...rawJob,
+        status: fitEvaluation?.status || rawJob.status,
+        fitEvaluation,
+        proposal,
+      };
       // 1. Formateo de Presupuesto
       let budgetStr = 'NOT_SHOWN';
       if (job.budgetType === BudgetType.HOURLY) {
@@ -1121,6 +1290,8 @@ export class ScrapingController {
         drags,
       };
     });
+
+    return mapped.sort((a, b) => (b.fitScore || 0) - (a.fitScore || 0));
   }
 
   /**
@@ -1128,8 +1299,8 @@ export class ScrapingController {
    * Descarga el reporte diario en formato CSV compatible con Excel / Google Sheets
    */
   @Get('report/csv')
-  async exportCsv() {
-    const report = await this.getDailyReport();
+  async exportCsv(@Query('personaName') personaNameQuery?: string) {
+    const report = await this.getDailyReport(personaNameQuery);
     if (report.length === 0) return 'No data available';
 
     const headers = [
@@ -1173,7 +1344,7 @@ export class ScrapingController {
    * extrayendo sus descripciones reales y métricas completas desde el JSON guardado.
    */
   @Post('reprocess')
-  async reprocessExistingJobs() {
+  async reprocessExistingJobs(@Query('personaName') personaNameQuery?: string) {
     const tenantId = this.tenantContext.getTenantId();
     const existingJobs = await this.prisma.jobPost.findMany({
       where: {
@@ -1185,10 +1356,7 @@ export class ScrapingController {
     this.logger.log(`Iniciando re-procesamiento en frío para ${existingJobs.length} empleos de tenant ${tenantId}`);
 
     const scrapeConfig = await this.prisma.scrapeConfig.findFirst({ where: { tenantId } });
-    const activeProfile = await this.prisma.positioningProfile.findFirst({
-      where: { tenantId, isActive: true },
-      include: { proofStories: true },
-    });
+    const activeProfile = await this.resolveActiveProfile(personaNameQuery);
 
     let updatedCount = 0;
     const chunkSize = 25;
@@ -1221,40 +1389,48 @@ export class ScrapingController {
           excludedCountries: scrapeConfig?.excludedCountries || [],
         });
 
-        await this.prisma.fitEvaluation.upsert({
-          where: { jobPostId: job.id },
-          create: {
-            jobPostId: job.id,
-            overallScore: evaluation.overallScore,
-            fitTier: evaluation.fitTier as FitTier,
-            strategicLane: evaluation.strategicLane as StrategicLane,
-            normalizedRole: evaluation.normalizedRole,
-            skillScore: evaluation.skillScore,
-            aiFeasibilityScore: evaluation.aiFeasibilityScore,
-            clientQualityScore: evaluation.clientQualityScore,
-            recencyScore: evaluation.recencyScore,
-            isCapped: evaluation.isCapped,
-            capReason: evaluation.capReason,
-            summaryRationale: evaluation.summaryRationale,
-            detectedGaps: evaluation.detectedGaps,
-            suggestedProofStory: evaluation.suggestedProofStory,
-          },
-          update: {
-            overallScore: evaluation.overallScore,
-            fitTier: evaluation.fitTier as FitTier,
-            strategicLane: evaluation.strategicLane as StrategicLane,
-            normalizedRole: evaluation.normalizedRole,
-            skillScore: evaluation.skillScore,
-            aiFeasibilityScore: evaluation.aiFeasibilityScore,
-            clientQualityScore: evaluation.clientQualityScore,
-            recencyScore: evaluation.recencyScore,
-            isCapped: evaluation.isCapped,
-            capReason: evaluation.capReason,
-            summaryRationale: evaluation.summaryRationale,
-            detectedGaps: evaluation.detectedGaps,
-            suggestedProofStory: evaluation.suggestedProofStory,
-          },
-        });
+        if (activeProfile) {
+          await this.prisma.fitEvaluation.upsert({
+            where: {
+              uq_job_post_profile: {
+                jobPostId: job.id,
+                positioningProfileId: activeProfile.id,
+              },
+            },
+            create: {
+              jobPostId: job.id,
+              positioningProfileId: activeProfile.id,
+              overallScore: evaluation.overallScore,
+              fitTier: evaluation.fitTier as FitTier,
+              strategicLane: evaluation.strategicLane as StrategicLane,
+              normalizedRole: evaluation.normalizedRole,
+              skillScore: evaluation.skillScore,
+              aiFeasibilityScore: evaluation.aiFeasibilityScore,
+              clientQualityScore: evaluation.clientQualityScore,
+              recencyScore: evaluation.recencyScore,
+              isCapped: evaluation.isCapped,
+              capReason: evaluation.capReason,
+              summaryRationale: evaluation.summaryRationale,
+              detectedGaps: evaluation.detectedGaps,
+              suggestedProofStory: evaluation.suggestedProofStory,
+            },
+            update: {
+              overallScore: evaluation.overallScore,
+              fitTier: evaluation.fitTier as FitTier,
+              strategicLane: evaluation.strategicLane as StrategicLane,
+              normalizedRole: evaluation.normalizedRole,
+              skillScore: evaluation.skillScore,
+              aiFeasibilityScore: evaluation.aiFeasibilityScore,
+              clientQualityScore: evaluation.clientQualityScore,
+              recencyScore: evaluation.recencyScore,
+              isCapped: evaluation.isCapped,
+              capReason: evaluation.capReason,
+              summaryRationale: evaluation.summaryRationale,
+              detectedGaps: evaluation.detectedGaps,
+              suggestedProofStory: evaluation.suggestedProofStory,
+            },
+          });
+        }
 
         updatedCount++;
       }));
@@ -1264,52 +1440,69 @@ export class ScrapingController {
     const topCandidates = await this.prisma.jobPost.findMany({
       where: {
         tenantId,
-        fitEvaluation: {
-          fitTier: { not: 'LOW' },
+        fitEvaluations: {
+          some: {
+            positioningProfileId: activeProfile?.id,
+            fitTier: { not: 'LOW' },
+          },
         },
       },
-      include: { fitEvaluation: true },
-      orderBy: {
-        fitEvaluation: { overallScore: 'desc' },
+      include: {
+        fitEvaluations: {
+          where: activeProfile ? { positioningProfileId: activeProfile.id } : undefined,
+          take: 1,
+        },
       },
-      take: 3,
+      take: 20,
     });
 
+    topCandidates.sort((a, b) => (b.fitEvaluations[0]?.overallScore || 0) - (a.fitEvaluations[0]?.overallScore || 0));
+    const finalTop3 = topCandidates.slice(0, 3);
+
     let top3Generated = 0;
-    for (const candidate of topCandidates) {
-      if (!candidate.fitEvaluation) continue;
+    for (const candidate of finalTop3) {
+      const fitEval = candidate.fitEvaluations[0];
+      if (!fitEval) continue;
       try {
-        const matchingStory = activeProfile?.proofStories?.find(s => s.keyCode === candidate.fitEvaluation?.suggestedProofStory) || activeProfile?.proofStories?.[0];
+        const matchingStory = activeProfile?.proofStories?.find(s => s.keyCode === fitEval.suggestedProofStory) || activeProfile?.proofStories?.[0];
         const proposalResult = await this.claudeProposal.generate({
           jobTitle: candidate.title,
           jobDescription: candidate.description,
-          proofStoryKey: matchingStory?.keyCode || candidate.fitEvaluation.suggestedProofStory || 'SPOTLIGHT_AI',
+          proofStoryKey: matchingStory?.keyCode || fitEval.suggestedProofStory || 'SPOTLIGHT_AI',
           proofStoryCompany: matchingStory?.companyOrProduct,
           proofStoryMetric: matchingStory?.impactMetric,
           offerHeadline: activeProfile?.offerHeadline,
           targetAudience: activeProfile?.targetAudience,
           voiceRules: (activeProfile?.voiceRules as string[]) || undefined,
-          normalizedRole: candidate.fitEvaluation.normalizedRole,
+          normalizedRole: fitEval.normalizedRole,
         });
 
-        await this.prisma.proposal.upsert({
-          where: { jobPostId: candidate.id },
-          create: {
-            jobPostId: candidate.id,
-            contactName: proposalResult.contactName,
-            coverLetter35Words: proposalResult.coverLetter35Words,
-            technicalProposalBody: proposalResult.technicalProposalBody,
-            mermaidDiagramCode: proposalResult.mermaidDiagramCode,
-            publicWalkthroughSlug: `p-${candidate.id.substring(0, 8)}`,
-          },
-          update: {
-            contactName: proposalResult.contactName,
-            coverLetter35Words: proposalResult.coverLetter35Words,
-            technicalProposalBody: proposalResult.technicalProposalBody,
-            mermaidDiagramCode: proposalResult.mermaidDiagramCode,
-          },
-        });
-        top3Generated++;
+        if (activeProfile) {
+          await this.prisma.proposal.upsert({
+            where: {
+              uq_proposal_job_profile: {
+                jobPostId: candidate.id,
+                positioningProfileId: activeProfile.id,
+              },
+            },
+            create: {
+              jobPostId: candidate.id,
+              positioningProfileId: activeProfile.id,
+              contactName: proposalResult.contactName,
+              coverLetter35Words: proposalResult.coverLetter35Words,
+              technicalProposalBody: proposalResult.technicalProposalBody,
+              mermaidDiagramCode: proposalResult.mermaidDiagramCode,
+              publicWalkthroughSlug: `p-${candidate.id.substring(0, 8)}-${(activeProfile.personaName || 'lead').toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 4)}`,
+            },
+            update: {
+              contactName: proposalResult.contactName,
+              coverLetter35Words: proposalResult.coverLetter35Words,
+              technicalProposalBody: proposalResult.technicalProposalBody,
+              mermaidDiagramCode: proposalResult.mermaidDiagramCode,
+            },
+          });
+          top3Generated++;
+        }
       } catch (err: any) {
         this.logger.warn(`Error generando propuesta IA en reprocess para ${candidate.id}: ${err.message}`);
       }
@@ -1319,7 +1512,7 @@ export class ScrapingController {
       success: true,
       reprocessedCount: updatedCount,
       top3GoldGenerated: top3Generated,
-      message: `Se re-evaluaron ${updatedCount} empleos ($0 tokens) y la IA redactó el Top ${top3Generated} Gold.`,
+      message: `Se re-evaluaron ${updatedCount} empleos ($0 tokens) para ${activeProfile?.personaName || 'perfil activo'} y la IA redactó el Top ${top3Generated} Gold.`,
     };
   }
 
@@ -1380,7 +1573,12 @@ export class ScrapingController {
 
     const jobs = await this.prisma.jobPost.findMany({
       where: { tenantId },
-      include: { fitEvaluation: true },
+      include: {
+        fitEvaluations: profile ? {
+          where: { positioningProfileId: profile.id },
+          take: 1,
+        } : true,
+      },
     });
 
     const categorize = (title: string, desc: string, rawSkills: any): string => {
@@ -1487,10 +1685,10 @@ export class ScrapingController {
       }
 
       // Skill Affinity calculada del FitEvaluation promedio de esa categoría
-      const evaluatedJobs = list.filter(j => j.fitEvaluation);
+      const evaluatedJobs = list.filter(j => j.fitEvaluations && j.fitEvaluations.length > 0);
       let skillAffinity = 60;
       if (evaluatedJobs.length > 0) {
-        const avgSkill = evaluatedJobs.reduce((acc, j) => acc + (j.fitEvaluation?.skillScore || 50), 0) / evaluatedJobs.length;
+        const avgSkill = evaluatedJobs.reduce((acc, j) => acc + (j.fitEvaluations[0]?.skillScore || 50), 0) / evaluatedJobs.length;
         skillAffinity = Math.round(avgSkill);
       } else if (lane === 'Core') {
         skillAffinity = 90;

@@ -1,7 +1,8 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject, signal, effect } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Subject, switchMap, catchError, of, tap } from 'rxjs';
 import { JobReportItem } from '../models/pipeline.model';
+import { PipelineStateService } from './pipeline-state.service';
 
 export interface ScrapingProgressEvent {
   batchId: string;
@@ -21,6 +22,7 @@ export interface ScrapingProgressEvent {
 @Injectable({ providedIn: 'root' })
 export class ReportService {
   private readonly http = inject(HttpClient);
+  private readonly pipeline = inject(PipelineStateService);
   private readonly baseUrl = (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
     ? '/api/scraping'
     : 'http://localhost:7000/api/scraping';
@@ -59,18 +61,23 @@ export class ReportService {
   private timerInterval: any = null;
 
   constructor() {
-    // Reactive Refresh Pipeline
+    // Reactive Refresh Pipeline con perfil activo
     this.refreshTrigger$
       .pipe(
         tap(() => this._isLoading.set(true)),
-        switchMap(() =>
-          this.http.get<JobReportItem[]>(this.baseUrl + '/report').pipe(
+        switchMap(() => {
+          const personaName = this.pipeline.activeProfile()?.name || '';
+          const url = personaName
+            ? `${this.baseUrl}/report?personaName=${encodeURIComponent(personaName)}`
+            : `${this.baseUrl}/report`;
+
+          return this.http.get<JobReportItem[]>(url).pipe(
             catchError((err) => {
               console.error('Failed to fetch job report', err);
               return of([]);
             })
-          )
-        )
+          );
+        })
       )
       .subscribe((data) => {
         this._jobs.set(data);
@@ -78,13 +85,23 @@ export class ReportService {
         this._lastRefreshed.set(new Date());
       });
 
-    // Initial load
-    this.refresh();
-    this.fetchProofStories();
+    // Auto-refresh reactivo cuando el usuario cambia de perfil en el header
+    effect(() => {
+      const active = this.pipeline.activeProfile();
+      if (active) {
+        this.refresh();
+        this.fetchProofStories(active.name);
+      }
+    });
   }
 
-  public fetchProofStories(): void {
-    this.http.get<{ offerHeadline: string; targetAudience: string; proofStories: any[] }>(this.baseUrl + '/proof-stories')
+  public fetchProofStories(personaName?: string): void {
+    const persona = personaName || this.pipeline.activeProfile()?.name || '';
+    const url = persona
+      ? `${this.baseUrl}/proof-stories?personaName=${encodeURIComponent(persona)}`
+      : `${this.baseUrl}/proof-stories`;
+
+    this.http.get<{ offerHeadline: string; targetAudience: string; proofStories: any[] }>(url)
       .pipe(
         catchError((err) => {
           console.error('Failed to fetch proof stories', err);
@@ -218,7 +235,11 @@ export class ReportService {
   }
 
   public regenerateProposal(jobId: string, proofStoryKey?: string) {
-    return this.http.post<any>(`${this.baseUrl}/jobs/${jobId}/regenerate-proposal`, { proofStoryKey }).pipe(
+    const personaName = this.pipeline.activeProfile()?.name || '';
+    return this.http.post<any>(`${this.baseUrl}/jobs/${jobId}/regenerate-proposal`, {
+      proofStoryKey,
+      personaName,
+    }).pipe(
       tap((res) => {
         if (res.success) {
           this._jobs.update((list) =>
@@ -247,7 +268,12 @@ export class ReportService {
   }
 
   public updateJobStatus(jobId: string, status: string): void {
-    this.http.patch(this.baseUrl + '/jobs/' + jobId + '/status', { status })
+    const personaName = this.pipeline.activeProfile()?.name || '';
+    const url = personaName
+      ? `${this.baseUrl}/jobs/${jobId}/status?personaName=${encodeURIComponent(personaName)}`
+      : `${this.baseUrl}/jobs/${jobId}/status`;
+
+    this.http.patch(url, { status })
       .pipe(catchError(() => of(null)))
       .subscribe(() => {
         this._jobs.update(list =>
@@ -257,7 +283,11 @@ export class ReportService {
   }
 
   public downloadCsv(): void {
-    window.open(this.baseUrl + '/report/csv', '_blank');
+    const personaName = this.pipeline.activeProfile()?.name || '';
+    const url = personaName
+      ? `${this.baseUrl}/report/csv?personaName=${encodeURIComponent(personaName)}`
+      : `${this.baseUrl}/report/csv`;
+    window.open(url, '_blank');
   }
 
   public isReprocessing = signal<boolean>(false);
@@ -266,7 +296,12 @@ export class ReportService {
   public reprocessLeads() {
     this.isReprocessing.set(true);
     this.reprocessMessage.set('Re-evaluando vacantes con tu perfil actual...');
-    return this.http.post<{ success: boolean; reprocessedCount: number; top3GoldGenerated: number; message: string }>(`${this.baseUrl}/reprocess`, {}).pipe(
+    const personaName = this.pipeline.activeProfile()?.name || '';
+    const url = personaName
+      ? `${this.baseUrl}/reprocess?personaName=${encodeURIComponent(personaName)}`
+      : `${this.baseUrl}/reprocess`;
+
+    return this.http.post<{ success: boolean; reprocessedCount: number; top3GoldGenerated: number; message: string }>(url, {}).pipe(
       tap((res) => {
         this.isReprocessing.set(false);
         this.reprocessMessage.set(res.message);
@@ -283,7 +318,12 @@ export class ReportService {
   }
 
   public downloadTechnicalProposalPdf(jobId: string, jobTitle?: string) {
-    return this.http.get(`${this.baseUrl}/jobs/${jobId}/technical-proposal-pdf`, {
+    const personaName = this.pipeline.activeProfile()?.name || '';
+    const url = personaName
+      ? `${this.baseUrl}/jobs/${jobId}/technical-proposal-pdf?personaName=${encodeURIComponent(personaName)}`
+      : `${this.baseUrl}/jobs/${jobId}/technical-proposal-pdf`;
+
+    return this.http.get(url, {
       responseType: 'blob',
     }).pipe(
       tap((blob) => {
