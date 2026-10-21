@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { StrategicLane, RoleClassification } from '../constants/taxonomy.constants';
+import { DynamicRoleTaxonomy } from './deterministic-semantic.service';
 
 export interface PositioningProfileContext {
   offerHeadline: string;
@@ -28,20 +29,20 @@ export class RoleClassifierService {
   private readonly logger = new Logger(RoleClassifierService.name);
 
   /**
-   * Evaluador Flexible de Afinidad contra las Expresiones Activas del Calibrador (searchKeywords).
-   * Tokeniza términos para emparejar sin importar el orden (ej. 'Product Designer (AI)' empareja con 'AI product design').
+   * Evaluador Flexible de Afinidad contra la Taxonomía Dinámica del Perfil y las Queries Activas.
+   * Totalmente data-driven: no depende de hardcodear títulos o profesiones específicas.
    */
   evaluateMatch(
     title: string,
     description: string,
     skills: string[] = [],
     activeQueries: string[] = [],
+    taxonomy?: DynamicRoleTaxonomy,
   ): MatchEvaluation {
     const titleLower = title.toLowerCase();
     const descLower = description.toLowerCase();
-    const allText = `${titleLower} ${descLower} ${skills.join(' ').toLowerCase()}`;
 
-    // 1. Detección de Roles Incompatibles / Asistencia / Soporte (Filtro Sujeto vs. Objeto)
+    // 1. Detección Universal de Tareas Administrativas o Asistencia Básica
     const assistantRegex = /\b(assistant|virtual assistant|reverse recruiter|recruiter assistant|job application assistant|job search assistant|data entry|clerk|telemarketer|cold caller|appointment setter)\b/i;
     if (assistantRegex.test(titleLower)) {
       return {
@@ -56,38 +57,111 @@ export class RoleClassifierService {
       };
     }
 
-    // 2. Detección de Dominios Físicos, Inmobiliarios o Hardware Ajenos a UI/UX (Solar, CAD Eléctrico, etc.)
-    const incompatibleDomainsRegex = /\b(solar|photovoltaic|electrical\s+(?:design|engineer|drawing|panel|permit)|hvac|plumbing|civil\s+engineer|structural\s+engineer|cnc|microfluidic|jewelry|cad\/cam|autocad\s+(?:permit|dwg|wiring)|pcb\s+layout|hardware\s+engineer|real\s+estate\s+(?:agent|listing|broker)|property\s+manag|leasing\s+agent|realtor|head\s+of\s+listings)\b/i;
-    if (incompatibleDomainsRegex.test(titleLower)) {
-      return {
-        matchLevel: 'INCOMPATIBLE_ROLE',
-        matchedQuery: null,
-        baseFitScore: 20,
-        normalizedRole: 'Disqualified / Non-Digital Domain (Physical/Engineering/Real Estate)',
-        lane: StrategicLane.DISQUALIFIED_NOISE,
-        isDisqualified: true,
-        isIncompatible: true,
-        reason: 'El título corresponde a un dominio físico o industrial ajeno al diseño de producto digital',
-      };
-    }
-
-    // 3. Detección de Roles de Desarrollo / Programación / Ingeniería de Software Pura
-    // Armando es Senior UI/UX Researcher & Product Designer, NO desarrollador de software (full stack, react, backend, APIs, etc.)
-    const softwareDevRegex = /\b(?:full\s*stack|backend|front\s*end|software|devops|data\s+engineer|ml\s+engineer|machine\s+learning|firmware|embedded|systems?)\s+(?:developer|engineer|programmer|coder|architect)\b|\b(?:developer|programmer|software\s+engineer|web\s+developer|app\s+developer|react\s+developer|python\s+developer|node\s+developer|mobile\s+developer|ios\s+developer|android\s+developer|flutter\s+developer|solidity\s+developer|scrum\s+master|technical\s+lead|tech\s+lead|engineering\s+manager)\b/i;
-    if (softwareDevRegex.test(titleLower)) {
-      // Excepción: Solo si explícitamente busca un diseñador UI/UX o investigador como rol principal
-      const isDesignRole = /\b(?:ui\s*[\/\-]?\s*ux\s+design(?:er)?|ux\s*[\/\-]?\s*ui\s+design(?:er)?|ux\s+research(?:er)?|product\s+designer?)\b/i.test(titleLower);
-      if (!isDesignRole) {
+    // 2. Detección de Exclusiones Dinámicas desde la Taxonomía del Perfil Activo
+    if (taxonomy?.excludedRoles && taxonomy.excludedRoles.length > 0) {
+      for (const excluded of taxonomy.excludedRoles) {
+        if (!excluded || excluded.trim().length === 0) continue;
+        const cleanExc = excluded.trim().replace(/[\/\-_]/g, ' ');
+        const words = cleanExc.split(/\s+/).filter(w => w.length >= 2);
+        if (words.length === 0) continue;
+        const excRegex = new RegExp('\\b' + words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+') + '\\b', 'i');
+        if (excRegex.test(titleLower)) {
+          // Excepción si el título contiene explícitamente un coreRole del perfil
+          const hasCore = taxonomy.coreRoles?.some(c => {
+            const cleanCore = c.trim().replace(/[\/\-_]/g, ' ');
+            const cWords = cleanCore.split(/\s+/).filter(w => w.length >= 2);
+            return cWords.length > 0 && new RegExp('\\b' + cWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+') + '\\b', 'i').test(titleLower);
+          });
+          if (!hasCore) {
+            return {
+              matchLevel: 'INCOMPATIBLE_ROLE',
+              matchedQuery: null,
+              baseFitScore: 15,
+              normalizedRole: `Disqualified / Excluded (${excluded})`,
+              lane: StrategicLane.DISQUALIFIED_NOISE,
+              isDisqualified: true,
+              isIncompatible: true,
+              reason: `El título coincide con una exclusión activa del perfil: "${excluded}"`,
+            };
+          }
+        }
+      }
+    } else {
+      // Fallback a dominios físicos solo cuando no hay exclusiones configuradas
+      const incompatibleDomainsRegex = /\b(solar|photovoltaic|electrical\s+(?:design|engineer|drawing|panel|permit)|hvac|plumbing|civil\s+engineer|structural\s+engineer|cnc|microfluidic|jewelry|cad\/cam|autocad\s+(?:permit|dwg|wiring)|pcb\s+layout|hardware\s+engineer|real\s+estate\s+(?:agent|listing|broker)|property\s+manag|leasing\s+agent|realtor|head\s+of\s+listings)\b/i;
+      if (incompatibleDomainsRegex.test(titleLower)) {
         return {
           matchLevel: 'INCOMPATIBLE_ROLE',
           matchedQuery: null,
           baseFitScore: 20,
-          normalizedRole: 'Disqualified / Pure Software Engineering or Developer Role',
+          normalizedRole: 'Disqualified / Non-Digital Domain (Physical/Engineering/Real Estate)',
           lane: StrategicLane.DISQUALIFIED_NOISE,
           isDisqualified: true,
           isIncompatible: true,
-          reason: 'El título corresponde a un rol de desarrollo de software / ingeniería, ajeno al perfil de UI/UX & Research de Armando',
+          reason: 'El título corresponde a un dominio físico o industrial ajeno al perfil digital',
         };
+      }
+    }
+
+    // 3. Coincidencia con Taxonomía Dinámica (Core, Hybrid) del Perfil Activo
+    if (taxonomy && (taxonomy.coreRoles?.length > 0 || taxonomy.hybridRoles?.length > 0)) {
+      // A. Core Roles en Título (100 pts)
+      for (const core of taxonomy.coreRoles || []) {
+        if (!core || core.trim().length === 0) continue;
+        const words = core.trim().replace(/[\/\-_]/g, ' ').split(/\s+/).filter(w => w.length >= 2);
+        if (words.length === 0) continue;
+        const coreRegex = new RegExp('\\b' + words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+') + '\\b', 'i');
+        if (coreRegex.test(titleLower)) {
+          return {
+            matchLevel: 'DIRECT_MATCH',
+            matchedQuery: core,
+            baseFitScore: 100,
+            normalizedRole: title.slice(0, 50),
+            lane: StrategicLane.CORE_AI_UX,
+            isDisqualified: false,
+            isIncompatible: false,
+            reason: `Coincidencia Core con el perfil: "${core}"`,
+          };
+        }
+      }
+
+      // B. Hybrid Roles en Título (85 pts)
+      for (const hybrid of taxonomy.hybridRoles || []) {
+        if (!hybrid || hybrid.trim().length === 0) continue;
+        const words = hybrid.trim().replace(/[\/\-_]/g, ' ').split(/\s+/).filter(w => w.length >= 2);
+        if (words.length === 0) continue;
+        const hybridRegex = new RegExp('\\b' + words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+') + '\\b', 'i');
+        if (hybridRegex.test(titleLower)) {
+          return {
+            matchLevel: 'PARTIAL_MATCH',
+            matchedQuery: hybrid,
+            baseFitScore: 85,
+            normalizedRole: title.slice(0, 50),
+            lane: StrategicLane.INTERFACE_BUILD,
+            isDisqualified: false,
+            isIncompatible: false,
+            reason: `Coincidencia Híbrida con el perfil: "${hybrid}"`,
+          };
+        }
+      }
+
+      // C. Core Roles en Skills o Descripción (80 pts)
+      for (const core of taxonomy.coreRoles || []) {
+        const words = core.trim().replace(/[\/\-_]/g, ' ').split(/\s+/).filter(w => w.length >= 2);
+        if (words.length === 0) continue;
+        const coreRegex = new RegExp('\\b' + words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+') + '\\b', 'i');
+        if (coreRegex.test(descLower) || skills.some(s => coreRegex.test(s))) {
+          return {
+            matchLevel: 'PARTIAL_MATCH',
+            matchedQuery: core,
+            baseFitScore: 80,
+            normalizedRole: title.slice(0, 50),
+            lane: StrategicLane.INTERFACE_BUILD,
+            isDisqualified: false,
+            isIncompatible: false,
+            reason: `Coincidencia secundaria en requerimientos: "${core}"`,
+          };
+        }
       }
     }
 

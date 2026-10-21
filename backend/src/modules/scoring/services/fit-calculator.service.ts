@@ -56,12 +56,13 @@ export class FitCalculatorService {
     const drivers: string[] = [];
     const drags: string[] = [];
 
-    // 1. Evaluación de Coincidencia contra las Expresiones Activas del Calibrador
+    // 1. Evaluación de Coincidencia contra las Expresiones Activas del Calibrador y la Taxonomía Dinámica
     const match = this.roleClassifier.evaluateMatch(
       input.title,
       input.description,
       input.skills || [],
       input.activeQueries || [],
+      input.taxonomy,
     );
 
     const baseFitScore = match.baseFitScore;

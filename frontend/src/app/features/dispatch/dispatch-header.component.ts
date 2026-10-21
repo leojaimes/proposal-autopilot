@@ -66,7 +66,7 @@ export class DispatchHeaderComponent {
   public selectProfile(id: string): void {
     this.pipeline.selectProfile(id);
     this.isProfileDropdownOpen.set(false);
-    this.openSettings.emit(); // Open settings drawer to see/calibrate the selected profile
+    this.report.reprocessLeads().subscribe();
   }
 
   public openCreateModal(): void {

@@ -163,21 +163,18 @@ Return a strictly valid JSON object without markdown formatting wrappers or conv
      # Technical Proposal & Execution Roadmap: ${input.jobTitle}
      ## 1. Executive Summary & Diagnostic Hook
      A one-line hook demonstrating that I already spent time thinking deeply about this specific project, followed by a short intro pulling from my positioning and proof story (${input.proofStoryCompany || 'Pepper AI'}: ${input.proofStoryMetric || '17,000+ active users'}).
-     
-     ## 2. 5-Step Technical Approach & Methodology
-     Provide a 5 to 6 step technical breakdown with brief reasoning for each step, explicitly naming real industry tools and methods where applicable:
-     - Step 1: Research Synthesis & Heuristic Audit (using Claude for thematic analysis & Qualtrics for structured user research)
-     - Step 2: Information Architecture & Workflow Mapping (defining user states & agentic trigger handoffs)
-     - Step 3: Rapid Prototyping & Component Architecture (using Figma & Figma Make for AI-assisted design tokens and autolayout systems)
-     - Step 4: Agentic Automation & Workflow Integration (using n8n for agentic workflow orchestration and webhook triggers)
-     - Step 5: Usability Testing & Iterative Hardening (standard usability testing, SUS benchmarking, and heuristic evaluation)
+      
+      ## 2. 5-Step Technical Approach & Methodology
+     Provide a 5 to 6 step technical breakdown with brief reasoning for each step, explicitly naming real industry tools and methods matching the role's domain:
+     - For UI/UX & Product Design: Step 1 (Claude & Qualtrics research synthesis), Step 2 (Information Architecture & workflow mapping), Step 3 (Figma & Figma Make rapid AI-assisted prototyping & design tokens), Step 4 (n8n agentic workflow automation), Step 5 (Usability testing & heuristic validation).
+     - For Engineering / DevOps / Mobile / Other Domains: Adapt the 5 steps to real industry tools for that domain (e.g. Terraform, Kubernetes, GitHub Actions for DevOps; React, NestJS, Postgres, Playwright for Fullstack; Flutter, Swift, Firebase for Mobile).
      
      ## 3. Deliverables & Realistic Timeline (Agile 2 to 3-Week Sprint)
      Structure the delivery as a high-velocity 2 to 3-week sprint (10 to 15 business days). Avoid slow 2-month timelines; clients on Upwork want senior speed and rapid momentum.
-     - Phase 1 (Week 1, Days 1-5): Discovery, User Journeys & Wireframe Architecture. Promise the first interactive Figma click-through ready by Day 5.
-     - Phase 2 (Week 2, Days 6-10): Figma Design System & Core Interactive UI. Scalable tokens, autolayout components, and responsive desktop screens.
-     - Phase 3 (Week 3, Days 11-15): AI Workflow Automation, Usability Testing & Clean Handoff. Testing with real users to eliminate friction, n8n workflow blueprints, and developer-ready specs.
-   - STRICT NEGATIVE CONSTRAINT: NEVER write ASCII diagrams, box drawings, or text pipelines inside "technicalProposalBody".
+     - Phase 1 (Week 1, Days 1-5): Discovery, Architecture & Core Prototype. Promise an interactive click-through or working prototype ready by Day 5.
+     - Phase 2 (Week 2, Days 6-10): Core System Implementation. Scalable components, robust modules, and production-grade flows.
+     - Phase 3 (Week 3, Days 11-15): Hardening, Testing & Clean Handoff. User/automated testing, complete documentation, and seamless handoff.
+    - STRICT NEGATIVE CONSTRAINT: NEVER write ASCII diagrams, box drawings, or text pipelines inside "technicalProposalBody".
 
 4. "mermaidDiagramCode":
    - A Mermaid flowchart (flowchart TD), 6 NODES MAXIMUM, matching the 5-6 technical breakdown steps.
