@@ -92,4 +92,14 @@ export class TenantsController {
     const tenantId = this.tenantContext.getTenantId();
     return this.tenantsService.synthesizeSearchQueries(tenantId);
   }
+
+  /**
+   * POST /api/config/synthesize-taxonomy
+   * Sintetiza la taxonomía de 4 capas de afinidad (Core, Hybrid, Tangential, Excluded) usando Gemini
+   */
+  @Post('synthesize-taxonomy')
+  async synthesizeTaxonomy() {
+    const tenantId = this.tenantContext.getTenantId();
+    return this.tenantsService.synthesizeTaxonomy(tenantId);
+  }
 }

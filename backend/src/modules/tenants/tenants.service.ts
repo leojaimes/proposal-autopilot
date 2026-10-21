@@ -5,6 +5,10 @@ export interface UpdatePositioningDto {
   offerHeadline: string;
   targetAudience: string;
   voiceRules?: string[];
+  coreRoles?: string[];
+  hybridRoles?: string[];
+  tangentialRoles?: string[];
+  excludedRoles?: string[];
 }
 
 export interface CreateProofStoryDto {
@@ -115,6 +119,10 @@ export class TenantsService {
           offerHeadline: dto.offerHeadline,
           targetAudience: dto.targetAudience,
           voiceRules: dto.voiceRules || profile.voiceRules,
+          ...(dto.coreRoles && { coreRoles: dto.coreRoles }),
+          ...(dto.hybridRoles && { hybridRoles: dto.hybridRoles }),
+          ...(dto.tangentialRoles && { tangentialRoles: dto.tangentialRoles }),
+          ...(dto.excludedRoles && { excludedRoles: dto.excludedRoles }),
         },
       });
     }
@@ -125,6 +133,10 @@ export class TenantsService {
         offerHeadline: dto.offerHeadline,
         targetAudience: dto.targetAudience,
         voiceRules: dto.voiceRules || [],
+        coreRoles: dto.coreRoles || undefined,
+        hybridRoles: dto.hybridRoles || undefined,
+        tangentialRoles: dto.tangentialRoles || undefined,
+        excludedRoles: dto.excludedRoles || undefined,
       },
     });
   }
@@ -282,6 +294,51 @@ export class TenantsService {
       queries: synthesis.searchQueries,
       suggestedMinHourlyRate: synthesis.suggestedMinHourlyRate,
       suggestedMinBudgetFixed: synthesis.suggestedMinBudgetFixed,
+      rationale: synthesis.rationale,
+    };
+  }
+
+  /**
+   * Sintetiza la taxonomía dinámica de afinidad de roles (4 capas) con IA
+   * basándose en la oferta de transformación y las Proof Stories activas.
+   */
+  async synthesizeTaxonomy(tenantId: string) {
+    const profile = await this.prisma.positioningProfile.findFirst({
+      where: { tenantId, isActive: true },
+      include: { proofStories: true },
+    });
+
+    if (!profile) {
+      throw new NotFoundException(`No se encontró un perfil activo para el tenant ${tenantId}`);
+    }
+
+    const synthesis = await this.claudeProposal.synthesizeTaxonomy({
+      offerHeadline: profile.offerHeadline,
+      targetAudience: profile.targetAudience,
+      proofStories: profile.proofStories.map(ps => ({
+        companyOrProduct: ps.companyOrProduct,
+        impactMetric: ps.impactMetric,
+        domainTags: ps.domainTags,
+      })),
+    });
+
+    // Guardar la taxonomía sintetizada en el perfil
+    const updated = await this.prisma.positioningProfile.update({
+      where: { id: profile.id },
+      data: {
+        coreRoles: synthesis.coreRoles,
+        hybridRoles: synthesis.hybridRoles,
+        tangentialRoles: synthesis.tangentialRoles,
+        excludedRoles: synthesis.excludedRoles,
+      },
+    });
+
+    return {
+      success: true,
+      coreRoles: updated.coreRoles,
+      hybridRoles: updated.hybridRoles,
+      tangentialRoles: updated.tangentialRoles,
+      excludedRoles: updated.excludedRoles,
       rationale: synthesis.rationale,
     };
   }

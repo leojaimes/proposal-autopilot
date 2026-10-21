@@ -45,9 +45,13 @@ export class EngineSettingsDrawerComponent {
   public readonly isOpen = input<boolean>(false);
   public readonly closeDrawer = output<void>();
 
-  public readonly activeTab = signal<'POSITIONING' | 'SCRAPING' | 'GEO' | 'WEIGHTS'>('POSITIONING');
+  public readonly activeTab = signal<'POSITIONING' | 'ROLES' | 'SCRAPING' | 'GEO' | 'WEIGHTS'>('POSITIONING');
 
-  // Geo Settings Form State
+  // Role Taxonomy Tag Inputs State
+  public readonly newCoreRoleInput = signal<string>('');
+  public readonly newHybridRoleInput = signal<string>('');
+  public readonly newTangentialRoleInput = signal<string>('');
+  public readonly newExcludedRoleInput = signal<string>('');
   public readonly newCountryInput = signal<string>('');
   public readonly newExcludedCountryInput = signal<string>('');
   public readonly isSavingGeo = signal<boolean>(false);
@@ -153,6 +157,34 @@ export class EngineSettingsDrawerComponent {
 
   public async synthesizeQueries(): Promise<void> {
     await this.pipeline.synthesizeQueriesWithAi();
+  }
+
+  public async synthesizeTaxonomy(): Promise<void> {
+    await this.pipeline.synthesizeTaxonomyWithAi();
+  }
+
+  public addRole(category: 'CORE' | 'HYBRID' | 'TANGENTIAL' | 'EXCLUDED'): void {
+    let val = '';
+    if (category === 'CORE') {
+      val = this.newCoreRoleInput().trim();
+      this.newCoreRoleInput.set('');
+    } else if (category === 'HYBRID') {
+      val = this.newHybridRoleInput().trim();
+      this.newHybridRoleInput.set('');
+    } else if (category === 'TANGENTIAL') {
+      val = this.newTangentialRoleInput().trim();
+      this.newTangentialRoleInput.set('');
+    } else if (category === 'EXCLUDED') {
+      val = this.newExcludedRoleInput().trim();
+      this.newExcludedRoleInput.set('');
+    }
+    if (val) {
+      this.pipeline.addRole(category, val);
+    }
+  }
+
+  public removeRole(category: 'CORE' | 'HYBRID' | 'TANGENTIAL' | 'EXCLUDED', role: string): void {
+    this.pipeline.removeRole(category, role);
   }
 
   public addCustomQuery(): void {

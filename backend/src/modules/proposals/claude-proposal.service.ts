@@ -34,6 +34,20 @@ export interface SynthesizeQueriesOutput {
   rationale: string;
 }
 
+export interface SynthesizeTaxonomyInput {
+  offerHeadline: string;
+  targetAudience: string;
+  proofStories: Array<{ companyOrProduct: string; impactMetric: string; domainTags: string[] }>;
+}
+
+export interface SynthesizeTaxonomyOutput {
+  coreRoles: string[];
+  hybridRoles: string[];
+  tangentialRoles: string[];
+  excludedRoles: string[];
+  rationale: string;
+}
+
 @Injectable()
 export class ClaudeProposalService {
   private readonly logger = new Logger(ClaudeProposalService.name);
@@ -342,5 +356,79 @@ ${dealbreakers.join(', ')}
       suggestedMinBudgetFixed: 1000,
       rationale: 'Consultas combinatorias derivadas directamente de los tags de tus historias de autoridad.',
     };
+  }
+
+  /**
+   * Sintetiza la taxonomía dinámica de 4 niveles (Core, Hybrid, Tangential, Excluded) usando IA
+   * basándose en la oferta de posicionamiento y las Proof Stories.
+   */
+  async synthesizeTaxonomy(input: SynthesizeTaxonomyInput): Promise<SynthesizeTaxonomyOutput> {
+    const fallback: SynthesizeTaxonomyOutput = {
+      coreRoles: ['UI/UX design', 'UX research', 'design system', 'usability testing'],
+      hybridRoles: ['AI product design', 'agentic workflow design', 'AI prototyping'],
+      tangentialRoles: ['Product manager', 'Web designer', 'Graphic designer'],
+      excludedRoles: ['Full Stack', 'Backend', 'React Developer', 'Software Engineer', 'Assistant', 'Telemarketing'],
+      rationale: 'Taxonomía estándar de protección deductiva para Senior UI/UX.',
+    };
+
+    if (this.geminiApiKey && !this.geminiApiKey.includes('REPLACE_WITH_YOUR')) {
+      try {
+        const prompt = `You are an elite Recruitment & Strategic Positioning Architect for Upwork.
+Analyze this contractor positioning profile and generate a 4-tier Role Affinity Taxonomy for job classification.
+
+[CONTRACTOR PROFILE]
+Headline: ${input.offerHeadline}
+Target Audience: ${input.targetAudience}
+Proof Stories: ${input.proofStories.map(ps => `${ps.companyOrProduct} (${ps.impactMetric})`).join(', ')}
+
+Categorize job market roles into exactly 4 distinct tiers:
+1. coreRoles (1.0 - 100% Fit): The absolute direct execution domain (e.g. UX research, UI/UX design, Figma, Usability testing). 4 to 6 items.
+2. hybridRoles (0.8 - 80% Fit): High-ticket, modern cross-disciplinary roles matching the positioning (e.g. AI product design, agentic workflow design, AI prototyping). 3 to 5 items.
+3. tangentialRoles (0.4 - 40% Fit): Adjacent or partial product roles that might contain relevant work (e.g. Product manager, Web designer). 3 to 4 items.
+4. excludedRoles (0.0 - Incompatible): Roles that often appear in searches due to shared buzzwords (like 'workflows', 'AI', 'automation', 'React') but represent software engineering, coding, or irrelevant work (e.g. Full Stack, Backend, React Developer, Software Engineer, DevOps, Assistant, Telemarketing). 6 to 10 items.
+
+Output STRICT JSON:
+{
+  "coreRoles": ["..."],
+  "hybridRoles": ["..."],
+  "tangentialRoles": ["..."],
+  "excludedRoles": ["..."],
+  "rationale": "Why these boundaries protect this contractor from engineering noise"
+}`;
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.geminiModel}:generateContent?key=${this.geminiApiKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(15000),
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.2,
+              thinkingConfig: { thinkingBudget: 0 },
+            },
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+          const parsed = JSON.parse(raw);
+
+          return {
+            coreRoles: Array.isArray(parsed.coreRoles) ? parsed.coreRoles : fallback.coreRoles,
+            hybridRoles: Array.isArray(parsed.hybridRoles) ? parsed.hybridRoles : fallback.hybridRoles,
+            tangentialRoles: Array.isArray(parsed.tangentialRoles) ? parsed.tangentialRoles : fallback.tangentialRoles,
+            excludedRoles: Array.isArray(parsed.excludedRoles) ? parsed.excludedRoles : fallback.excludedRoles,
+            rationale: parsed.rationale || 'Taxonomía sintetizada con Gemini Flash.',
+          };
+        }
+      } catch (err: any) {
+        this.logger.error(`Error sintetizando taxonomía con Gemini: ${err.message}. Usando fallback.`);
+      }
+    }
+
+    return fallback;
   }
 }

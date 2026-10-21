@@ -20,6 +20,10 @@ export interface CalibrationProfile {
   targetRegions?: string[];
   excludedCountries?: string[];
   geoFilterMode?: 'WEIGHTED_PREFERENCE' | 'STRICT_EXCLUDE';
+  coreRoles?: string[];
+  hybridRoles?: string[];
+  tangentialRoles?: string[];
+  excludedRoles?: string[];
   proofStories: ProofStory[];
 }
 
@@ -100,6 +104,12 @@ export class PipelineStateService {
   public readonly targetRegions = signal<string[]>(this.activeProfile().targetRegions || ['North America', 'Western Europe']);
   public readonly excludedCountries = signal<string[]>(this.activeProfile().excludedCountries || []);
   public readonly geoFilterMode = signal<'WEIGHTED_PREFERENCE' | 'STRICT_EXCLUDE'>(this.activeProfile().geoFilterMode || 'WEIGHTED_PREFERENCE');
+  public readonly coreRoles = signal<string[]>(this.activeProfile().coreRoles || ['UI/UX design', 'UX research', 'design system', 'usability testing']);
+  public readonly hybridRoles = signal<string[]>(this.activeProfile().hybridRoles || ['AI product design', 'agentic workflow design', 'AI prototyping']);
+  public readonly tangentialRoles = signal<string[]>(this.activeProfile().tangentialRoles || ['Product manager', 'Web designer', 'Graphic designer']);
+  public readonly excludedRoles = signal<string[]>(this.activeProfile().excludedRoles || ['Full Stack', 'Backend', 'React Developer', 'Software Engineer', 'Assistant', 'Telemarketing']);
+  public readonly isSynthesizingTaxonomy = signal<boolean>(false);
+  public readonly taxonomySuccessMessage = signal<string>('');
   public readonly proofStories = signal<ProofStory[]>(this.activeProfile().proofStories);
 
   // Dynamic Query Synthesis (Tri-Factor Engine)
@@ -245,6 +255,10 @@ export class PipelineStateService {
           targetRegions: this.targetRegions(),
           excludedCountries: this.excludedCountries(),
           geoFilterMode: this.geoFilterMode(),
+          coreRoles: this.coreRoles(),
+          hybridRoles: this.hybridRoles(),
+          tangentialRoles: this.tangentialRoles(),
+          excludedRoles: this.excludedRoles(),
           proofStories: this.proofStories(),
         };
       }
@@ -386,6 +400,87 @@ export class PipelineStateService {
       return { success: false, queries: [] };
     } finally {
       this.isSynthesizingQueries.set(false);
+    }
+  }
+
+  // ── Modificadores de Tags de Taxonomía ──────────────────────────────────────
+  public addRole(category: 'CORE' | 'HYBRID' | 'TANGENTIAL' | 'EXCLUDED', role: string): void {
+    const clean = role.trim();
+    if (!clean) return;
+    if (category === 'CORE') {
+      if (!this.coreRoles().includes(clean)) {
+        this.coreRoles.update(list => [...list, clean]);
+      }
+    } else if (category === 'HYBRID') {
+      if (!this.hybridRoles().includes(clean)) {
+        this.hybridRoles.update(list => [...list, clean]);
+      }
+    } else if (category === 'TANGENTIAL') {
+      if (!this.tangentialRoles().includes(clean)) {
+        this.tangentialRoles.update(list => [...list, clean]);
+      }
+    } else if (category === 'EXCLUDED') {
+      if (!this.excludedRoles().includes(clean)) {
+        this.excludedRoles.update(list => [...list, clean]);
+      }
+    }
+    this.syncActiveProfile();
+  }
+
+  public removeRole(category: 'CORE' | 'HYBRID' | 'TANGENTIAL' | 'EXCLUDED', role: string): void {
+    if (category === 'CORE') {
+      this.coreRoles.update(list => list.filter(r => r !== role));
+    } else if (category === 'HYBRID') {
+      this.hybridRoles.update(list => list.filter(r => r !== role));
+    } else if (category === 'TANGENTIAL') {
+      this.tangentialRoles.update(list => list.filter(r => r !== role));
+    } else if (category === 'EXCLUDED') {
+      this.excludedRoles.update(list => list.filter(r => r !== role));
+    }
+    this.syncActiveProfile();
+  }
+
+  /**
+   * Sintetiza la taxonomía de 4 capas de afinidad (Core, Hybrid, Tangential, Excluded) usando IA
+   */
+  public async synthesizeTaxonomyWithAi(): Promise<{ success: boolean; rationale?: string }> {
+    this.isSynthesizingTaxonomy.set(true);
+    this.taxonomySuccessMessage.set('');
+    try {
+      await this.http.put(`${this.getApiBase()}/config/positioning`, {
+        offerHeadline: this.offerText(),
+        targetAudience: this.targetAudience(),
+        coreRoles: this.coreRoles(),
+        hybridRoles: this.hybridRoles(),
+        tangentialRoles: this.tangentialRoles(),
+        excludedRoles: this.excludedRoles(),
+      }).toPromise();
+
+      const res = await this.http.post<{
+        success: boolean;
+        coreRoles: string[];
+        hybridRoles: string[];
+        tangentialRoles: string[];
+        excludedRoles: string[];
+        rationale: string;
+      }>(`${this.getApiBase()}/config/synthesize-taxonomy`, {}).toPromise();
+
+      if (res && res.success) {
+        if (res.coreRoles) this.coreRoles.set(res.coreRoles);
+        if (res.hybridRoles) this.hybridRoles.set(res.hybridRoles);
+        if (res.tangentialRoles) this.tangentialRoles.set(res.tangentialRoles);
+        if (res.excludedRoles) this.excludedRoles.set(res.excludedRoles);
+        this.taxonomySuccessMessage.set('¡Taxonomía de 4 capas calibrada con IA!');
+        this.syncActiveProfile();
+        return { success: true, rationale: res.rationale };
+      }
+      return { success: false };
+    } catch (err: any) {
+      console.error('Error al sintetizar taxonomía con IA:', err);
+      this.taxonomySuccessMessage.set('Error conectando con el motor de IA.');
+      return { success: false };
+    } finally {
+      this.isSynthesizingTaxonomy.set(false);
     }
   }
 }

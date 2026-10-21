@@ -234,6 +234,7 @@ export class ScrapingController {
     let highFitCount = 0;
     let mediumFitCount = 0;
     const scrapeConfig = await this.prisma.scrapeConfig.findFirst({ where: { tenantId } });
+    const activeProfile = await this.prisma.positioningProfile.findFirst({ where: { tenantId, isActive: true } });
     const scoredCandidates: Array<{ jobPost: any; evaluation: any }> = [];
 
     // FASE 2: Normalización & Scoring 0-100 para todas las vacantes
@@ -294,6 +295,12 @@ export class ScrapingController {
         description: jobPost.description,
         skills: normalized.skills,
         activeQueries: (keywords && keywords.length > 0) ? keywords : (scrapeConfig?.searchKeywords || []),
+        taxonomy: activeProfile ? {
+          coreRoles: activeProfile.coreRoles,
+          hybridRoles: activeProfile.hybridRoles,
+          tangentialRoles: activeProfile.tangentialRoles,
+          excludedRoles: activeProfile.excludedRoles,
+        } : undefined,
         clientTotalSpend: Number(jobPost.clientTotalSpend),
         clientRating: Number(jobPost.clientRating),
         clientCountry: jobPost.clientCountry || undefined,
@@ -1195,11 +1202,18 @@ export class ScrapingController {
 
       // 2. Re-calcular Fit con datos reales y preferencias geográficas
       const scrapeConfig = await this.prisma.scrapeConfig.findFirst({ where: { tenantId } });
+      const activeProfile = await this.prisma.positioningProfile.findFirst({ where: { tenantId, isActive: true } });
       const evaluation = this.fitCalculator.calculate({
         title: normalized.title,
         description: normalized.description,
         skills: normalized.skills,
         activeQueries: scrapeConfig?.searchKeywords || [],
+        taxonomy: activeProfile ? {
+          coreRoles: activeProfile.coreRoles,
+          hybridRoles: activeProfile.hybridRoles,
+          tangentialRoles: activeProfile.tangentialRoles,
+          excludedRoles: activeProfile.excludedRoles,
+        } : undefined,
         clientTotalSpend: Number(normalized.clientTotalSpend),
         clientRating: Number(normalized.clientRating),
         clientCountry: normalized.clientCountry || undefined,

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { RoleClassifierService } from './role-classifier.service';
+import { DeterministicSemanticService, DynamicRoleTaxonomy } from './deterministic-semantic.service';
 import { StrategicLane } from '../constants/taxonomy.constants';
 
 export interface FitCalculationInput {
@@ -7,6 +8,7 @@ export interface FitCalculationInput {
   description: string;
   skills?: string[];
   activeQueries?: string[];
+  taxonomy?: DynamicRoleTaxonomy;
   clientCountry?: string;
   clientTotalSpend?: number;
   clientRating?: number;
@@ -41,7 +43,10 @@ export interface FitScoreOutput {
 export class FitCalculatorService {
   private readonly logger = new Logger(FitCalculatorService.name);
 
-  constructor(private readonly roleClassifier: RoleClassifierService) {}
+  constructor(
+    private readonly roleClassifier: RoleClassifierService,
+    private readonly semanticService: DeterministicSemanticService = new DeterministicSemanticService(),
+  ) {}
 
   /**
    * Cálculo Determinista Deductivo (Arranca en el potencial del rol y descuenta por fricciones).
@@ -153,6 +158,28 @@ export class FitCalculatorService {
     // 5. Cálculo Nominal Deductivo (Piso de 15 para evitar ceros artificiales)
     let overallScore = Math.max(15, Math.min(100, baseFitScore - deductions));
 
+    // 5.1 Eje Bi-Axial de Afinidad Semántica (Multiplicador de Relevancia de Rol)
+    if (input.taxonomy) {
+      const affinity = this.semanticService.evaluateAffinity(
+        input.title,
+        input.description,
+        input.skills || [],
+        input.taxonomy
+      );
+
+      if (affinity.matchedLane === 'EXCLUDED') {
+        overallScore = Math.min(15, Math.round(overallScore * affinity.affinityMultiplier));
+        drags.push(affinity.reason);
+      } else {
+        overallScore = Math.max(15, Math.min(100, Math.round(overallScore * affinity.affinityMultiplier)));
+        if (affinity.affinityMultiplier >= 0.70) {
+          drivers.push(`Afinidad de Rol: ${affinity.matchedLane} (${Math.round(affinity.affinityMultiplier * 100)}%)`);
+        } else {
+          drags.push(`Afinidad de Rol moderada: ${affinity.matchedLane} (${Math.round(affinity.affinityMultiplier * 100)}%)`);
+        }
+      }
+    }
+
     // 6. Calidad de Datos
     const dataQualityStatus: 'COMPLETE' | 'INCOMPLETE' =
       (input.proposalsCount != null && input.postedDate != null) ? 'COMPLETE' : 'INCOMPLETE';
@@ -185,6 +212,20 @@ export class FitCalculatorService {
       overallScore = Math.min(35, overallScore);
       isCapped = true;
       capReason = capReason || 'OFF_NICHE: Sin coincidencia con las expresiones activas del motor';
+    }
+
+    if (input.taxonomy) {
+      const affinity = this.semanticService.evaluateAffinity(
+        input.title,
+        input.description,
+        input.skills || [],
+        input.taxonomy
+      );
+      if (affinity.matchedLane === 'EXCLUDED') {
+        overallScore = Math.min(15, overallScore);
+        isCapped = true;
+        capReason = capReason || affinity.reason;
+      }
     }
 
     const fitTier: 'HIGH' | 'MEDIUM' | 'LOW' =
