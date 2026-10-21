@@ -191,6 +191,10 @@ export class PipelineStateService {
     this.excludedCountries.set(profile.excludedCountries || []);
     this.geoFilterMode.set(profile.geoFilterMode || 'WEIGHTED_PREFERENCE');
     this.proofStories.set(profile.proofStories);
+    this.coreRoles.set(profile.coreRoles || []);
+    this.hybridRoles.set(profile.hybridRoles || []);
+    this.tangentialRoles.set(profile.tangentialRoles || []);
+    this.excludedRoles.set(profile.excludedRoles || []);
     this.persist();
   }
 
@@ -286,6 +290,10 @@ export class PipelineStateService {
       weightClient: 20,
       weightRecency: 15,
       proofStories: [],
+      coreRoles: [],
+      hybridRoles: [],
+      tangentialRoles: [],
+      excludedRoles: [],
     };
     this.profiles.update(list => [...list, newProfile]);
     this.selectProfile(newProfile.id);

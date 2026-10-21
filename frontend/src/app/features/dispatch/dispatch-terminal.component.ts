@@ -103,6 +103,15 @@ export class DispatchTerminalComponent {
   });
 
   constructor() {
+    // If no High fit jobs exist, fall back to 'ALL' so top leads are visible immediately
+    effect(() => {
+      const highCount = this.highFitCount();
+      const allCount = this.report.jobs().length;
+      if (highCount === 0 && allCount > 0 && this.selectedTier() === 'High') {
+        this.selectedTier.set('ALL');
+      }
+    });
+
     // Reactive auto-select: whenever filteredJobs() updates, ensure the top job is selected
     effect(() => {
       const jobs = this.filteredJobs();

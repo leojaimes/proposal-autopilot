@@ -203,17 +203,27 @@ export class EngineSettingsDrawerComponent {
     this.scrapeConfigSavedMessage.set('');
     try {
       const queries = this.pipeline.activeQueriesList();
-      await this.http.put(`${this.getApiBase()}/config/scrape`, {
-        searchKeywords: queries.length > 0 ? queries : ['UX Designer', 'Figma'],
+
+      // Sincronizar atómicamente el perfil completo (Oferta, Taxonomía, Historias y Filtros)
+      await this.http.put(`${this.getApiBase()}/config/full-profile`, {
+        offerHeadline: this.pipeline.offerText(),
+        targetAudience: this.pipeline.targetAudience(),
+        coreRoles: this.pipeline.coreRoles(),
+        hybridRoles: this.pipeline.hybridRoles(),
+        tangentialRoles: this.pipeline.tangentialRoles(),
+        excludedRoles: this.pipeline.excludedRoles(),
+        searchKeywords: queries.length > 0 ? queries : ['Full Stack', 'NestJS'],
         minBudgetFixed: this.pipeline.minBudgetFixed(),
         minHourlyRate: this.pipeline.minHourlyRate(),
-        verifiedPaymentOnly: this.pipeline.verifiedPaymentOnly(),
-        targetCountries: this.pipeline.targetCountries(),
-        targetRegions: this.pipeline.targetRegions(),
-        excludedCountries: this.pipeline.excludedCountries(),
-        geoFilterMode: this.pipeline.geoFilterMode(),
+        proofStories: this.pipeline.proofStories().map(s => ({
+          keyCode: s.id || s.company,
+          companyOrProduct: s.company,
+          impactMetric: s.metric,
+          domainTags: s.tags,
+        })),
       }).toPromise();
-      this.scrapeConfigSavedMessage.set('¡Filtros y queries guardadas en PostgreSQL!');
+
+      this.scrapeConfigSavedMessage.set('¡Perfil, historias y filtros guardados en PostgreSQL!');
       setTimeout(() => this.scrapeConfigSavedMessage.set(''), 3500);
     } catch (err) {
       console.error('Error guardando configuración de scraping:', err);

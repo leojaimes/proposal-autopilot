@@ -18,6 +18,25 @@ export interface CreateProofStoryDto {
   domainTags?: string[];
 }
 
+export interface FullProfileSyncDto {
+  offerHeadline: string;
+  targetAudience: string;
+  voiceRules?: string[];
+  coreRoles: string[];
+  hybridRoles: string[];
+  tangentialRoles: string[];
+  excludedRoles: string[];
+  searchKeywords?: string[];
+  minHourlyRate?: number;
+  minBudgetFixed?: number;
+  proofStories?: Array<{
+    keyCode: string;
+    companyOrProduct: string;
+    impactMetric: string;
+    domainTags?: string[];
+  }>;
+}
+
 export interface UpdateScrapeConfigDto {
   searchKeywords: string[];
   minBudgetFixed?: number;
@@ -139,6 +158,77 @@ export class TenantsService {
         excludedRoles: dto.excludedRoles || undefined,
       },
     });
+  }
+
+  /**
+   * Sincroniza atómicamente el perfil completo (Oferta, Audiencia, Taxonomía, Queries, Filtros y Proof Stories)
+   */
+  async syncFullProfile(tenantId: string, dto: FullProfileSyncDto) {
+    const tenant = await this.getTenantConfig(tenantId);
+    let profile = tenant.positioningProfiles[0];
+
+    if (!profile) {
+      profile = await this.prisma.positioningProfile.create({
+        data: {
+          tenantId,
+          offerHeadline: dto.offerHeadline,
+          targetAudience: dto.targetAudience,
+          voiceRules: dto.voiceRules || ['First person peer-to-peer', 'No em dashes anywhere', 'Sell result before tool'],
+          coreRoles: dto.coreRoles,
+          hybridRoles: dto.hybridRoles,
+          tangentialRoles: dto.tangentialRoles,
+          excludedRoles: dto.excludedRoles,
+        },
+        include: { proofStories: true },
+      });
+    } else {
+      await this.prisma.positioningProfile.update({
+        where: { id: profile.id },
+        data: {
+          offerHeadline: dto.offerHeadline,
+          targetAudience: dto.targetAudience,
+          voiceRules: dto.voiceRules || profile.voiceRules,
+          coreRoles: dto.coreRoles,
+          hybridRoles: dto.hybridRoles,
+          tangentialRoles: dto.tangentialRoles,
+          excludedRoles: dto.excludedRoles,
+        },
+      });
+    }
+
+    // Actualizar configuración de Scraping
+    let config = tenant.scrapeConfigs[0];
+    if (config) {
+      await this.prisma.scrapeConfig.update({
+        where: { id: config.id },
+        data: {
+          ...(dto.searchKeywords && dto.searchKeywords.length > 0 && { searchKeywords: dto.searchKeywords }),
+          ...(dto.minHourlyRate !== undefined && { minHourlyRate: dto.minHourlyRate }),
+          ...(dto.minBudgetFixed !== undefined && { minBudgetFixed: dto.minBudgetFixed }),
+        },
+      });
+    }
+
+    // Sincronizar Proof Stories (reemplazar atómicamente por las nuevas)
+    if (dto.proofStories && dto.proofStories.length > 0) {
+      await this.prisma.proofStory.deleteMany({
+        where: { positioningProfileId: profile.id },
+      });
+
+      for (const story of dto.proofStories) {
+        await this.prisma.proofStory.create({
+          data: {
+            positioningProfileId: profile.id,
+            keyCode: story.keyCode.toUpperCase().replace(/\s+/g, '_'),
+            companyOrProduct: story.companyOrProduct,
+            impactMetric: story.impactMetric,
+            domainTags: story.domainTags || [],
+          },
+        });
+      }
+    }
+
+    return this.getTenantConfig(tenantId);
   }
 
   /**

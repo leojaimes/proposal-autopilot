@@ -1,0 +1,48 @@
+{
+  "version": 2,
+  "viewport": { "width": 1440, "height": 900 },
+  "maxDiffPixels": 1000,
+  "stepTimeoutMs": 15000,
+  "scenarioTimeoutMs": 120000,
+  "scenarios": [
+    {
+      "id": "leonardo-profile-and-scoring-verification",
+      "profile": "autopilot-frontend",
+      "maskSelectors": [".dynamic-timestamp", ".time-ago"],
+      "steps": [
+        { "action": "goto", "path": "/" },
+        { "action": "waitFor", "selector": "header", "state": "visible" },
+        {
+          "action": "screenshot",
+          "id": "01-profile-switcher-opened",
+          "checkpoint": "Selector de perfiles visible",
+          "fullPage": false
+        },
+        {
+          "action": "screenshot",
+          "id": "02-leonardo-stories-configured",
+          "checkpoint": "4 Proof Stories de Leonardo configuradas",
+          "fullPage": false
+        },
+        {
+          "action": "screenshot",
+          "id": "03-leonardo-roles-taxonomy",
+          "checkpoint": "Taxonomía 4 capas configurada",
+          "fullPage": false
+        },
+        {
+          "action": "screenshot",
+          "id": "04-cabina-despacho-leonardo-top-lead",
+          "checkpoint": "Cabina de despacho con el Top 1 Lead y propuesta",
+          "fullPage": true
+        },
+        {
+          "action": "screenshot",
+          "id": "05-motor-busqueda-high-fit-leonardo",
+          "checkpoint": "Motor de búsqueda con empleos filtrados",
+          "fullPage": true
+        }
+      ]
+    }
+  ]
+}

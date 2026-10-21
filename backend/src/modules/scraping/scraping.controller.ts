@@ -234,7 +234,10 @@ export class ScrapingController {
     let highFitCount = 0;
     let mediumFitCount = 0;
     const scrapeConfig = await this.prisma.scrapeConfig.findFirst({ where: { tenantId } });
-    const activeProfile = await this.prisma.positioningProfile.findFirst({ where: { tenantId, isActive: true } });
+    const activeProfile = await this.prisma.positioningProfile.findFirst({
+      where: { tenantId, isActive: true },
+      include: { proofStories: true },
+    });
     const scoredCandidates: Array<{ jobPost: any; evaluation: any }> = [];
 
     // FASE 2: Normalización & Scoring 0-100 para todas las vacantes
@@ -392,10 +395,16 @@ export class ScrapingController {
       });
 
       try {
+        const matchingStory = activeProfile?.proofStories?.find(s => s.keyCode === evaluation.suggestedProofStory) || activeProfile?.proofStories?.[0];
         const proposalResult = await this.claudeProposal.generate({
           jobTitle: jobPost.title,
           jobDescription: jobPost.description,
-          proofStoryKey: evaluation.suggestedProofStory,
+          proofStoryKey: matchingStory?.keyCode || evaluation.suggestedProofStory || 'SPOTLIGHT_AI',
+          proofStoryCompany: matchingStory?.companyOrProduct,
+          proofStoryMetric: matchingStory?.impactMetric,
+          offerHeadline: activeProfile?.offerHeadline,
+          targetAudience: activeProfile?.targetAudience,
+          voiceRules: (activeProfile?.voiceRules as string[]) || undefined,
           normalizedRole: evaluation.normalizedRole,
         });
 
@@ -1175,91 +1184,80 @@ export class ScrapingController {
 
     this.logger.log(`Iniciando re-procesamiento en frío para ${existingJobs.length} empleos de tenant ${tenantId}`);
 
+    const scrapeConfig = await this.prisma.scrapeConfig.findFirst({ where: { tenantId } });
+    const activeProfile = await this.prisma.positioningProfile.findFirst({
+      where: { tenantId, isActive: true },
+      include: { proofStories: true },
+    });
+
     let updatedCount = 0;
-    for (const job of existingJobs) {
-      if (!job.rawApifyPayload) continue;
+    const chunkSize = 25;
+    for (let i = 0; i < existingJobs.length; i += chunkSize) {
+      const chunk = existingJobs.slice(i, i + chunkSize);
+      await Promise.all(chunk.map(async (job) => {
+        if (!job.rawApifyPayload) return;
 
-      const normalized = this.apifyAdapter.normalizeRaw(job.rawApifyPayload as Record<string, any>);
+        const normalized = this.apifyAdapter.normalizeRaw(job.rawApifyPayload as Record<string, any>);
 
-      // 1. Actualizar JobPost con los datos reales completos
-      await this.prisma.jobPost.update({
-        where: { id: job.id },
-        data: {
+        // Re-calcular Fit con datos reales y preferencias geográficas
+        const evaluation = this.fitCalculator.calculate({
           title: normalized.title,
           description: normalized.description,
-          budgetType: normalized.budgetType,
-          budgetFixed: normalized.budgetFixed,
-          hourlyMin: normalized.hourlyMin,
-          hourlyMax: normalized.hourlyMax,
-          clientCountry: normalized.clientCountry,
-          clientRating: normalized.clientRating,
-          clientTotalSpend: normalized.clientTotalSpend,
-          proposalsCount: normalized.proposalsCount != null ? normalized.proposalsCount : 0,
+          skills: normalized.skills,
+          activeQueries: scrapeConfig?.searchKeywords || [],
+          taxonomy: activeProfile ? {
+            coreRoles: activeProfile.coreRoles,
+            hybridRoles: activeProfile.hybridRoles,
+            tangentialRoles: activeProfile.tangentialRoles,
+            excludedRoles: activeProfile.excludedRoles,
+          } : undefined,
+          clientTotalSpend: Number(normalized.clientTotalSpend),
+          clientRating: Number(normalized.clientRating),
+          clientCountry: normalized.clientCountry || undefined,
+          proposalsCount: normalized.proposalsCount,
           isPaymentVerified: normalized.isPaymentVerified,
-          postedAt: normalized.postedAt || job.postedAt || new Date(),
-        },
-      });
+          postedDate: normalized.postedAt,
+          targetCountries: scrapeConfig?.targetCountries || [],
+          excludedCountries: scrapeConfig?.excludedCountries || [],
+        });
 
-      // 2. Re-calcular Fit con datos reales y preferencias geográficas
-      const scrapeConfig = await this.prisma.scrapeConfig.findFirst({ where: { tenantId } });
-      const activeProfile = await this.prisma.positioningProfile.findFirst({ where: { tenantId, isActive: true } });
-      const evaluation = this.fitCalculator.calculate({
-        title: normalized.title,
-        description: normalized.description,
-        skills: normalized.skills,
-        activeQueries: scrapeConfig?.searchKeywords || [],
-        taxonomy: activeProfile ? {
-          coreRoles: activeProfile.coreRoles,
-          hybridRoles: activeProfile.hybridRoles,
-          tangentialRoles: activeProfile.tangentialRoles,
-          excludedRoles: activeProfile.excludedRoles,
-        } : undefined,
-        clientTotalSpend: Number(normalized.clientTotalSpend),
-        clientRating: Number(normalized.clientRating),
-        clientCountry: normalized.clientCountry || undefined,
-        proposalsCount: normalized.proposalsCount,
-        isPaymentVerified: normalized.isPaymentVerified,
-        postedDate: normalized.postedAt,
-        targetCountries: scrapeConfig?.targetCountries || [],
-        excludedCountries: scrapeConfig?.excludedCountries || [],
-      });
+        await this.prisma.fitEvaluation.upsert({
+          where: { jobPostId: job.id },
+          create: {
+            jobPostId: job.id,
+            overallScore: evaluation.overallScore,
+            fitTier: evaluation.fitTier as FitTier,
+            strategicLane: evaluation.strategicLane as StrategicLane,
+            normalizedRole: evaluation.normalizedRole,
+            skillScore: evaluation.skillScore,
+            aiFeasibilityScore: evaluation.aiFeasibilityScore,
+            clientQualityScore: evaluation.clientQualityScore,
+            recencyScore: evaluation.recencyScore,
+            isCapped: evaluation.isCapped,
+            capReason: evaluation.capReason,
+            summaryRationale: evaluation.summaryRationale,
+            detectedGaps: evaluation.detectedGaps,
+            suggestedProofStory: evaluation.suggestedProofStory,
+          },
+          update: {
+            overallScore: evaluation.overallScore,
+            fitTier: evaluation.fitTier as FitTier,
+            strategicLane: evaluation.strategicLane as StrategicLane,
+            normalizedRole: evaluation.normalizedRole,
+            skillScore: evaluation.skillScore,
+            aiFeasibilityScore: evaluation.aiFeasibilityScore,
+            clientQualityScore: evaluation.clientQualityScore,
+            recencyScore: evaluation.recencyScore,
+            isCapped: evaluation.isCapped,
+            capReason: evaluation.capReason,
+            summaryRationale: evaluation.summaryRationale,
+            detectedGaps: evaluation.detectedGaps,
+            suggestedProofStory: evaluation.suggestedProofStory,
+          },
+        });
 
-      await this.prisma.fitEvaluation.upsert({
-        where: { jobPostId: job.id },
-        create: {
-          jobPostId: job.id,
-          overallScore: evaluation.overallScore,
-          fitTier: evaluation.fitTier as FitTier,
-          strategicLane: evaluation.strategicLane as StrategicLane,
-          normalizedRole: evaluation.normalizedRole,
-          skillScore: evaluation.skillScore,
-          aiFeasibilityScore: evaluation.aiFeasibilityScore,
-          clientQualityScore: evaluation.clientQualityScore,
-          recencyScore: evaluation.recencyScore,
-          isCapped: evaluation.isCapped,
-          capReason: evaluation.capReason,
-          summaryRationale: evaluation.summaryRationale,
-          detectedGaps: evaluation.detectedGaps,
-          suggestedProofStory: evaluation.suggestedProofStory,
-        },
-        update: {
-          overallScore: evaluation.overallScore,
-          fitTier: evaluation.fitTier as FitTier,
-          strategicLane: evaluation.strategicLane as StrategicLane,
-          normalizedRole: evaluation.normalizedRole,
-          skillScore: evaluation.skillScore,
-          aiFeasibilityScore: evaluation.aiFeasibilityScore,
-          clientQualityScore: evaluation.clientQualityScore,
-          recencyScore: evaluation.recencyScore,
-          isCapped: evaluation.isCapped,
-          capReason: evaluation.capReason,
-          summaryRationale: evaluation.summaryRationale,
-          detectedGaps: evaluation.detectedGaps,
-          suggestedProofStory: evaluation.suggestedProofStory,
-        },
-      });
-
-      updatedCount++;
+        updatedCount++;
+      }));
     }
 
     // FASE 2: Intervención IA únicamente en el Top 3 Gold de los empleos re-procesados
@@ -1281,10 +1279,16 @@ export class ScrapingController {
     for (const candidate of topCandidates) {
       if (!candidate.fitEvaluation) continue;
       try {
+        const matchingStory = activeProfile?.proofStories?.find(s => s.keyCode === candidate.fitEvaluation?.suggestedProofStory) || activeProfile?.proofStories?.[0];
         const proposalResult = await this.claudeProposal.generate({
           jobTitle: candidate.title,
           jobDescription: candidate.description,
-          proofStoryKey: candidate.fitEvaluation.suggestedProofStory || undefined,
+          proofStoryKey: matchingStory?.keyCode || candidate.fitEvaluation.suggestedProofStory || 'SPOTLIGHT_AI',
+          proofStoryCompany: matchingStory?.companyOrProduct,
+          proofStoryMetric: matchingStory?.impactMetric,
+          offerHeadline: activeProfile?.offerHeadline,
+          targetAudience: activeProfile?.targetAudience,
+          voiceRules: (activeProfile?.voiceRules as string[]) || undefined,
           normalizedRole: candidate.fitEvaluation.normalizedRole,
         });
 

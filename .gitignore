@@ -1,8 +1,48 @@
-node_modules
-dist
-.env
+# dependencies
+node_modules/
+dist/
+
+# env files
+.env*
+
+# system & IDE
 .DS_Store
 Thumbs.db
 *.log
-.vscode
+.vscode/
 .agents/mcp_config.json
+
+# temporary files
+/tmp/
+.agent/logs/
+.agents/logs/
+.system_generated/
+/scratch/
+
+# playwright & testing
+test-results/
+tests-results/
+/playwright-report/
+/blob-report/
+/test-results-sha/
+
+# diagnostic and test images exclusion
+**/diagnostic-*.png
+*.webp
+*.jpg
+*.jpeg
+*.png
+!tests/sandbox-visual/baselines/**/*.png
+!frontend/src/assets/**
+!frontend/public/**
+
+# Local AI runtime state & Sandbox QA run artifacts
+/.sandbox/
+!/.sandbox/
+/.sandbox/*
+!/.sandbox/visual-plans/
+/.sandbox/visual-plans/*
+!/.sandbox/visual-plans/*.json
+!/.sandbox/requirements/
+/.sandbox/requirements/*
+!/.sandbox/requirements/*.md

@@ -4,7 +4,8 @@ import {
   UpdatePositioningDto, 
   CreateProofStoryDto, 
   UpdateScrapeConfigDto, 
-  SaveCredentialDto 
+  SaveCredentialDto,
+  FullProfileSyncDto 
 } from './tenants.service';
 import { TenantContextService } from '../../core/context/tenant-context.service';
 
@@ -23,6 +24,16 @@ export class TenantsController {
   async getWorkspace() {
     const tenantId = this.tenantContext.getTenantId();
     return this.tenantsService.getTenantConfig(tenantId);
+  }
+
+  /**
+   * PUT /api/config/full-profile
+   * Sincroniza atómicamente el perfil completo (Oferta, Audiencia, Taxonomía, Queries, Filtros y Proof Stories)
+   */
+  @Put('full-profile')
+  async syncFullProfile(@Body() body: FullProfileSyncDto) {
+    const tenantId = this.tenantContext.getTenantId();
+    return this.tenantsService.syncFullProfile(tenantId, body);
   }
 
   /**
