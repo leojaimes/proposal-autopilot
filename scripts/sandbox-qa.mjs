@@ -3,7 +3,7 @@
 import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { mkdir, realpath, rename, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
@@ -51,6 +51,14 @@ function configuredTargets(env = process.env) {
       url: env.SANDBOX_ADMIN_URL || (isRemote ? REMOTE_PROFILE_TARGETS.admin : "http://127.0.0.1:3009"),
     },
   ];
+}
+
+async function inferTargetFromVisualPlan(visualPlanPath) {
+  if (!visualPlanPath) return null;
+
+  const plan = JSON.parse(await readFile(path.resolve(visualPlanPath), "utf8"));
+  const profiles = [...new Set((plan.scenarios || []).map((scenario) => scenario.profile))];
+  return profiles.length === 1 ? profiles[0] : null;
 }
 
 function nextValue(argv, index, flag) {
@@ -479,19 +487,20 @@ export async function runWorkflow(options, overrides = {}) {
   };
   let targets = overrides.targets ? [...overrides.targets] : configuredTargets(mergedEnv);
 
-  if (options.target) {
-    targets = targets.filter((target) => target.id === options.target);
+  const selectedTargetId = options.target || (options.url
+    ? await inferTargetFromVisualPlan(options.visualPlan)
+    : null);
+
+  if (selectedTargetId) {
+    targets = targets.filter((target) => target.id === selectedTargetId);
     if (targets.length === 0) {
-      throw new Error("Unknown target: " + options.target);
+      throw new Error("Unknown target: " + selectedTargetId);
     }
     if (options.url) {
       targets[0].url = options.url;
     }
   } else if (options.url) {
-    const match = targets.find((t) => options.url.includes(t.id));
-    if (match) {
-      match.url = options.url;
-    }
+    throw new Error("--url requires --target or a visual plan with exactly one profile.");
   }
 
   const runId =
@@ -560,7 +569,7 @@ export async function runWorkflow(options, overrides = {}) {
   if (options.command === "run" && options.visualPlan) {
     checksWithLogs.push(
       checksWithLogs.every((check) => check.status === "passed")
-        ? await visualCheck(options, runDirectory, dependencies)
+        ? await visualCheck({ ...options, target: selectedTargetId }, runDirectory, dependencies)
         : {
             name: "visual:playwright",
             status: "skipped",

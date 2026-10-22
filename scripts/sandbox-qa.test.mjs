@@ -389,4 +389,41 @@ test("runWorkflow with remote mode skips Docker daemon and verifies HTTP targets
   }
 });
 
+test("runWorkflow confines an unqualified remote URL to the visual plan's sole profile", async () => {
+  const outputDir = await mkdtemp(path.join(os.tmpdir(), "sandbox-qa-"));
+  try {
+    const requirement = path.join(outputDir, "requirement.md");
+    const visualPlan = path.join(outputDir, "plan.json");
+    await writeFile(requirement, "Acceptance criteria\n", "utf8");
+    await writeFile(visualPlan, JSON.stringify({ version: 2, scenarios: [{ profile: "nielsen" }] }), "utf8");
+    const fetchCalls = [];
+
+    const result = await runWorkflow(
+      {
+        command: "verify",
+        requirement,
+        visualPlan,
+        outputDir,
+        runId: "remote-plan-run",
+        remote: true,
+        url: "https://proposal-autopilot.zh4nwb.easypanel.host",
+        timeoutMs: 1_000,
+      },
+      {
+        fetchFn: async (url) => {
+          fetchCalls.push(url);
+          return { ok: true, status: 200 };
+        },
+        uuid: () => "test-uuid",
+      },
+    );
+
+    assert.equal(result.exitCode, 0);
+    assert.deepEqual(fetchCalls, ["https://proposal-autopilot.zh4nwb.easypanel.host"]);
+    assert.equal(result.summary.checks[0].name, "http:nielsen");
+  } finally {
+    await rm(outputDir, { recursive: true, force: true });
+  }
+});
+
 

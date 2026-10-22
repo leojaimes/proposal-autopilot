@@ -1,0 +1,12 @@
+{
+  "name": "proposal-autopilot-qa",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sandbox:run": "node scripts/sandbox-qa.mjs run",
+    "sandbox:verify": "node scripts/sandbox-qa.mjs verify"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}

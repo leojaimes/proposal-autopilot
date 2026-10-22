@@ -855,7 +855,7 @@
             </div>
             <input type="range" min="10" max="60"
                    [ngModel]="pipeline.weightSkill()"
-                   (ngModelChange)="pipeline.weightSkill.set($event)"
+                   (ngModelChange)="pipeline.setWeight('SKILL', $event)"
                    class="w-full accent-indigo-500">
             <p class="text-[10px] text-content-muted">Comprobado contra las skills que requiere el cliente.</p>
           </div>
@@ -867,7 +867,7 @@
             </div>
             <input type="range" min="10" max="40"
                    [ngModel]="pipeline.weightAi()"
-                   (ngModelChange)="pipeline.weightAi.set($event)"
+                   (ngModelChange)="pipeline.setWeight('AI', $event)"
                    class="w-full accent-indigo-500">
             <p class="text-[10px] text-content-muted">Capacidad de entrega asistida por agentes o automatización.</p>
           </div>
@@ -879,7 +879,7 @@
             </div>
             <input type="range" min="10" max="40"
                    [ngModel]="pipeline.weightClient()"
-                   (ngModelChange)="pipeline.weightClient.set($event)"
+                   (ngModelChange)="pipeline.setWeight('CLIENT', $event)"
                    class="w-full accent-indigo-500">
             <p class="text-[10px] text-content-muted">Gasto histórico, rating de estrellas y número de propuestas.</p>
           </div>
@@ -891,7 +891,7 @@
             </div>
             <input type="range" min="5" max="30"
                    [ngModel]="pipeline.weightRecency()"
-                   (ngModelChange)="pipeline.weightRecency.set($event)"
+                   (ngModelChange)="pipeline.setWeight('RECENCY', $event)"
                    class="w-full accent-indigo-500">
             <p class="text-[10px] text-content-muted">Prioridad para postulaciones tempranas (&lt; 3 horas de publicado).</p>
           </div>

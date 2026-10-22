@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
 
 export interface UpdatePositioningDto {
@@ -15,11 +16,15 @@ export interface CreateProofStoryDto {
   keyCode: string;
   companyOrProduct: string;
   impactMetric: string;
+  description?: string;
   domainTags?: string[];
 }
 
 export interface FullProfileSyncDto {
+  profileId?: string;
+  createProfileId?: string;
   personaName?: string;
+  roleTitle?: string;
   offerHeadline: string;
   targetAudience: string;
   voiceRules?: string[];
@@ -30,12 +35,27 @@ export interface FullProfileSyncDto {
   searchKeywords?: string[];
   minHourlyRate?: number;
   minBudgetFixed?: number;
+  verifiedPaymentOnly?: boolean;
+  weightSkill?: number;
+  weightAi?: number;
+  weightClient?: number;
+  weightRecency?: number;
+  targetCountries?: string[];
+  targetRegions?: string[];
+  excludedCountries?: string[];
+  geoFilterMode?: string;
   proofStories?: Array<{
     keyCode: string;
     companyOrProduct: string;
     impactMetric: string;
+    description?: string;
     domainTags?: string[];
   }>;
+}
+
+export interface CreateProfileDto {
+  personaName: string;
+  roleTitle?: string;
 }
 
 export interface UpdateScrapeConfigDto {
@@ -166,114 +186,202 @@ export class TenantsService {
    * Sincroniza atómicamente el perfil completo (Oferta, Audiencia, Taxonomía, Queries, Filtros y Proof Stories)
    */
   async syncFullProfile(tenantId: string, dto: FullProfileSyncDto) {
+    await this.getTenantConfig(tenantId);
+    if (dto.profileId && dto.createProfileId) {
+      throw new BadRequestException('profileId y createProfileId no pueden enviarse juntos.');
+    }
+    if (dto.createProfileId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(dto.createProfileId)) {
+      throw new BadRequestException('createProfileId debe ser un UUID válido.');
+    }
     const personaName = dto.personaName?.trim() || 'Consultor';
+    const profileData = {
+      personaName,
+      roleTitle: dto.roleTitle?.trim() || undefined,
+      offerHeadline: dto.offerHeadline,
+      targetAudience: dto.targetAudience,
+      voiceRules: dto.voiceRules,
+      coreRoles: dto.coreRoles,
+      hybridRoles: dto.hybridRoles,
+      tangentialRoles: dto.tangentialRoles,
+      excludedRoles: dto.excludedRoles,
+      searchKeywords: dto.searchKeywords,
+      minHourlyRate: dto.minHourlyRate,
+      minBudgetFixed: dto.minBudgetFixed,
+      verifiedPaymentOnly: dto.verifiedPaymentOnly,
+      weightSkill: dto.weightSkill,
+      weightAi: dto.weightAi,
+      weightClient: dto.weightClient,
+      weightRecency: dto.weightRecency,
+      targetCountries: dto.targetCountries,
+      targetRegions: dto.targetRegions,
+      excludedCountries: dto.excludedCountries,
+      geoFilterMode: dto.geoFilterMode,
+    };
 
-    // Desactivar todos los perfiles actuales del tenant
-    await this.prisma.positioningProfile.updateMany({
-      where: { tenantId },
-      data: { isActive: false },
-    });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.positioningProfile.updateMany({ where: { tenantId }, data: { isActive: false } });
 
-    // Buscar si ya existe un perfil con ese personaName
-    let profile = await this.prisma.positioningProfile.findFirst({
-      where: { tenantId, personaName },
-    });
-
-    if (!profile) {
-      profile = await this.prisma.positioningProfile.create({
-        data: {
-          tenantId,
-          personaName,
-          offerHeadline: dto.offerHeadline,
-          targetAudience: dto.targetAudience,
-          voiceRules: dto.voiceRules || ['First person peer-to-peer', 'No em dashes anywhere', 'Sell result before tool'],
-          coreRoles: dto.coreRoles,
-          hybridRoles: dto.hybridRoles,
-          tangentialRoles: dto.tangentialRoles,
-          excludedRoles: dto.excludedRoles,
-          isActive: true,
-        },
-        include: { proofStories: true },
-      });
-    } else {
-      profile = await this.prisma.positioningProfile.update({
-        where: { id: profile.id },
-        data: {
-          offerHeadline: dto.offerHeadline,
-          targetAudience: dto.targetAudience,
-          voiceRules: dto.voiceRules || profile.voiceRules,
-          coreRoles: dto.coreRoles,
-          hybridRoles: dto.hybridRoles,
-          tangentialRoles: dto.tangentialRoles,
-          excludedRoles: dto.excludedRoles,
-          isActive: true,
-        },
-        include: { proofStories: true },
-      });
-    }
-
-    // Actualizar configuración de Scraping
-    const tenant = await this.getTenantConfig(tenantId);
-    let config = tenant.scrapeConfigs[0];
-    if (config) {
-      await this.prisma.scrapeConfig.update({
-        where: { id: config.id },
-        data: {
-          ...(dto.searchKeywords && dto.searchKeywords.length > 0 && { searchKeywords: dto.searchKeywords }),
-          ...(dto.minHourlyRate !== undefined && { minHourlyRate: dto.minHourlyRate }),
-          ...(dto.minBudgetFixed !== undefined && { minBudgetFixed: dto.minBudgetFixed }),
-        },
-      });
-    }
-
-    // Sincronizar Proof Stories (reemplazar atómicamente por las nuevas)
-    if (dto.proofStories && dto.proofStories.length > 0) {
-      await this.prisma.proofStory.deleteMany({
-        where: { positioningProfileId: profile.id },
-      });
-
-      for (const story of dto.proofStories) {
-        await this.prisma.proofStory.create({
-          data: {
-            positioningProfileId: profile.id,
-            keyCode: story.keyCode.toUpperCase().replace(/\s+/g, '_'),
-            companyOrProduct: story.companyOrProduct,
-            impactMetric: story.impactMetric,
-            domainTags: story.domainTags || [],
-          },
+      const createData = {
+        tenantId,
+        ...profileData,
+        offerHeadline: dto.offerHeadline,
+        targetAudience: dto.targetAudience,
+        coreRoles: dto.coreRoles || [],
+        hybridRoles: dto.hybridRoles || [],
+        tangentialRoles: dto.tangentialRoles || [],
+        excludedRoles: dto.excludedRoles || [],
+        isActive: true,
+      };
+      let profile;
+      if (dto.profileId) {
+        profile = await this.updateProfileById(tx, tenantId, dto.profileId, profileData);
+      } else if (dto.createProfileId) {
+        profile = await tx.positioningProfile.create({
+          data: { id: dto.createProfileId, ...createData },
         });
+      } else {
+        const existing = await tx.positioningProfile.findFirst({
+          where: { tenantId, personaName },
+          orderBy: { updatedAt: 'desc' },
+        });
+        profile = existing
+          ? await tx.positioningProfile.update({ where: { id: existing.id }, data: { ...profileData, isActive: true } })
+          : await tx.positioningProfile.create({ data: createData });
       }
-    }
 
+      if (dto.proofStories !== undefined) {
+        await tx.proofStory.deleteMany({ where: { positioningProfileId: profile.id } });
+        if (dto.proofStories.length > 0) {
+          await tx.proofStory.createMany({
+            data: dto.proofStories.map((story) => ({
+              positioningProfileId: profile.id,
+              keyCode: story.keyCode.toUpperCase().replace(/\s+/g, '_').slice(0, 50),
+              companyOrProduct: story.companyOrProduct,
+              impactMetric: story.impactMetric,
+              description: story.description || '',
+              domainTags: story.domainTags || [],
+            })),
+          });
+        }
+      }
+
+      await this.syncActiveProfileToScrapeConfig(tenantId, profile.id, tx);
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return this.getTenantConfig(tenantId);
   }
 
-  /**
-   * Activa un perfil existente por su nombre o id
-   */
-  async activateProfile(tenantId: string, personaNameOrId: string) {
-    const profile = await this.prisma.positioningProfile.findFirst({
-      where: {
-        tenantId,
-        OR: [
-          { id: personaNameOrId.length === 36 ? personaNameOrId : undefined },
-          { personaName: { contains: personaNameOrId, mode: 'insensitive' } },
-        ],
-      },
-    });
-
-    if (profile) {
-      await this.prisma.positioningProfile.updateMany({
-        where: { tenantId },
-        data: { isActive: false },
-      });
-
-      await this.prisma.positioningProfile.update({
-        where: { id: profile.id },
-        data: { isActive: true },
-      });
+  async createBlankProfile(tenantId: string, dto: CreateProfileDto) {
+    const personaName = dto.personaName.trim();
+    if (!personaName) {
+      throw new BadRequestException('El nombre del perfil es obligatorio.');
     }
 
+    await this.getTenantConfig(tenantId);
+    await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.positioningProfile.findFirst({
+        where: { tenantId, personaName },
+      });
+      if (existing) throw new BadRequestException('Ya existe un perfil con ese nombre.');
+
+      await tx.positioningProfile.updateMany({ where: { tenantId }, data: { isActive: false } });
+      const profile = await tx.positioningProfile.create({
+        data: {
+          tenantId,
+          personaName,
+          roleTitle: dto.roleTitle?.trim() || 'Consultor',
+          offerHeadline: '',
+          targetAudience: '',
+          voiceRules: [],
+          coreRoles: [],
+          hybridRoles: [],
+          tangentialRoles: [],
+          excludedRoles: [],
+          isActive: true,
+        },
+      });
+      await this.syncActiveProfileToScrapeConfig(tenantId, profile.id, tx);
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    return this.getTenantConfig(tenantId);
+  }
+
+  async deleteProfile(tenantId: string, profileId: string) {
+    await this.prisma.$transaction(async (tx) => {
+      const profiles = await tx.positioningProfile.findMany({ where: { tenantId } });
+      if (profiles.length <= 1) throw new BadRequestException('El workspace debe conservar al menos un perfil.');
+
+      const profile = profiles.find((candidate) => candidate.id === profileId);
+      if (!profile) throw new NotFoundException('Perfil no encontrado.');
+
+      if (profile.isActive) {
+        const next = profiles.find((candidate) => candidate.id !== profileId)!;
+        await tx.positioningProfile.update({ where: { id: next.id }, data: { isActive: true } });
+        await this.syncActiveProfileToScrapeConfig(tenantId, next.id, tx);
+      }
+
+      // Keep historical job outcomes while allowing this editable profile to go away.
+      // The database FKs enforce the same policy for every deletion path.
+      await tx.fitEvaluation.updateMany({
+        where: { positioningProfileId: profileId },
+        data: { positioningProfileId: null },
+      });
+      await tx.proposal.updateMany({
+        where: { positioningProfileId: profileId },
+        data: { positioningProfileId: null },
+      });
+      await tx.positioningProfile.delete({ where: { id: profileId } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    return this.getTenantConfig(tenantId);
+  }
+
+  private async updateProfileById(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    profileId: string,
+    profileData: Prisma.PositioningProfileUpdateInput,
+  ) {
+    const existing = await tx.positioningProfile.findFirst({ where: { id: profileId, tenantId } });
+    if (!existing) throw new NotFoundException('Perfil no encontrado.');
+    return tx.positioningProfile.update({ where: { id: profileId }, data: { ...profileData, isActive: true } });
+  }
+
+  private async syncActiveProfileToScrapeConfig(
+    tenantId: string,
+    profileId: string,
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ) {
+    const profile = await client.positioningProfile.findFirst({ where: { id: profileId, tenantId } });
+    if (!profile) return;
+
+    const data = {
+      searchKeywords: profile.searchKeywords,
+      minBudgetFixed: profile.minBudgetFixed,
+      minHourlyRate: profile.minHourlyRate,
+      verifiedPaymentOnly: profile.verifiedPaymentOnly,
+      targetCountries: profile.targetCountries,
+      targetRegions: profile.targetRegions,
+      excludedCountries: profile.excludedCountries,
+      geoFilterMode: profile.geoFilterMode,
+    };
+    const config = await client.scrapeConfig.findFirst({ where: { tenantId } });
+    if (config) {
+      await client.scrapeConfig.update({ where: { id: config.id }, data });
+      return;
+    }
+    await client.scrapeConfig.create({ data: { tenantId, ...data } });
+  }
+
+  /**
+   * Activa un perfil existente mediante su ID, dentro del tenant actual.
+   */
+  async activateProfile(tenantId: string, profileId: string) {
+    if (!profileId) throw new BadRequestException('profileId es obligatorio.');
+    await this.prisma.$transaction(async (tx) => {
+      const profile = await tx.positioningProfile.findFirst({ where: { id: profileId, tenantId } });
+      if (!profile) throw new NotFoundException('Perfil no encontrado.');
+      await tx.positioningProfile.updateMany({ where: { tenantId }, data: { isActive: false } });
+      await tx.positioningProfile.update({ where: { id: profile.id }, data: { isActive: true } });
+      await this.syncActiveProfileToScrapeConfig(tenantId, profile.id, tx);
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return this.getTenantConfig(tenantId);
   }
 
@@ -290,6 +398,7 @@ export class TenantsService {
         keyCode: dto.keyCode.toUpperCase().replace(/\s+/g, '_'),
         companyOrProduct: dto.companyOrProduct,
         impactMetric: dto.impactMetric,
+        description: dto.description || '',
         domainTags: dto.domainTags || [],
       },
     });
@@ -305,6 +414,7 @@ export class TenantsService {
         ...(dto.keyCode && { keyCode: dto.keyCode.toUpperCase().replace(/\s+/g, '_') }),
         ...(dto.companyOrProduct && { companyOrProduct: dto.companyOrProduct }),
         ...(dto.impactMetric && { impactMetric: dto.impactMetric }),
+        ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.domainTags && { domainTags: dto.domainTags }),
       },
     });

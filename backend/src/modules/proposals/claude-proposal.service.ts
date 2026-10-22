@@ -57,6 +57,7 @@ export interface SynthesizeProfileFromCvOutput {
     keyCode: string;
     companyOrProduct: string;
     impactMetric: string;
+    description: string;
     domainTags: string[];
   }>;
   taxonomy: {
@@ -89,6 +90,102 @@ export class ClaudeProposalService {
     } else {
       this.logger.warn('Ni GEMINI_API_KEY ni ANTHROPIC_API_KEY configuradas. Generador operará en modo template.');
     }
+  }
+
+  /**
+   * Keeps user-provided project bullets as source material. The model may enrich
+   * their tags, but it must never decide that one of those explicit projects is
+   * expendable because a prompt asks for a shorter shortlist.
+   */
+  private extractExplicitProofStories(rawText: string): SynthesizeProfileFromCvOutput['proofStories'] {
+    const stories: SynthesizeProfileFromCvOutput['proofStories'] = [];
+    const seen = new Set<string>();
+    let inProofSection = false;
+
+    for (const line of rawText.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      const normalized = trimmed.toLowerCase();
+      if (/^(?:#+\s*)?(?:proof\s*stories|case\s*stud(?:y|ies)|projects?|experience|achievements|success\s*stories|historias?\s+de\s+(?:autoridad|éxito)|casos?\s+de\s+éxito|proyectos?|experiencia|logros?)\s*:?$/.test(normalized)) {
+        inProofSection = true;
+        continue;
+      }
+
+      if (/^(?:#+\s*)?[a-záéíóúñ][^:]{1,80}:$/.test(normalized)) {
+        inProofSection = false;
+        continue;
+      }
+
+      const bullet = trimmed.match(/^(?:[-*•]|\d+[.)])\s+(.+)$/);
+      if (!bullet || !inProofSection) continue;
+
+      const description = bullet[1].replace(/\*\*/g, '').trim();
+      if (!description) continue;
+      const dedupeKey = description.toLowerCase().replace(/[^a-z0-9áéíóúñ]+/g, ' ').trim();
+      if (!dedupeKey || seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+
+      const companyOrProduct = this.extractProofStoryName(description);
+      const keyBase = companyOrProduct.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 44) || 'USER_PROJECT';
+      const keyCode = this.uniqueProofStoryKey(keyBase, stories);
+      stories.push({
+        keyCode,
+        companyOrProduct,
+        impactMetric: this.extractImpactMetric(description),
+        description,
+        domainTags: [],
+      });
+    }
+
+    return stories;
+  }
+
+  private extractProofStoryName(description: string): string {
+    const firstClause = description.split(/\s(?:—|–|\||:|-)\s/)[0]?.trim();
+    if (firstClause && firstClause.length <= 100) return firstClause;
+    const beforeAction = description.split(/\b(?:built|led|designed|developed|launched|scaled|created|delivered|implemented|dirigí|lideré|diseñé|desarrollé|lancé|escalé|creé|implementé)\b/i)[0]?.trim();
+    return (beforeAction || description).slice(0, 100);
+  }
+
+  private extractImpactMetric(description: string): string {
+    const metric = description.match(/(?:\$[\d,.]+(?:\s?[KMB])?|\b[\d,.]+%|\b[\d,.]+\+?\s+(?:users?|clients?|projects?|teams?|days?|hours?|months?|years?))[^.;]*/i);
+    return metric?.[0]?.trim() || description;
+  }
+
+  private uniqueProofStoryKey(base: string, stories: SynthesizeProfileFromCvOutput['proofStories']): string {
+    let key = base;
+    let suffix = 2;
+    while (stories.some((story) => story.keyCode === key)) {
+      key = `${base.slice(0, 44)}_${suffix++}`;
+    }
+    return key;
+  }
+
+  private mergeExplicitProofStories(
+    explicitStories: SynthesizeProfileFromCvOutput['proofStories'],
+    generatedStories: SynthesizeProfileFromCvOutput['proofStories'],
+  ): SynthesizeProfileFromCvOutput['proofStories'] {
+    if (explicitStories.length === 0) return generatedStories;
+
+    const unmatchedGenerated = [...generatedStories];
+    const preserved = explicitStories.map((explicit) => {
+      const explicitName = explicit.companyOrProduct.toLowerCase();
+      const matchIndex = unmatchedGenerated.findIndex((generated) => {
+        const generatedName = generated.companyOrProduct.toLowerCase();
+        return generatedName === explicitName
+          || generatedName.includes(explicitName)
+          || explicitName.includes(generatedName);
+      });
+      const generated = matchIndex >= 0 ? unmatchedGenerated.splice(matchIndex, 1)[0] : undefined;
+      return {
+        ...explicit,
+        impactMetric: generated?.impactMetric || explicit.impactMetric,
+        domainTags: generated?.domainTags?.length ? generated.domainTags : explicit.domainTags,
+      };
+    });
+
+    return [...preserved, ...unmatchedGenerated];
   }
 
   /**
@@ -469,6 +566,7 @@ Output STRICT JSON:
       throw new Error('El texto del CV o resumen de experiencia no puede estar vacío.');
     }
 
+    const explicitProofStories = this.extractExplicitProofStories(trimmed);
     const fallback: SynthesizeProfileFromCvOutput = {
       personaName: 'Consultor Especialista',
       offerHeadline: 'High-Impact Engineering & Architecture for scaling tech products and startups.',
@@ -479,6 +577,7 @@ Output STRICT JSON:
           keyCode: 'FLAGSHIP_PROJECT',
           companyOrProduct: 'Plataforma Principal',
           impactMetric: '+40% de eficiencia y escalabilidad demostrada',
+          description: 'Plataforma Principal: +40% de eficiencia y escalabilidad demostrada',
           domainTags: ['Architecture', 'SaaS', 'Full Stack'],
         },
       ],
@@ -514,7 +613,9 @@ ${trimmed.substring(0, 10000)}
 1. personaName: Formal name followed by their core positioning title (e.g. "Leonardo Jaimes: Senior Full Stack & AI Architect").
 2. offerHeadline: A punchy, value-first transformation statement (max 200 chars). Sell the business outcome, not just a list of tools.
 3. targetAudience: Specific Ideal Customer Profile (ICP) with high buying power (e.g. "Founders, CTOs, and technical leaders of fast-growing SaaS startups...").
-4. proofStories: Extract exactly 3 to 5 REAL projects/companies mentioned in the text.
+4. proofStories: Extract REAL projects/companies mentioned in the text.
+   - If the user provides an explicit bullet/numbered project list, return EVERY distinct listed project exactly once. Never cap, omit, merge, or replace an explicitly supplied project; preserve the original project/company name.
+   - Only when no explicit project list exists, select 3 to 5 representative real projects/companies.
    - keyCode: SNAKE_CASE uppercase identifier (e.g. SPOTLIGHT_AI, PEPPERTIX).
    - companyOrProduct: Name of the company or product.
    - impactMetric: Tangible, quantified impact metric (e.g. "80% Reduction in Content Production Time", "$40B Annual Bookings", "17,000+ Users").
@@ -591,12 +692,13 @@ Output STRICT JSON:
               offerHeadline: parsed.offerHeadline,
               targetAudience: parsed.targetAudience || fallback.targetAudience,
               voiceRules: Array.isArray(parsed.voiceRules) ? parsed.voiceRules : fallback.voiceRules,
-              proofStories: parsed.proofStories.map((s: any) => ({
+              proofStories: this.mergeExplicitProofStories(explicitProofStories, parsed.proofStories.map((s: any) => ({
                 keyCode: (s.keyCode || s.companyOrProduct || 'STORY').toUpperCase().replace(/\s+/g, '_'),
                 companyOrProduct: s.companyOrProduct || 'Empresa / Producto',
                 impactMetric: s.impactMetric || 'Impacto cuantificado relevante',
+                description: s.description || `${s.companyOrProduct || 'Empresa / Producto'}: ${s.impactMetric || 'Impacto cuantificado relevante'}`,
                 domainTags: Array.isArray(s.domainTags) ? s.domainTags : ['General'],
-              })),
+              }))),
               taxonomy: {
                 coreRoles: Array.isArray(parsed.taxonomy?.coreRoles) ? parsed.taxonomy.coreRoles : fallback.taxonomy.coreRoles,
                 hybridRoles: Array.isArray(parsed.taxonomy?.hybridRoles) ? parsed.taxonomy.hybridRoles : fallback.taxonomy.hybridRoles,
@@ -627,6 +729,9 @@ Output STRICT JSON:
       }
     }
 
-    return fallback;
+    return {
+      ...fallback,
+      proofStories: explicitProofStories.length > 0 ? explicitProofStories : fallback.proofStories,
+    };
   }
 }

@@ -6,7 +6,8 @@ import {
   CreateProofStoryDto, 
   UpdateScrapeConfigDto, 
   SaveCredentialDto,
-  FullProfileSyncDto 
+  FullProfileSyncDto,
+  CreateProfileDto,
 } from './tenants.service';
 import { TenantContextService } from '../../core/context/tenant-context.service';
 
@@ -38,13 +39,33 @@ export class TenantsController {
   }
 
   /**
+   * POST /api/config/profiles
+   * Crea un perfil vacío directamente en PostgreSQL y lo deja activo.
+   */
+  @Post('profiles')
+  async createProfile(@Body() body: CreateProfileDto) {
+    const tenantId = this.tenantContext.getTenantId();
+    return this.tenantsService.createBlankProfile(tenantId, body);
+  }
+
+  /**
+   * DELETE /api/config/profiles/:id
+   * Elimina un perfil almacenado en PostgreSQL.
+   */
+  @Delete('profiles/:id')
+  async deleteProfile(@Param('id') id: string) {
+    const tenantId = this.tenantContext.getTenantId();
+    return this.tenantsService.deleteProfile(tenantId, id);
+  }
+
+  /**
    * POST /api/config/activate-profile
-   * Activa un perfil existente por su nombre o id
+   * Activa un perfil existente por su ID dentro del tenant actual
    */
   @Post('activate-profile')
-  async activateProfile(@Body() body: { personaName: string }) {
+  async activateProfile(@Body() body: { profileId: string }) {
     const tenantId = this.tenantContext.getTenantId();
-    return this.tenantsService.activateProfile(tenantId, body.personaName);
+    return this.tenantsService.activateProfile(tenantId, body.profileId);
   }
 
   /**

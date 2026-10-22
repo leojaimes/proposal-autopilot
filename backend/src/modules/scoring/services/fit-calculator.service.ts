@@ -17,6 +17,12 @@ export interface FitCalculationInput {
   postedDate?: Date | string | null;
   excludedCountries?: string[];
   targetCountries?: string[];
+  weights?: {
+    skill: number;
+    ai: number;
+    client: number;
+    recency: number;
+  };
 }
 
 export interface FitScoreOutput {
@@ -156,8 +162,17 @@ export class FitCalculatorService {
       }
     }
 
-    // 5. Cálculo Nominal Deductivo (Piso de 15 para evitar ceros artificiales)
-    let overallScore = Math.max(15, Math.min(100, baseFitScore - deductions));
+    // 5. Cálculo nominal deductivo con ajuste de pesos de perfil. Los pesos por
+    // defecto no alteran el comportamiento histórico; los personalizados cambian
+    // la prioridad relativa de skill, viabilidad, cliente y recency.
+    const defaultComposite = (baseFitScore * 40 + aiFeasibilityScore * 25 + clientQualityScore * 20 + recencyScore * 15) / 100;
+    const configuredWeights = input.weights || { skill: 40, ai: 25, client: 20, recency: 15 };
+    const totalWeight = configuredWeights.skill + configuredWeights.ai + configuredWeights.client + configuredWeights.recency;
+    const weightedComposite = totalWeight > 0
+      ? (baseFitScore * configuredWeights.skill + aiFeasibilityScore * configuredWeights.ai + clientQualityScore * configuredWeights.client + recencyScore * configuredWeights.recency) / totalWeight
+      : defaultComposite;
+    const weightAdjustment = Math.round(weightedComposite - defaultComposite);
+    let overallScore = Math.max(15, Math.min(100, baseFitScore - deductions + weightAdjustment));
 
     // 5.1 Eje Bi-Axial de Afinidad Semántica (Multiplicador de Relevancia de Rol)
     if (input.taxonomy) {
@@ -209,7 +224,11 @@ export class FitCalculatorService {
       overallScore = Math.min(25, overallScore);
       isCapped = true;
       capReason = capReason || 'INCOMPATIBLE: Rol de asistencia o soporte ajeno al perfil';
-    } else if (match.matchLevel === 'OFF_NICHE' || match.isDisqualified) {
+    } else if (match.isDisqualified) {
+      overallScore = Math.min(25, overallScore);
+      isCapped = true;
+      capReason = capReason || 'DISQUALIFIED: Rol incompatible con el perfil activo';
+    } else if (match.matchLevel === 'OFF_NICHE') {
       overallScore = Math.min(35, overallScore);
       isCapped = true;
       capReason = capReason || 'OFF_NICHE: Sin coincidencia con las expresiones activas del motor';
@@ -245,7 +264,7 @@ export class FitCalculatorService {
       capReason,
       eligibilityStatus,
       dataQualityStatus,
-      summaryRationale: `Base ${baseFitScore} - Deducciones ${deductions} pts (${dataQualityStatus})`,
+      summaryRationale: `Base ${baseFitScore} - Deducciones ${deductions} + Ajuste de pesos ${weightAdjustment} pts (${dataQualityStatus})`,
       detectedGaps: match.isDisqualified ? match.reason : 'Revisar detalles en la descripción del cliente',
       suggestedProofStory: null, // Cero nombres inventados
       drivers,

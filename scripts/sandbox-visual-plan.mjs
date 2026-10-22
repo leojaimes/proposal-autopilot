@@ -81,6 +81,68 @@ function safeMasks(value, label) {
   return masks.map((selector, index) => safeText(selector, label + "[" + index + "]", 500));
 }
 
+function jsonPointer(value, label) {
+  if (typeof value !== "string" || !value.startsWith("/") || value.length > 500 || /[\u0000-\u001f\u007f]/u.test(value)) {
+    throw new Error(label + " must be a JSON pointer starting with one slash.");
+  }
+  return value;
+}
+
+function apiExpected(value, label) {
+  assertObject(value, label);
+  const entries = Object.entries(value);
+  if (entries.length < 1 || entries.length > 20) throw new Error(label + " must contain between 1 and 20 fields.");
+  return Object.fromEntries(entries.map(([key, expected]) => {
+    safeText(key, label + ".key", 100);
+    if (expected === null || typeof expected === "string" || typeof expected === "number" || typeof expected === "boolean") return [key, expected];
+    allowedProperties(expected, ["valueFromEnv", "valueFromCapture"], label + "." + key);
+    const reference = expected.valueFromEnv === undefined ? "valueFromCapture" : "valueFromEnv";
+    if (Object.keys(expected).length !== 1 || typeof expected[reference] !== "string") {
+      throw new Error(label + "." + key + " must contain exactly one supported value reference.");
+    }
+    if (reference === "valueFromEnv" && !/^[A-Z_][A-Z0-9_]{0,127}$/u.test(expected.valueFromEnv)) {
+      throw new Error(label + "." + key + ".valueFromEnv must be an environment variable name.");
+    }
+    if (reference === "valueFromCapture" && !/^[a-z][A-Za-z0-9]{0,79}$/u.test(expected.valueFromCapture)) {
+      throw new Error(label + "." + key + ".valueFromCapture must be a safe captured value name.");
+    }
+    return [key, { [reference]: expected[reference] }];
+  }));
+}
+
+function apiMinArrayLengths(value, label) {
+  if (value === undefined) return {};
+  assertObject(value, label);
+  const entries = Object.entries(value);
+  if (entries.length > 20) throw new Error(label + " must contain at most 20 fields.");
+  return Object.fromEntries(entries.map(([key, minimum]) => [
+    safeText(key, label + ".key", 100),
+    strictInteger(minimum, NaN, 0, 1000, label + "." + key),
+  ]));
+}
+
+function apiCapture(value, origin, label) {
+  assertObject(value, label);
+  allowedProperties(value, ["path", "method", "status", "arrayPath", "expected", "valuePath", "saveAs"], label);
+  const method = safeText(value.method, label + ".method", 10).toUpperCase();
+  if (!["GET", "POST", "PUT", "PATCH", "DELETE"].includes(method)) throw new Error(label + ".method is invalid.");
+  return {
+    url: confinedPath(value.path, origin, label + ".path"),
+    method,
+    status: strictInteger(value.status, 200, 100, 599, label + ".status"),
+    arrayPath: jsonPointer(value.arrayPath, label + ".arrayPath"),
+    expected: apiExpected(value.expected, label + ".expected"),
+    valuePath: jsonPointer(value.valuePath, label + ".valuePath"),
+    saveAs: (() => {
+      const saveAs = safeText(value.saveAs, label + ".saveAs", 80);
+      if (!/^[a-z][A-Za-z0-9]{0,79}$/u.test(saveAs)) {
+        throw new Error(label + ".saveAs must be a safe captured value name.");
+      }
+      return saveAs;
+    })(),
+  };
+}
+
 function confinedOrigins(env) {
   const isRemote = env.SANDBOX_REMOTE === "1";
   return Object.fromEntries(Object.keys(PROFILE_PORTS).map((profile) => {
@@ -188,10 +250,11 @@ function validateVisualPlanV2(input, { env, cwd }) {
       const action = step.action;
       const fields = {
         goto: ["path"],
-        click: ["selector"],
+        click: ["selector", "captureResponse"],
         fill: ["selector", "valueFromEnv"],
         upload: ["selector", "paths"],
         waitFor: ["selector", "state", "rejectSelectors"],
+        apiAssert: ["path", "status", "arrayPath", "expected", "minArrayLengths"],
         screenshot: ["id", "checkpoint", "maskSelectors", "fullPage", "maxDiffPixels", "captureOnly"],
         screenshotSections: ["selector", "frameSelector", "idPrefix", "checkpoint", "maxSections", "stableForMs", "maskSelectors", "maxDiffPixels"],
         captureDomProbe: ["id", "frameSelector", "stableForMs", "maxElements"],
@@ -204,7 +267,12 @@ function validateVisualPlanV2(input, { env, cwd }) {
         case "goto":
           return { action, path: step.path, url: confinedPath(step.path, profileOrigins[scenario.profile], stepLabel + ".path"), timeoutMs };
         case "click":
-          return { action, selector: safeText(step.selector, stepLabel + ".selector", 500), timeoutMs };
+          return {
+            action,
+            selector: safeText(step.selector, stepLabel + ".selector", 500),
+            captureResponse: step.captureResponse === undefined ? null : apiCapture(step.captureResponse, profileOrigins[scenario.profile], stepLabel + ".captureResponse"),
+            timeoutMs,
+          };
         case "fill": {
           const selector = safeText(step.selector, stepLabel + ".selector", 500);
           if (typeof step.valueFromEnv !== "string" || !/^[A-Z_][A-Z0-9_]{0,127}$/u.test(step.valueFromEnv)) {
@@ -234,6 +302,16 @@ function validateVisualPlanV2(input, { env, cwd }) {
             timeoutMs,
           };
         }
+        case "apiAssert":
+          return {
+            action,
+            url: confinedPath(step.path, profileOrigins[scenario.profile], stepLabel + ".path"),
+            status: strictInteger(step.status, 200, 100, 599, stepLabel + ".status"),
+            arrayPath: jsonPointer(step.arrayPath, stepLabel + ".arrayPath"),
+            expected: apiExpected(step.expected, stepLabel + ".expected"),
+            minArrayLengths: apiMinArrayLengths(step.minArrayLengths, stepLabel + ".minArrayLengths"),
+            timeoutMs,
+          };
         case "screenshotSections": {
           const selector = safeText(step.selector, stepLabel + ".selector", 500);
           const frameSelector = step.frameSelector === undefined ? null : safeText(step.frameSelector, stepLabel + ".frameSelector", 500);

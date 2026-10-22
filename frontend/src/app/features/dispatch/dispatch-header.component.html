@@ -31,10 +31,13 @@
         <svg lucideUser class="w-4 h-4 text-cyan-400"></svg>
         <div class="flex flex-col">
           <span class="text-[11px] font-extrabold text-content-primary leading-tight flex items-center gap-1.5">
-            <span>{{ pipeline.activeProfile().name }}</span>
+            <span>{{ pipeline.activeProfile()?.name || 'Cargando perfiles…' }}</span>
             <span class="text-[9px] font-mono text-cyan-400 bg-cyan-400/10 px-1 py-0.2 rounded font-bold border border-cyan-400/20">Activo</span>
+            @if (pipeline.profileSaveError()) {
+              <span class="text-[9px] font-mono text-rose-300 bg-rose-500/10 px-1 py-0.2 rounded font-bold border border-rose-400/20" [title]="pipeline.profileSaveError()">Sin guardar</span>
+            }
           </span>
-          <span class="text-[9px] text-content-muted font-mono">{{ pipeline.activeProfile().proofStories.length }} historias · ${{ pipeline.activeProfile().minHourlyRate }}/h</span>
+          <span class="text-[9px] text-content-muted font-mono">{{ pipeline.activeProfile()?.proofStories?.length || 0 }} historias · ${{ pipeline.activeProfile()?.minHourlyRate || 0 }}/h</span>
         </div>
         <svg lucideChevronDown class="w-3.5 h-3.5 text-content-muted ml-1 transition-transform" [class.rotate-180]="isProfileDropdownOpen()"></svg>
       </button>

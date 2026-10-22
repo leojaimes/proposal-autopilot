@@ -31,4 +31,4 @@ COPY --from=builder /app/dist ./dist
 EXPOSE 7000
 
 ENV PORT=7000
-CMD ["node", "dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && node dist/main.js"]

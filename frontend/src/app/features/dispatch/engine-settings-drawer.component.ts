@@ -202,26 +202,7 @@ export class EngineSettingsDrawerComponent {
     this.isSavingScrapeConfig.set(true);
     this.scrapeConfigSavedMessage.set('');
     try {
-      const queries = this.pipeline.activeQueriesList();
-
-      // Sincronizar atómicamente el perfil completo (Oferta, Taxonomía, Historias y Filtros)
-      await this.http.put(`${this.getApiBase()}/config/full-profile`, {
-        offerHeadline: this.pipeline.offerText(),
-        targetAudience: this.pipeline.targetAudience(),
-        coreRoles: this.pipeline.coreRoles(),
-        hybridRoles: this.pipeline.hybridRoles(),
-        tangentialRoles: this.pipeline.tangentialRoles(),
-        excludedRoles: this.pipeline.excludedRoles(),
-        searchKeywords: queries.length > 0 ? queries : ['Full Stack', 'NestJS'],
-        minBudgetFixed: this.pipeline.minBudgetFixed(),
-        minHourlyRate: this.pipeline.minHourlyRate(),
-        proofStories: this.pipeline.proofStories().map(s => ({
-          keyCode: s.id || s.company,
-          companyOrProduct: s.company,
-          impactMetric: s.metric,
-          domainTags: s.tags,
-        })),
-      }).toPromise();
+      await this.pipeline.saveActiveProfile();
 
       this.scrapeConfigSavedMessage.set('¡Perfil, historias y filtros guardados en PostgreSQL!');
       setTimeout(() => this.scrapeConfigSavedMessage.set(''), 3500);

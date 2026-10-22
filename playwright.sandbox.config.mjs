@@ -7,6 +7,9 @@ const baselineDir = path.resolve(process.env.SANDBOX_VISUAL_BASELINE_DIR || "tes
 
 export default defineConfig({
   testDir: "./tests/sandbox-visual",
+  testMatch: process.env.SANDBOX_VISUAL_PLAN
+    ? "visual-plan.spec.mjs"
+    : "**/*.spec.mjs",
   fullyParallel: false,
   forbidOnly: true,
   retries: 0,

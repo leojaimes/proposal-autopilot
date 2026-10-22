@@ -272,4 +272,29 @@ describe('Adversarial & Edge-Case Scoring Engine Suite - Deductive Model', () =>
     assert.equal(result.isCapped, true, 'Debe activar techo de seguridad');
     assert.equal(result.strategicLane, StrategicLane.DISQUALIFIED_NOISE);
   });
+
+  it('aplica los pesos configurados del perfil al ranking', () => {
+    const input: FitCalculationInput = {
+      title: 'Product Designer for AI workflow',
+      description: 'Need a Figma design system and AI product design support.',
+      skills: ['Figma', 'Design Systems', 'AI'],
+      activeQueries: userActiveQueries,
+      proposalsCount: 55,
+      isPaymentVerified: true,
+      clientTotalSpend: 25000,
+      clientRating: 5,
+      postedDate: new Date(),
+    };
+
+    const defaultRanking = fitCalculator.calculate(input);
+    const competitionPrioritized = fitCalculator.calculate({
+      ...input,
+      weights: { skill: 10, ai: 70, client: 10, recency: 10 },
+    });
+
+    assert.ok(
+      competitionPrioritized.overallScore < defaultRanking.overallScore,
+      'Dar mayor peso a viabilidad/competencia debe bajar una vacante saturada',
+    );
+  });
 });

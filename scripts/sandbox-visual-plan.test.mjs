@@ -99,6 +99,58 @@ test("v2 normalizes deterministic actions and keeps only env references", () => 
   assert.doesNotMatch(JSON.stringify(result), /PRIVATE VALUE/u);
 });
 
+test("v2 confines API persistence assertions to the selected profile origin", () => {
+  const steps = [
+    { action: "goto", path: "/" },
+    {
+      action: "apiAssert",
+      path: "/api/config/workspace",
+      status: 200,
+      arrayPath: "/positioningProfiles",
+      expected: { isActive: true, offerHeadline: { valueFromEnv: "TEST_OFFER" } },
+      minArrayLengths: { proofStories: 6 },
+    },
+    { action: "screenshot", id: "persisted", checkpoint: "Persisted profile is ready." },
+  ];
+  const result = validateV2(validPlanV2({ scenarios: [v2Scenario({ steps })] }));
+  assert.deepEqual(result.scenarios[0].steps[1], {
+    action: "apiAssert",
+    url: "http://127.0.0.1:3008/api/config/workspace",
+    status: 200,
+    arrayPath: "/positioningProfiles",
+    expected: { isActive: true, offerHeadline: { valueFromEnv: "TEST_OFFER" } },
+    minArrayLengths: { proofStories: 6 },
+    timeoutMs: 10000,
+  });
+  const unsafeSteps = [steps[0], { ...steps[1], path: "//outside.example" }, steps[2]];
+  assert.throws(() => validateV2(validPlanV2({ scenarios: [v2Scenario({ steps: unsafeSteps })] })), /path/u);
+});
+
+test("v2 captures a profile ID only from the same-origin creating response", () => {
+  const steps = [
+    { action: "goto", path: "/" },
+    {
+      action: "click",
+      selector: "button.activate",
+      captureResponse: {
+        path: "/api/config/full-profile",
+        method: "PUT",
+        status: 200,
+        arrayPath: "/positioningProfiles",
+        expected: { isActive: true },
+        valuePath: "/id",
+        saveAs: "createdProfileId",
+      },
+    },
+    { action: "screenshot", id: "persisted-id", checkpoint: "The created profile is active." },
+  ];
+  const result = validateV2(validPlanV2({ scenarios: [v2Scenario({ steps })] }));
+  assert.equal(result.scenarios[0].steps[1].captureResponse.url, "http://127.0.0.1:3008/api/config/full-profile");
+  assert.equal(result.scenarios[0].steps[1].captureResponse.saveAs, "createdProfileId");
+  const unsafeCapture = { ...steps[1], captureResponse: { ...steps[1].captureResponse, path: "//outside.example" } };
+  assert.throws(() => validateV2(validPlanV2({ scenarios: [v2Scenario({ steps: [steps[0], unsafeCapture, steps[2]] })] })), /path/u);
+});
+
 test("v2 normalizes captureOnly to false and accepts explicit true or false", () => {
   const defaultStep = validateV2().scenarios[0].steps[1];
   assert.equal(defaultStep.captureOnly, false);

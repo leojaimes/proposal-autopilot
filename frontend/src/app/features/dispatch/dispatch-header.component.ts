@@ -245,56 +245,27 @@ Built a conversational event search chatbot for Facebook Messenger using Graph A
     }
   }
 
-  public activateSynthesizedProfile(): void {
+  public async activateSynthesizedProfile(): Promise<void> {
     const data = this.synthesisResult();
     if (!data) return;
 
     this.isActivating.set(true);
-    const apiBase = this.getApiBase();
-
-    // 1. Crear y seleccionar perfil en PipelineStateService
-    this.pipeline.createFromSynthesis(data);
-
-    // 2. Persistir en PostgreSQL backend
-    const fullProfilePayload = {
-      offerHeadline: data.offerHeadline,
-      targetAudience: data.targetAudience,
-      voiceRules: data.voiceRules,
-      coreRoles: data.taxonomy?.coreRoles || [],
-      hybridRoles: data.taxonomy?.hybridRoles || [],
-      tangentialRoles: data.taxonomy?.tangentialRoles || [],
-      excludedRoles: data.taxonomy?.excludedRoles || [],
-      searchKeywords: data.scrapingConfig?.searchKeywords || [],
-      minHourlyRate: data.scrapingConfig?.minHourlyRate || 50,
-      minBudgetFixed: data.scrapingConfig?.minBudgetFixed || 1000,
-      proofStories: (data.proofStories || []).map((s: any) => ({
-        keyCode: s.keyCode,
-        companyOrProduct: s.companyOrProduct,
-        impactMetric: s.impactMetric,
-        domainTags: s.domainTags,
-      })),
-    };
-
-    this.http.put(`${apiBase}/config/full-profile`, fullProfilePayload)
-      .subscribe({
+    try {
+      await this.pipeline.createFromSynthesis(data);
+      this.report.reprocessLeads().subscribe({
         next: () => {
-          // 3. Re-evaluar leads de inmediato ($0 USD, 0 tokens)
-          this.report.reprocessLeads().subscribe({
-            next: () => {
-              this.isActivating.set(false);
-              this.isCreateProfileModalOpen.set(false);
-            },
-            error: () => {
-              this.isActivating.set(false);
-              this.isCreateProfileModalOpen.set(false);
-            }
-          });
-        },
-        error: (err) => {
           this.isActivating.set(false);
-          this.errorMessage.set(err.error?.message || 'Error guardando perfil en PostgreSQL.');
-        }
+          this.isCreateProfileModalOpen.set(false);
+        },
+        error: () => {
+          this.isActivating.set(false);
+          this.isCreateProfileModalOpen.set(false);
+        },
       });
+    } catch (error: any) {
+      this.isActivating.set(false);
+      this.errorMessage.set(error?.error?.message || 'Error guardando perfil en PostgreSQL.');
+    }
   }
 
   public deleteProfile(id: string, event: Event): void {
