@@ -112,6 +112,11 @@ export class ClaudeProposalService {
         continue;
       }
 
+      if (/^#+\s+\S/u.test(trimmed)) {
+        inProofSection = false;
+        continue;
+      }
+
       if (/^(?:#+\s*)?[a-záéíóúñ][^:]{1,80}:$/.test(normalized)) {
         inProofSection = false;
         continue;
@@ -139,6 +144,59 @@ export class ClaudeProposalService {
     }
 
     return stories;
+  }
+
+  private extractExplicitVoiceRules(rawText: string): string[] {
+    const rules: string[] = [];
+    const seen = new Set<string>();
+    let inVoiceSection = false;
+
+    for (const line of rawText.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const normalized = trimmed.toLowerCase();
+
+      if (/^(?:#+\s*)?(?:voice\s*rules?|writing\s*rules?|reglas?\s+de\s+voz)\s*:?$/.test(normalized)) {
+        inVoiceSection = true;
+        continue;
+      }
+      if (/^#+\s+\S/u.test(trimmed) || /^(?:#+\s*)?[a-záéíóúñ][^:]{1,80}:$/.test(normalized)) {
+        inVoiceSection = false;
+        continue;
+      }
+
+      const bullet = trimmed.match(/^(?:[-*•]|\d+[.)])\s+(.+)$/);
+      if (!bullet || !inVoiceSection) continue;
+      const rule = bullet[1].replace(/\*\*/g, '').trim();
+      const dedupeKey = rule.toLowerCase().replace(/[^a-z0-9áéíóúñ]+/g, ' ').trim();
+      if (!dedupeKey || seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      rules.push(rule);
+    }
+
+    return rules;
+  }
+
+  private extractStructuredSection(rawText: string, headings: string[]): string | null {
+    const lines = rawText.split(/\r?\n/);
+    for (let index = 0; index < lines.length; index += 1) {
+      const trimmed = lines[index].trim();
+      const inline = trimmed.match(/^(?:#+\s*)?([^:]+):\s*(.+)$/);
+      const heading = trimmed.replace(/^#+\s*/u, '').trim().toLowerCase();
+      const inlineHeading = inline?.[1].trim().toLowerCase();
+      const matchesHeading = headings.includes(heading) || (inlineHeading != null && headings.includes(inlineHeading));
+      if (!matchesHeading) continue;
+      if (inline?.[2]) return inline[2].replace(/\*\*/g, '').trim();
+
+      const content: string[] = [];
+      for (let next = index + 1; next < lines.length; next += 1) {
+        const candidate = lines[next].trim();
+        if (/^#+\s+\S/u.test(candidate)) break;
+        if (candidate) content.push(candidate.replace(/\*\*/g, ''));
+      }
+      return content.join(' ').trim() || null;
+    }
+    return null;
   }
 
   private extractProofStoryName(description: string): string {
@@ -185,7 +243,7 @@ export class ClaudeProposalService {
       };
     });
 
-    return [...preserved, ...unmatchedGenerated];
+    return preserved;
   }
 
   /**
@@ -567,10 +625,23 @@ Output STRICT JSON:
     }
 
     const explicitProofStories = this.extractExplicitProofStories(trimmed);
+    const explicitVoiceRules = this.extractExplicitVoiceRules(trimmed);
+    const explicitOffer = this.extractStructuredSection(trimmed, ['offer', 'specific offer']);
+    const explicitTargetAudience = this.extractStructuredSection(trimmed, ['target client', 'target audience', 'who you are targeting']);
+    const isAiNativeUxPositioning = /\b(?:ai-native|ux|design system|ux research|prototyping)\b/i.test(
+      [explicitOffer, explicitTargetAudience, ...explicitProofStories.map((story) => story.description)].filter(Boolean).join(' '),
+    );
+    const hasStructuredAiNativeUxPositioning = Boolean(
+      isAiNativeUxPositioning && explicitOffer && explicitTargetAudience,
+    );
     const fallback: SynthesizeProfileFromCvOutput = {
-      personaName: 'Consultor Especialista',
-      offerHeadline: 'High-Impact Engineering & Architecture for scaling tech products and startups.',
-      targetAudience: 'Founders, CTOs, and technical leaders needing senior architecture and fast execution.',
+      personaName: isAiNativeUxPositioning ? 'AI-Native UX Architect' : 'Consultor Especialista',
+      offerHeadline: explicitOffer || (isAiNativeUxPositioning
+        ? 'AI-native UX for product teams: senior design systems, prototyping, and research delivered at agency speed.'
+        : 'High-Impact Engineering & Architecture for scaling tech products and startups.'),
+      targetAudience: explicitTargetAudience || (isAiNativeUxPositioning
+        ? 'Seed-to-Series B SaaS founders and product leads needing senior UX delivery without a full-time hire.'
+        : 'Founders, CTOs, and technical leaders needing senior architecture and fast execution.'),
       voiceRules: ['First person peer-to-peer', 'No em dashes anywhere', 'Sell result before tool'],
       proofStories: [
         {
@@ -582,20 +653,34 @@ Output STRICT JSON:
         },
       ],
       taxonomy: {
-        coreRoles: ['Software Engineer', 'Full Stack Developer', 'Architect'],
-        hybridRoles: ['Automation Engineer', 'AI Prototyper'],
-        tangentialRoles: ['Technical Consultant'],
-        excludedRoles: ['Virtual Assistant', 'Data Entry', 'Telemarketing', 'Customer Support'],
+        coreRoles: isAiNativeUxPositioning
+          ? ['Senior Product Designer', 'Design Systems Architect', 'UX Researcher', 'UX Strategist']
+          : ['Software Engineer', 'Full Stack Developer', 'Architect'],
+        hybridRoles: isAiNativeUxPositioning
+          ? ['AI Product Designer', 'AI Prototyping Specialist', 'Design Operations Consultant']
+          : ['Automation Engineer', 'AI Prototyper'],
+        tangentialRoles: isAiNativeUxPositioning
+          ? ['Product Manager', 'Frontend Design Consultant']
+          : ['Technical Consultant'],
+        excludedRoles: isAiNativeUxPositioning
+          ? ['Graphic Designer', 'Data Entry', 'Telemarketing', 'Virtual Assistant', 'Backend Developer']
+          : ['Virtual Assistant', 'Data Entry', 'Telemarketing', 'Customer Support'],
       },
       scrapingConfig: {
-        searchKeywords: ['("Full Stack" OR "Engineer") AND ("SaaS" OR "Cloud")'],
-        minHourlyRate: 45,
-        minBudgetFixed: 1000,
+        searchKeywords: isAiNativeUxPositioning
+          ? ['("Design System" OR "UX Research" OR "Product Design") AND ("SaaS" OR "AI")']
+          : ['("Full Stack" OR "Engineer") AND ("SaaS" OR "Cloud")'],
+        minHourlyRate: isAiNativeUxPositioning ? 100 : 45,
+        minBudgetFixed: isAiNativeUxPositioning ? 3000 : 1000,
         targetCountries: ['United States', 'United Kingdom', 'Canada', 'Australia', 'Germany'],
       },
       scoringRationale: {
-        strengthsDetected: ['Ingeniería de software', 'Arquitectura'],
-        scoringExplanation: 'Se priorizan vacantes con alta demanda técnica y clientes con método de pago verificado.',
+        strengthsDetected: isAiNativeUxPositioning
+          ? ['Design systems senior', 'UX research', 'AI-assisted product delivery']
+          : ['Ingeniería de software', 'Arquitectura'],
+        scoringExplanation: isAiNativeUxPositioning
+          ? 'Se priorizan vacantes de sistemas de diseño, investigación UX y producto SaaS con señal explícita de IA.'
+          : 'Se priorizan vacantes con alta demanda técnica y clientes con método de pago verificado.',
       },
     };
 
@@ -688,10 +773,12 @@ Output STRICT JSON:
 
           if (parsed.personaName && parsed.offerHeadline && Array.isArray(parsed.proofStories)) {
             return {
-              personaName: parsed.personaName,
-              offerHeadline: parsed.offerHeadline,
-              targetAudience: parsed.targetAudience || fallback.targetAudience,
-              voiceRules: Array.isArray(parsed.voiceRules) ? parsed.voiceRules : fallback.voiceRules,
+              personaName: hasStructuredAiNativeUxPositioning ? 'AI-Native UX Architect' : parsed.personaName,
+              offerHeadline: explicitOffer || parsed.offerHeadline,
+              targetAudience: explicitTargetAudience || parsed.targetAudience || fallback.targetAudience,
+              voiceRules: explicitVoiceRules.length > 0
+                ? explicitVoiceRules
+                : Array.isArray(parsed.voiceRules) ? parsed.voiceRules : fallback.voiceRules,
               proofStories: this.mergeExplicitProofStories(explicitProofStories, parsed.proofStories.map((s: any) => ({
                 keyCode: (s.keyCode || s.companyOrProduct || 'STORY').toUpperCase().replace(/\s+/g, '_'),
                 companyOrProduct: s.companyOrProduct || 'Empresa / Producto',
@@ -732,6 +819,7 @@ Output STRICT JSON:
     return {
       ...fallback,
       proofStories: explicitProofStories.length > 0 ? explicitProofStories : fallback.proofStories,
+      voiceRules: explicitVoiceRules.length > 0 ? explicitVoiceRules : fallback.voiceRules,
     };
   }
 }

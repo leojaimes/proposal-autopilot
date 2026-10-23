@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { MarketTaxonomyKind, Prisma } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
 
 export interface UpdatePositioningDto {
@@ -44,6 +44,13 @@ export interface FullProfileSyncDto {
   targetRegions?: string[];
   excludedCountries?: string[];
   geoFilterMode?: string;
+  categoryPolicies?: Array<{
+    taxonomyNodeId: string;
+    lane: 'CORE' | 'ADJACENT' | 'EXCLUDED';
+    includeTerms?: string[];
+    excludeTerms?: string[];
+    priority?: number;
+  }>;
   proofStories?: Array<{
     keyCode: string;
     companyOrProduct: string;
@@ -93,7 +100,7 @@ export class TenantsService {
       include: {
         positioningProfiles: {
           orderBy: { isActive: 'desc' },
-          include: { proofStories: true },
+          include: { proofStories: true, categoryPolicies: { include: { taxonomyNode: true } } },
         },
         scrapeConfigs: true,
         credentials: {
@@ -133,7 +140,7 @@ export class TenantsService {
         },
         include: {
           positioningProfiles: {
-            include: { proofStories: true },
+          include: { proofStories: true, categoryPolicies: { include: { taxonomyNode: true } } },
           },
           scrapeConfigs: true,
           credentials: {
@@ -144,6 +151,17 @@ export class TenantsService {
     }
 
     return tenant;
+  }
+
+  async getMarketTaxonomy() {
+    return this.prisma.marketTaxonomyNode.findMany({
+      where: {
+        isActive: true,
+        kind: { in: [MarketTaxonomyKind.SUBCATEGORY, MarketTaxonomyKind.OCCUPATION] },
+      },
+      select: { id: true, slug: true, name: true, kind: true, parentId: true },
+      orderBy: [{ kind: 'asc' }, { name: 'asc' }],
+    });
   }
 
   /**
@@ -260,6 +278,40 @@ export class TenantsService {
               impactMetric: story.impactMetric,
               description: story.description || '',
               domainTags: story.domainTags || [],
+            })),
+          });
+        }
+      }
+
+      if (dto.categoryPolicies !== undefined) {
+        const requestedNodeIds = [...new Set(dto.categoryPolicies.map((policy) => policy.taxonomyNodeId))];
+        if (requestedNodeIds.length !== dto.categoryPolicies.length) {
+          throw new BadRequestException('Cada categoría sólo puede tener una política por perfil.');
+        }
+
+        const validNodes = await tx.marketTaxonomyNode.findMany({
+          where: {
+            id: { in: requestedNodeIds },
+            isActive: true,
+            kind: { in: [MarketTaxonomyKind.SUBCATEGORY, MarketTaxonomyKind.OCCUPATION] },
+          },
+          select: { id: true },
+        });
+        if (validNodes.length !== requestedNodeIds.length) {
+          throw new BadRequestException('La política contiene una categoría inexistente o inactiva.');
+        }
+
+        await tx.profileCategoryPolicy.deleteMany({ where: { profileId: profile.id } });
+        if (dto.categoryPolicies.length > 0) {
+          await tx.profileCategoryPolicy.createMany({
+            data: dto.categoryPolicies.map((policy) => ({
+              tenantId,
+              profileId: profile.id,
+              taxonomyNodeId: policy.taxonomyNodeId,
+              lane: policy.lane,
+              includeTerms: policy.includeTerms || [],
+              excludeTerms: policy.excludeTerms || [],
+              priority: policy.priority ?? 0,
             })),
           });
         }

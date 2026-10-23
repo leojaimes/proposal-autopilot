@@ -28,6 +28,11 @@ export class TenantsController {
     return this.tenantsService.getTenantConfig(tenantId);
   }
 
+  @Get('market-taxonomy')
+  async getMarketTaxonomy() {
+    return this.tenantsService.getMarketTaxonomy();
+  }
+
   /**
    * PUT /api/config/full-profile
    * Sincroniza atómicamente el perfil completo (Oferta, Audiencia, Taxonomía, Queries, Filtros y Proof Stories)

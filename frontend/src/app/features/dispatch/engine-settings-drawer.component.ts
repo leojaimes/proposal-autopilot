@@ -46,6 +46,7 @@ export class EngineSettingsDrawerComponent {
   public readonly closeDrawer = output<void>();
 
   public readonly activeTab = signal<'POSITIONING' | 'ROLES' | 'SCRAPING' | 'GEO' | 'WEIGHTS'>('POSITIONING');
+  public readonly marketCategoryLanes = ['CORE', 'ADJACENT', 'EXCLUDED'] as const;
 
   // Role Taxonomy Tag Inputs State
   public readonly newCoreRoleInput = signal<string>('');

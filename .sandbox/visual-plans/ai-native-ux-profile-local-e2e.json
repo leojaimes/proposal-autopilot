@@ -1,0 +1,70 @@
+{
+  "version": 2,
+  "viewport": { "width": 1440, "height": 900 },
+  "maxDiffPixels": 1000000,
+  "stepTimeoutMs": 30000,
+  "scenarioTimeoutMs": 240000,
+  "scenarios": [
+    {
+      "id": "ai-native-ux-profile-local",
+      "profile": "nielsen",
+      "maskSelectors": [".dynamic-timestamp", ".time-ago"],
+      "steps": [
+        { "action": "goto", "path": "/" },
+        { "action": "waitFor", "selector": "header", "state": "visible" },
+        { "action": "click", "selector": "header button:has-text('Activo')" },
+        { "action": "click", "selector": "button:has-text('Crear Perfil de Cero')" },
+        { "action": "waitFor", "selector": "textarea[placeholder*='Pega aquí tu CV completo']", "state": "visible" },
+        {
+          "action": "screenshot",
+          "id": "01-profile-creation",
+          "checkpoint": "The local profile-creation flow is open.",
+          "fullPage": false,
+          "captureOnly": true
+        },
+        { "action": "fill", "selector": "textarea[placeholder*='Pega aquí tu CV completo']", "valueFromEnv": "AI_NATIVE_UX_POSITIONING" },
+        { "action": "click", "selector": "button:has-text('Sintetizar Proyectos, Taxonomía y Scoring')" },
+        { "action": "waitFor", "selector": "span:has-text('Perfil Extraído')", "state": "visible", "timeoutMs": 180000 },
+        {
+          "action": "screenshot",
+          "id": "02-generated-profile-preview",
+          "checkpoint": "The generated profile preview is visible before activation.",
+          "fullPage": false,
+          "captureOnly": true
+        },
+        {
+          "action": "click",
+          "selector": "button:has-text('Activar Perfil y Re-evaluar Leads de Inmediato')",
+          "captureResponse": {
+            "path": "/api/config/full-profile",
+            "method": "PUT",
+            "status": 200,
+            "arrayPath": "/positioningProfiles",
+            "expected": { "isActive": true, "personaName": "AI-Native UX Architect" },
+            "valuePath": "/id",
+            "saveAs": "createdProfileId"
+          }
+        },
+        { "action": "waitFor", "selector": ".fixed.inset-0", "state": "hidden", "timeoutMs": 30000 },
+        {
+          "action": "apiAssert",
+          "path": "/api/config/workspace",
+          "status": 200,
+          "arrayPath": "/positioningProfiles",
+          "expected": {
+            "id": { "valueFromCapture": "createdProfileId" },
+            "isActive": true
+          },
+          "minArrayLengths": { "proofStories": 6, "voiceRules": 4 }
+        },
+        {
+          "action": "screenshot",
+          "id": "03-active-profile",
+          "checkpoint": "The local application shows the newly activated profile.",
+          "fullPage": true,
+          "captureOnly": true
+        }
+      ]
+    }
+  ]
+}

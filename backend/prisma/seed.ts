@@ -4,6 +4,28 @@ const prisma = new PrismaClient();
 
 const DEFAULT_TENANT_ID = process.env.DEFAULT_TENANT_ID || '00000000-0000-0000-0000-000000000001';
 
+interface MarketTaxonomySeedNode {
+  slug: string;
+  name: string;
+  kind: 'CATEGORY' | 'OCCUPATION';
+  parentSlug?: string;
+  includeTerms?: string[];
+}
+
+const MARKET_TAXONOMY_V1: MarketTaxonomySeedNode[] = [
+  { slug: 'digital-services', name: 'Digital services', kind: 'CATEGORY' as const },
+  { slug: 'ux-product-design', name: 'UX & product design', kind: 'CATEGORY' as const, parentSlug: 'digital-services' },
+  { slug: 'design-systems', name: 'Design systems', kind: 'OCCUPATION' as const, parentSlug: 'ux-product-design', includeTerms: ['design system', 'design tokens', 'component library', 'figma variables'] },
+  { slug: 'ux-research', name: 'UX research', kind: 'OCCUPATION' as const, parentSlug: 'ux-product-design', includeTerms: ['ux research', 'user research', 'usability testing', 'user interviews', 'heuristic evaluation'] },
+  { slug: 'product-ux', name: 'Product UX', kind: 'OCCUPATION' as const, parentSlug: 'ux-product-design', includeTerms: ['product ux', 'product designer', 'ux ui', 'ui ux', 'user experience'] },
+  { slug: 'ai-prototyping', name: 'AI prototyping', kind: 'OCCUPATION' as const, parentSlug: 'digital-services', includeTerms: ['ai prototyping', 'ai agent', 'agentic workflow', 'llm', 'generative ai'] },
+  { slug: 'workflow-automation', name: 'Workflow automation', kind: 'OCCUPATION' as const, parentSlug: 'digital-services', includeTerms: ['workflow automation', 'n8n', 'zapier', 'make com', 'power automate'] },
+  { slug: 'full-stack-saas', name: 'Full-stack SaaS', kind: 'OCCUPATION' as const, parentSlug: 'digital-services', includeTerms: ['full stack', 'saas', 'web application', 'software platform'] },
+  { slug: 'backend-api-engineering', name: 'Backend & API engineering', kind: 'OCCUPATION' as const, parentSlug: 'digital-services', includeTerms: ['backend', 'api', 'nestjs', 'graphql', 'microservice'] },
+  { slug: 'cms-ecommerce', name: 'CMS & e-commerce', kind: 'OCCUPATION' as const, parentSlug: 'digital-services', includeTerms: ['wordpress', 'shopify', 'webflow', 'ecommerce', 'e commerce'] },
+  { slug: 'social-media-content', name: 'Social media content', kind: 'OCCUPATION' as const, parentSlug: 'digital-services', includeTerms: ['social media', 'content creation', 'instagram', 'tiktok', 'reels'] },
+];
+
 async function main() {
   console.log('🌱 Iniciando Seed de Estado Seguro para Proposal Autopilot...');
 
@@ -45,6 +67,41 @@ async function main() {
     });
     console.log('✅ ScrapeConfig base creado.');
   }
+
+  // The catalog is shared, versioned reference data. Profile-specific choices
+  // are stored separately in ProfileCategoryPolicy and are never overwritten here.
+  const taxonomyIdsBySlug = new Map<string, string>();
+  for (const node of MARKET_TAXONOMY_V1) {
+    const parentId = node.parentSlug ? taxonomyIdsBySlug.get(node.parentSlug) : null;
+    if (node.parentSlug && !parentId) {
+      throw new Error(`Taxonomy parent ${node.parentSlug} must be seeded before ${node.slug}.`);
+    }
+
+    const taxonomyNode = await prisma.marketTaxonomyNode.upsert({
+      where: { slug: node.slug },
+      update: {
+        source: 'CUSTOM',
+        name: node.name,
+        kind: node.kind,
+        parentId,
+        taxonomyVersion: 1,
+        metadata: { seed: 'market-taxonomy-v1', classification: { includeTerms: node.includeTerms || [] } },
+        isActive: true,
+      },
+      create: {
+        source: 'CUSTOM',
+        slug: node.slug,
+        name: node.name,
+        kind: node.kind,
+        parentId,
+        taxonomyVersion: 1,
+        metadata: { seed: 'market-taxonomy-v1', classification: { includeTerms: node.includeTerms || [] } },
+      },
+    });
+
+    taxonomyIdsBySlug.set(node.slug, taxonomyNode.id);
+  }
+  console.log('✅ Market taxonomy v1 seeded.');
 
   // El catálogo se materializa una sola vez. Así no reaparece un perfil que el
   // usuario haya eliminado después de la inicialización inicial.

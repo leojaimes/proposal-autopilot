@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Patch, Body, Param, Query, Logger, NotFoundException, Res, Sse, MessageEvent } from '@nestjs/common';
+import { BadRequestException, Controller, Post, Get, Patch, Body, Param, Query, Logger, NotFoundException, Res, Sse, MessageEvent } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { Response } from 'express';
 import { ApifyService } from './apify.service';
@@ -7,9 +7,13 @@ import { ApifyJobAdapter } from './adapters/apify-job.adapter';
 import { FitCalculatorService } from '../scoring/services/fit-calculator.service';
 import { ClaudeProposalService } from '../proposals/claude-proposal.service';
 import { TechnicalProposalPdfService } from '../proposals/technical-proposal-pdf.service';
+import { MarketTaxonomyAssignmentService } from './services/market-taxonomy-assignment.service';
+import { MarketRadarOperationsService } from './services/market-radar-operations.service';
+import { MarketRadarDecisionService } from './services/market-radar-decision.service';
+import { MarketTrendCalculator } from './services/market-trend-calculator.service';
 import { PrismaService } from '../../core/database/prisma.service';
 import { TenantContextService } from '../../core/context/tenant-context.service';
-import { BudgetType, JobStatus, StrategicLane, FitTier } from '@prisma/client';
+import { BudgetType, JobStatus, MarketRadarDecisionStatus, StrategicLane, FitTier } from '@prisma/client';
 
 export interface TriggerScrapeDto {
   keywords?: string[];
@@ -26,9 +30,27 @@ export interface DecisionFactor {
   description: string;
 }
 
+export interface CreateMarketRadarDecisionDto {
+  snapshotId: string;
+  status: MarketRadarDecisionStatus;
+  rationale: string;
+  operator: string;
+}
+
+export interface UpdateMarketRadarDecisionOutcomeDto {
+  jobPostId?: string;
+  proposalId?: string;
+  submittedAt?: string;
+  qualifiedRepliedAt?: string;
+  interviewedAt?: string;
+  wonAt?: string;
+  realizedValue?: number;
+}
+
 @Controller('api/scraping')
 export class ScrapingController {
   private readonly logger = new Logger(ScrapingController.name);
+  private readonly marketTrendCalculator = new MarketTrendCalculator();
 
   constructor(
     private readonly apifyService: ApifyService,
@@ -37,6 +59,9 @@ export class ScrapingController {
     private readonly fitCalculator: FitCalculatorService,
     private readonly claudeProposal: ClaudeProposalService,
     private readonly pdfService: TechnicalProposalPdfService,
+    private readonly marketTaxonomyAssignments: MarketTaxonomyAssignmentService,
+    private readonly marketRadarOperations: MarketRadarOperationsService,
+    private readonly marketRadarDecisions: MarketRadarDecisionService,
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
   ) {}
@@ -51,6 +76,7 @@ export class ScrapingController {
       const profile = await this.prisma.positioningProfile.findFirst({
         where: {
           tenantId,
+isActive: true,
           personaName: { contains: clean, mode: 'insensitive' },
         },
         include: { proofStories: true },
@@ -271,6 +297,7 @@ export class ScrapingController {
       include: { proofStories: true },
     });
     const scoredCandidates: Array<{ jobPost: any; evaluation: any }> = [];
+    const taxonomyRules = await this.marketTaxonomyAssignments.loadActiveRules();
 
     // FASE 2: Normalización & Scoring 0-100 para todas las vacantes
     for (let idx = 0; idx < rawJobs.length; idx++) {
@@ -300,9 +327,12 @@ export class ScrapingController {
           clientRating: normalized.clientRating,
           clientTotalSpend: normalized.clientTotalSpend,
           proposalsCount: normalized.proposalsCount != null ? normalized.proposalsCount : 0,
+          proposalsCountKnown: normalized.proposalsCountKnown,
           isPaymentVerified: normalized.isPaymentVerified,
+          paymentVerificationKnown: normalized.paymentVerificationKnown,
           jobUrl: normalized.jobUrl,
           postedAt: normalized.postedAt || new Date(),
+          postedAtKnown: normalized.postedAtKnown,
           status: JobStatus.NEEDS_REVIEW,
           rawApifyPayload: normalized.rawPayload as any,
         },
@@ -317,12 +347,26 @@ export class ScrapingController {
           clientRating: normalized.clientRating,
           clientTotalSpend: normalized.clientTotalSpend,
           proposalsCount: normalized.proposalsCount != null ? normalized.proposalsCount : 0,
+          proposalsCountKnown: normalized.proposalsCountKnown,
           isPaymentVerified: normalized.isPaymentVerified,
+          paymentVerificationKnown: normalized.paymentVerificationKnown,
           jobUrl: normalized.jobUrl,
           postedAt: normalized.postedAt || new Date(),
+          postedAtKnown: normalized.postedAtKnown,
           rawApifyPayload: normalized.rawPayload as any,
         },
       });
+
+      await this.marketTaxonomyAssignments.classifyAndPersist(
+        tenantId,
+        jobPost.id,
+        {
+          title: jobPost.title,
+          description: jobPost.description,
+          skills: normalized.skills || [],
+        },
+        taxonomyRules,
+      );
 
       // Cálculo Matemático del FitScore Deductivo
       const evaluation = this.fitCalculator.calculate({
@@ -484,7 +528,9 @@ export class ScrapingController {
       }
     }
 
-    // Actualizar BatchRun como COMPLETED
+    const snapshotResult = await this.marketRadarOperations.rebuildAfterSuccessfulBatch(tenantId);
+
+    // Actualizar BatchRun como COMPLETED únicamente cuando el radar persistió su snapshot.
     await this.prisma.batchRun.update({
       where: { id: batchRunId },
       data: {
@@ -507,7 +553,219 @@ export class ScrapingController {
       highFitCount,
     });
 
-    this.logger.log(`[Batch ${batchRunId}] Pipeline finalizado exitosamente: ${highFitCount} High Fit, ${mediumFitCount} Medium Fit.`);
+    this.logger.log(`[Batch ${batchRunId}] Pipeline finalizado exitosamente: ${highFitCount} High Fit, ${mediumFitCount} Medium Fit. Radar: ${snapshotResult.categories} categorías, ${snapshotResult.deletedSnapshots} snapshots vencidos purgados.`);
+  }
+
+  @Get('market-radar/health')
+  async getMarketRadarHealth() {
+    const health = await this.marketRadarOperations.getHealth(this.tenantContext.getTenantId());
+    return {
+      success: true,
+      data: {
+        ...health,
+        latestSnapshotAsOf: health.latestSnapshotAsOf?.toISOString().slice(0, 10) ?? null,
+        latestCompletedScrapeAt: health.latestCompletedScrapeAt?.toISOString() ?? null,
+      },
+    };
+  }
+
+  @Post('market-radar/decisions')
+  async createMarketRadarDecision(
+    @Body() body: CreateMarketRadarDecisionDto,
+    @Query('personaName') personaNameQuery?: string,
+  ) {
+    const profile = await this.resolveActiveProfile(personaNameQuery);
+    const decision = await this.marketRadarDecisions.createDecision({
+      tenantId: this.tenantContext.getTenantId(),
+      profile,
+      snapshotId: body.snapshotId,
+      status: body.status,
+      rationale: body.rationale,
+      operator: body.operator,
+    });
+    return { success: true, data: decision };
+  }
+
+  @Patch('market-radar/decisions/:id/outcome')
+  async updateMarketRadarDecisionOutcome(
+    @Param('id') id: string,
+    @Body() body: UpdateMarketRadarDecisionOutcomeDto,
+  ) {
+    const parseDate = (value: string | undefined) => value == null ? undefined : new Date(value);
+    const dates = [body.submittedAt, body.qualifiedRepliedAt, body.interviewedAt, body.wonAt];
+    if (dates.some((value) => value != null && Number.isNaN(new Date(value).getTime()))) {
+      throw new BadRequestException('Las fechas de resultado deben usar un formato ISO válido.');
+    }
+    const outcome = await this.marketRadarDecisions.updateOutcome({
+      tenantId: this.tenantContext.getTenantId(),
+      decisionId: id,
+      jobPostId: body.jobPostId,
+      proposalId: body.proposalId,
+      submittedAt: parseDate(body.submittedAt),
+      qualifiedRepliedAt: parseDate(body.qualifiedRepliedAt),
+      interviewedAt: parseDate(body.interviewedAt),
+      wonAt: parseDate(body.wonAt),
+      realizedValue: body.realizedValue,
+    });
+    return { success: true, data: outcome };
+  }
+
+  /**
+   * GET /api/scraping/market-radar
+   * Reads the latest persisted calculation for each taxonomy category. The
+   * endpoint never reclassifies jobs or substitutes missing source data.
+   */
+  @Get('market-radar')
+  async getPersistedMarketRadar(@Query('personaName') personaNameQuery?: string) {
+    const tenantId = this.tenantContext.getTenantId();
+    const profile = await this.resolveActiveProfile(personaNameQuery);
+    const [snapshots, operationalHealth, decisions] = await Promise.all([
+      this.prisma.marketCategorySnapshot.findMany({
+      where: { tenantId },
+      orderBy: { asOf: 'desc' },
+      include: {
+        taxonomyNode: { select: { name: true, slug: true } },
+        evidenceJobs: {
+          select: {
+            jobPost: {
+              select: {
+                id: true,
+                title: true,
+                jobUrl: true,
+                postedAt: true,
+                postedAtKnown: true,
+                proposalsCount: true,
+                proposalsCountKnown: true,
+                budgetFixed: true,
+                isPaymentVerified: true,
+                paymentVerificationKnown: true,
+              },
+            },
+          },
+        },
+        profileOpportunities: {
+          where: { profileId: profile?.id ?? '__no_active_profile__' },
+          select: { lane: true, profileFit: true, overallOpportunity: true, fitSampleJobs: true },
+        },
+      },
+      }),
+      this.marketRadarOperations.getHealth(tenantId),
+      this.prisma.marketRadarDecision.findMany({
+        where: { tenantId, positioningProfileId: profile?.id ?? '__no_active_profile__' },
+        orderBy: { createdAt: 'desc' },
+        include: { outcome: true },
+      }),
+    ]);
+    const trendByTaxonomyNode = this.marketTrendCalculator.calculate(snapshots.map((snapshot) => ({
+      taxonomyNodeId: snapshot.taxonomyNodeId,
+      asOf: snapshot.asOf,
+      demand30d: snapshot.demand30d,
+      medianProposals: snapshot.medianProposals == null ? null : Number(snapshot.medianProposals),
+      overallOpportunity: snapshot.profileOpportunities[0]?.overallOpportunity == null
+        ? null
+        : Number(snapshot.profileOpportunities[0].overallOpportunity),
+    })));
+    const newestByCategory = new Map<string, typeof snapshots[number]>();
+    for (const snapshot of snapshots) {
+      if (!newestByCategory.has(snapshot.taxonomyNodeId)) newestByCategory.set(snapshot.taxonomyNodeId, snapshot);
+    }
+    const latestDecisionBySnapshot = new Map<string, typeof decisions[number]>();
+    for (const decision of decisions) {
+      if (!latestDecisionBySnapshot.has(decision.marketCategorySnapshotId)) {
+        latestDecisionBySnapshot.set(decision.marketCategorySnapshotId, decision);
+      }
+    }
+    const categories = [...newestByCategory.values()]
+      .map((snapshot) => {
+        const opportunity = snapshot.profileOpportunities[0] ?? null;
+        const decision = latestDecisionBySnapshot.get(snapshot.id) ?? null;
+        return {
+          snapshotId: snapshot.id,
+          category: snapshot.taxonomyNode.name,
+          slug: snapshot.taxonomyNode.slug,
+          lane: opportunity?.lane ?? 'ADJACENT',
+          demand7d: snapshot.demand7d,
+          demand30d: snapshot.demand30d,
+          medianProposals: snapshot.medianProposals == null ? null : Number(snapshot.medianProposals),
+          medianBudget: snapshot.medianBudget == null ? null : Number(snapshot.medianBudget),
+          verifiedClientsPct: snapshot.verifiedClientsPct == null ? null : Number(snapshot.verifiedClientsPct),
+          sampleJobs: snapshot.sampleJobs,
+          sampleConfidence: snapshot.sampleConfidence == null ? null : Number(snapshot.sampleConfidence),
+          metricCoverage: snapshot.metricCoverage,
+          sourceBatchCount: snapshot.sourceBatchCount,
+          evidenceJobs: snapshot.evidenceJobs.map(({ jobPost }) => ({
+            id: jobPost.id,
+            title: jobPost.title,
+            jobUrl: jobPost.jobUrl,
+            postedAt: jobPost.postedAtKnown ? jobPost.postedAt.toISOString() : null,
+            proposalsCount: jobPost.proposalsCountKnown ? jobPost.proposalsCount : null,
+            fixedBudget: jobPost.budgetFixed == null ? null : Number(jobPost.budgetFixed),
+            paymentVerified: jobPost.paymentVerificationKnown ? jobPost.isPaymentVerified : null,
+          })),
+          trend: (() => {
+            const trend = trendByTaxonomyNode.get(snapshot.taxonomyNodeId) ?? null;
+            return trend == null ? null : {
+              ...trend,
+              comparedTo: trend.comparedTo.toISOString().slice(0, 10),
+            };
+          })(),
+          profileFit: opportunity?.profileFit == null ? null : Number(opportunity.profileFit),
+          fitSampleJobs: opportunity?.fitSampleJobs ?? 0,
+          overallOpportunity: opportunity?.overallOpportunity == null ? null : Number(opportunity.overallOpportunity),
+          asOf: snapshot.asOf.toISOString().slice(0, 10),
+          calculationVersion: snapshot.calculationVersion,
+          decision: decision == null ? null : {
+            id: decision.id,
+            status: decision.status,
+            rationale: decision.rationale,
+            operator: decision.operatorLabel,
+            createdAt: decision.createdAt.toISOString(),
+            outcome: decision.outcome == null ? null : {
+              jobPostId: decision.outcome.jobPostId,
+              proposalId: decision.outcome.proposalId,
+              submittedAt: decision.outcome.submittedAt?.toISOString() ?? null,
+              qualifiedRepliedAt: decision.outcome.qualifiedRepliedAt?.toISOString() ?? null,
+              interviewedAt: decision.outcome.interviewedAt?.toISOString() ?? null,
+              wonAt: decision.outcome.wonAt?.toISOString() ?? null,
+              realizedValue: decision.outcome.realizedValue == null ? null : Number(decision.outcome.realizedValue),
+            },
+          },
+        };
+      })
+      .sort((left, right) => (right.overallOpportunity ?? -1) - (left.overallOpportunity ?? -1) || right.demand30d - left.demand30d)
+      .map((category, index) => ({ rank: index + 1, ...category }));
+    const observedProposalMedians = categories.flatMap((category) => category.medianProposals == null ? [] : [category.medianProposals]);
+    const sortedMedians = [...observedProposalMedians].sort((left, right) => left - right);
+    const midpoint = Math.floor(sortedMedians.length / 2);
+    const medianProposalsAcrossAll = sortedMedians.length === 0 ? null : sortedMedians.length % 2 === 0
+      ? (sortedMedians[midpoint - 1] + sortedMedians[midpoint]) / 2
+      : sortedMedians[midpoint];
+
+    return {
+      success: true,
+      data: {
+        kpis: {
+          totalJobsSampled: categories.reduce((total, category) => total + category.sampleJobs, 0),
+          topCategory: categories[0]?.category ?? null,
+          opportunityCount: categories.filter((category) => category.overallOpportunity != null).length,
+          medianProposalsAcrossAll,
+          activeProfileName: profile?.personaName ?? null,
+        },
+        operationalHealth: {
+          ...operationalHealth,
+          latestSnapshotAsOf: operationalHealth.latestSnapshotAsOf?.toISOString().slice(0, 10) ?? null,
+          latestCompletedScrapeAt: operationalHealth.latestCompletedScrapeAt?.toISOString() ?? null,
+        },
+        categories,
+        methodology: {
+          demand: 'Unique classified jobs with an observed posting date in the trailing 7 and 30 days.',
+          competition: 'Median observed applicant count. Missing counts are excluded, never converted to zero.',
+          budget: 'Median fixed-price budget only. Hourly and fixed-price units are not mixed.',
+          confidence: 'Sample size plus coverage of applicant counts, fixed budgets, and payment-verification fields.',
+          opportunity: 'Relative 30-day demand, inverse observed competition, profile fit, and verified-client share when observed.',
+        },
+      },
+    };
   }
 
   /**
@@ -1554,348 +1812,5 @@ export class ScrapingController {
     return { success: true, message: 'Preset restaurado con éxito.' };
   }
 
-  /**
-   * GET /api/scraping/market-radar
-   * Agregador Estadístico de Mercado (Radar de Oportunidades y Arbitraje)
-   * Extrae de PostgreSQL las métricas reales y calcula la Matriz de Oportunidad para el consultor.
-   */
-  @Get('market-radar')
-  async getMarketRadar(@Query('personaName') personaNameQuery?: string) {
-    const tenantId = this.tenantContext.getTenantId();
-
-    let profile = personaNameQuery
-      ? await this.prisma.positioningProfile.findFirst({
-          where: {
-            tenantId,
-            personaName: { contains: personaNameQuery.split(':')[0].trim(), mode: 'insensitive' },
-          },
-          include: { proofStories: true },
-        })
-      : null;
-
-    if (!profile) {
-      profile = await this.prisma.positioningProfile.findFirst({
-        where: { tenantId, isActive: true },
-        include: { proofStories: true },
-      });
-    } else if (!profile.isActive) {
-      await this.prisma.positioningProfile.updateMany({
-        where: { tenantId },
-        data: { isActive: false },
-      });
-      await this.prisma.positioningProfile.update({
-        where: { id: profile.id },
-        data: { isActive: true },
-      });
-    }
-
-    const jobs = await this.prisma.jobPost.findMany({
-      where: { tenantId },
-      include: {
-        fitEvaluations: profile ? {
-          where: { positioningProfileId: profile.id },
-          take: 1,
-        } : true,
-      },
-    });
-
-    const categorize = (title: string, desc: string, rawSkills: any): string => {
-      const skills = Array.isArray(rawSkills) ? rawSkills : [];
-      const text = `${title} ${desc} ${skills.join(' ')}`.toLowerCase();
-
-      if (/social media|content creation|instagram|tiktok|video edit|carousel|reels|youtube/i.test(title)) {
-        return 'Social media content';
-      }
-      if (/design system|figma component|token|ui library|style guide/i.test(text) && /design|figma/i.test(title)) {
-        return 'Design systems';
-      }
-      if (/ux research|user testing|usability test|user interview|heuristic/i.test(text)) {
-        return 'UX research';
-      }
-      if (/full stack|fullstack|saas|web application|platform/i.test(title) || (/full stack/i.test(text) && /developer|engineer/i.test(text))) {
-        return 'Full Stack & SaaS Web Apps';
-      }
-      if (/llm|ai agent|agentic|gpt|openai|chatbot|claude|langchain|rag|prompt/i.test(text)) {
-        return 'AI prototyping / AI Agents';
-      }
-      if (/n8n|zapier|make\.com|workflow automation|automation engineer|power automate/i.test(text)) {
-        return 'n8n / workflow automation';
-      }
-      if (/gohighlevel|ghl|crm setup|funnel/i.test(text)) {
-        return 'GoHighLevel setup';
-      }
-      if (/ux\/ui|ui\/ux|product designer|web design|figma/i.test(title)) {
-        return 'UX/UI design';
-      }
-      if (/translat|english to spanish|spanish to english|bilingual/i.test(text)) {
-        return 'Spanish/English translation';
-      }
-      if (/seo|aeo|geo|search optimization|ai search/i.test(text)) {
-        return 'AEO / GEO (AI search)';
-      }
-      if (/backend|node\.js|nestjs|api|express|graphql|microservice/i.test(title)) {
-        return 'Backend & API Engineering';
-      }
-      if (/mobile|flutter|react native|ios|android/i.test(title)) {
-        return 'Mobile App Development';
-      }
-      if (/wordpress|shopify|wix|webflow|elementor/i.test(title)) {
-        return 'CMS & E-commerce (WP/Shopify)';
-      }
-      return 'Other Tech / Digital Work';
-    };
-
-    const median = (arr: number[]): number => {
-      if (!arr || arr.length === 0) return 0;
-      const sorted = [...arr].sort((a, b) => a - b);
-      const mid = Math.floor(sorted.length / 2);
-      return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-    };
-
-    // Coeficiente empírico de facilidad / apalancamiento de IA (0 a 100)
-    const aiEaseMap: Record<string, number> = {
-      'Social media content': 85,
-      'Spanish/English translation': 85,
-      'AI prototyping / AI Agents': 80,
-      'n8n / workflow automation': 75,
-      'GoHighLevel setup': 75,
-      'AEO / GEO (AI search)': 70,
-      'Full Stack & SaaS Web Apps': 70,
-      'Backend & API Engineering': 65,
-      'UX/UI design': 60,
-      'Design systems': 55,
-      'Mobile App Development': 50,
-      'CMS & E-commerce (WP/Shopify)': 65,
-      'UX research': 35,
-      'Other Tech / Digital Work': 50,
-    };
-
-    // Rango temporal para New jobs/hr
-    const validDates = jobs.map(j => j.postedAt ? new Date(j.postedAt).getTime() : null).filter(Boolean) as number[];
-    const minTime = validDates.length > 0 ? Math.min(...validDates) : Date.now() - (24 * 3600 * 1000);
-    const maxTime = validDates.length > 0 ? Math.max(...validDates) : Date.now();
-    const totalHours = Math.max(1, (maxTime - minTime) / (1000 * 3600));
-
-    // Agrupamiento
-    const groups: Record<string, typeof jobs> = {};
-    for (const job of jobs) {
-      const skills = (job.rawApifyPayload as any)?.skills || [];
-      const cat = categorize(job.title, job.description, skills);
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(job);
-    }
-
-    const coreRolesText = (profile?.coreRoles || []).join(' ').toLowerCase();
-    const excludedRolesText = (profile?.excludedRoles || []).join(' ').toLowerCase();
-
-    const categoryRows = Object.keys(groups).map(cat => {
-      const list = groups[cat];
-      const sampled = list.length;
-
-      // Determinar Lane dinámicamente según el perfil activo
-      let lane: 'Core' | 'Adjacent' | 'Excluded' = 'Adjacent';
-      const catLower = cat.toLowerCase();
-
-      if (excludedRolesText && (/wordpress|shopify|cms/i.test(catLower) || /ui\/ux|design/i.test(catLower) && /ui\/ux designer/i.test(excludedRolesText))) {
-        lane = 'Excluded';
-      } else if (coreRolesText && (/full stack|saas/i.test(catLower) && /full stack/i.test(coreRolesText) || /ai prototyping|ai agents/i.test(catLower) && /ai|agent/i.test(coreRolesText) || /backend|api/i.test(catLower) && /backend/i.test(coreRolesText) || /design systems/i.test(catLower) && /design system/i.test(coreRolesText) || /ux\/ui/i.test(catLower) && /ux\/ui|ui\/ux/i.test(coreRolesText))) {
-        lane = 'Core';
-      }
-
-      // Skill Affinity calculada del FitEvaluation promedio de esa categoría
-      const evaluatedJobs = list.filter(j => j.fitEvaluations && j.fitEvaluations.length > 0);
-      let skillAffinity = 60;
-      if (evaluatedJobs.length > 0) {
-        const avgSkill = evaluatedJobs.reduce((acc, j) => acc + (j.fitEvaluations[0]?.skillScore || 50), 0) / evaluatedJobs.length;
-        skillAffinity = Math.round(avgSkill);
-      } else if (lane === 'Core') {
-        skillAffinity = 90;
-      } else if (lane === 'Excluded') {
-        skillAffinity = 15;
-      }
-
-      const aiEase = aiEaseMap[cat] || 60;
-      const newJobsPerHour = +(sampled / totalHours).toFixed(2);
-
-      const proposals = list.map(j => j.proposalsCount || 0);
-      const medianProposals = Math.round(median(proposals));
-
-      const under10Count = list.filter(j => (j.proposalsCount || 0) < 10).length;
-      const pctUnder10 = Math.round((under10Count / sampled) * 100);
-
-      const hourlyRates = list.map(j => {
-        if (j.hourlyMax && Number(j.hourlyMax) > 0) return Number(j.hourlyMax);
-        if (j.hourlyMin && Number(j.hourlyMin) > 0) return Number(j.hourlyMin);
-        return null;
-      }).filter((r): r is number => r !== null && r > 0);
-      const medianHourly = hourlyRates.length > 0 ? Math.round(median(hourlyRates)) : 25;
-
-      const fixedBudgets = list.map(j => j.budgetFixed ? Number(j.budgetFixed) : null).filter((b): b is number => b !== null && b > 0);
-      const medianFixed = fixedBudgets.length > 0 ? Math.round(median(fixedBudgets)) : 200;
-
-      const verifiedCount = list.filter(j => j.isPaymentVerified).length;
-      const pctVerified = Math.round((verifiedCount / sampled) * 100);
-
-      // Personal Fit = (Skill * 0.6) + (AI Ease * 0.4)
-      const personalFit = Math.round((skillAffinity * 0.6) + (aiEase * 0.4));
-
-      // Market Score = F(Demand, Low Competition, Pay, Verified)
-      const demandScore = Math.min(30, Math.round(newJobsPerHour * 10));
-      const compScore = Math.round((pctUnder10 / 100) * 35);
-      const payScore = Math.min(20, Math.round((medianHourly / 50) * 20));
-      const verifiedScore = Math.round((pctVerified / 100) * 15);
-      const marketScore = Math.min(99, Math.max(15, demandScore + compScore + payScore + verifiedScore));
-
-      // Overall Opportunity
-      let overallOpp = Math.round((marketScore * 0.5) + (personalFit * 0.5));
-      if (lane === 'Excluded') {
-        overallOpp = Math.min(25, overallOpp);
-      }
-
-      return {
-        category: cat,
-        lane,
-        overallOpportunity: overallOpp,
-        marketScore,
-        personalFit,
-        newJobsPerHour,
-        medianProposals,
-        pctUnder10Proposals: pctUnder10,
-        medianHourly,
-        medianFixed,
-        pctVerifiedClients: pctVerified,
-        skillAffinity,
-        aiEase,
-        relevantJobsSampled: sampled,
-        runsAveraged: 1,
-        updated: new Date().toISOString().split('T')[0],
-      };
-    });
-
-    // Ordenar por Overall Opportunity DESC y asignar Rank
-    categoryRows.sort((a, b) => b.overallOpportunity - a.overallOpportunity);
-    const rankedRows = categoryRows.map((r, i) => ({ rank: i + 1, ...r }));
-
-    // KPIs globales
-    const topCategory = rankedRows[0]?.category || 'N/A';
-    const oceanBlueRows = rankedRows.filter(r => r.medianProposals <= 5 && r.personalFit >= 70 && r.lane !== 'Excluded');
-
-    return {
-      success: true,
-      data: {
-        kpis: {
-          totalJobsSampled: jobs.length,
-          topCategory,
-          oceanBlueCount: oceanBlueRows.length,
-          medianProposalsAcrossAll: Math.round(median(jobs.map(j => j.proposalsCount || 0))),
-          activeProfileName: (profile as any)?.personaName || profile?.offerHeadline?.slice(0, 45) || 'Consultor Activo',
-          evaluatorSummary: profile
-            ? `${(profile.coreRoles || []).slice(0, 3).join(', ')} · ${profile.coreRoles?.length || 0} Core · ${profile.proofStories?.length || 0} Proof Stories`
-            : 'Sin perfil configurado',
-        },
-        categories: rankedRows,
-        provenance: [
-          {
-            field: 'Category',
-            table: 'job_posts',
-            columns: 'title, description, raw_apify_payload->skills',
-            formula: 'Clustering semántico por reglas y palabras clave de servicio',
-            purpose: 'Agrupa el mercado por nichos comerciales para no operar con 290 filas sueltas',
-          },
-          {
-            field: 'Lane',
-            table: 'positioning_profiles',
-            columns: 'core_roles, hybrid_roles, excluded_roles',
-            formula: 'Mapeo contra la taxonomía de 4 tiers del perfil activo',
-            purpose: 'Distingue tus fortalezas centrales (Core) de servicios secundarios (Adjacent) o prohibidos (Excluded)',
-          },
-          {
-            field: 'Relevant jobs sampled',
-            table: 'job_posts',
-            columns: 'id',
-            formula: 'COUNT(id) WHERE category = C',
-            purpose: 'Valida la profundidad muestral de cada nicho en la base de datos',
-          },
-          {
-            field: 'New jobs per hour',
-            table: 'job_posts',
-            columns: 'posted_at',
-            formula: 'COUNT(id) / Δt (horas transcurridas)',
-            purpose: 'Mide la velocidad de flujo y frecuencia de llegada de nuevos clientes',
-          },
-          {
-            field: 'Median proposals already in',
-            table: 'job_posts',
-            columns: 'proposals_count',
-            formula: 'MEDIAN(proposals_count)',
-            purpose: 'Mide la saturación de competencia directa por vacante',
-          },
-          {
-            field: '% jobs under 10 proposals',
-            table: 'job_posts',
-            columns: 'proposals_count',
-            formula: '(COUNT(proposals_count < 10) / Total) * 100',
-            purpose: 'Mide la probabilidad de estar en la primera página de postulación del cliente',
-          },
-          {
-            field: 'Median hourly (USD)',
-            table: 'job_posts',
-            columns: 'hourly_min, hourly_max',
-            formula: 'MEDIAN((hourly_min + hourly_max) / 2) sobre contratos por hora',
-            purpose: 'Tarifa horaria típica de mercado que pagan los clientes en ese nicho',
-          },
-          {
-            field: 'Median fixed (USD)',
-            table: 'job_posts',
-            columns: 'budget_fixed',
-            formula: 'MEDIAN(budget_fixed) sobre contratos de precio fijo',
-            purpose: 'Presupuesto típico por proyecto para calcular valor esperado por contrato',
-          },
-          {
-            field: '% verified clients',
-            table: 'job_posts',
-            columns: 'is_payment_verified',
-            formula: '(COUNT(is_payment_verified = true) / Total) * 100',
-            purpose: 'Seguridad financiera y protección contra pérdidas de Connects por fraude',
-          },
-          {
-            field: 'Skill affinity',
-            table: 'fit_evaluations',
-            columns: 'skill_score cruzado con positioning_profiles',
-            formula: 'AVG(skill_score) de las vacantes de esa categoría',
-            purpose: 'Dominio técnico y capacidad demostrable del consultor para ganar el contrato',
-          },
-          {
-            field: 'AI ease',
-            table: 'fit_evaluations',
-            columns: 'ai_feasibility_score',
-            formula: 'Promedio de viabilidad de asistencia y entrega con IA generativa (0 a 100)',
-            purpose: 'Mide el multiplicador de margen: entregar en horas lo que antes tomaba días',
-          },
-          {
-            field: 'Personal fit',
-            table: 'Derivado compuesto',
-            columns: 'Skill affinity, AI ease',
-            formula: '(Skill affinity * 0.60) + (AI ease * 0.40)',
-            purpose: 'Qué tan cómodo, rápido y rentable es para TI ejecutar este servicio',
-          },
-          {
-            field: 'Market score',
-            table: 'Derivado compuesto',
-            columns: 'New jobs/hr, % < 10 prop, Median hourly, % verified',
-            formula: 'F(Demanda) + F(Baja Competencia) + F(Tarifa) + F(Solvencia)',
-            purpose: 'Salud y fertilidad objetiva del mercado independiente de tus habilidades',
-          },
-          {
-            field: 'Overall opportunity',
-            table: 'Score Maestro',
-            columns: 'Market score, Personal fit, Lane',
-            formula: '(Market score * 0.50) + (Personal fit * 0.50) [Capado si Excluded]',
-            purpose: 'Decisión ejecutiva de postulación: equilibra mercado sano con capacidad de ganar',
-          },
-        ]
-      }
-    };
-  }
 }
 

@@ -60,11 +60,12 @@ export class ApifyJobAdapter implements JobDataSourcePort {
     }
 
     // 5. Verificación de Pago y Competencia (Propuestas enviadas)
-    const isPaymentVerified = Boolean(
-      raw.isPaymentMethodVerified || 
-      raw.buyer?.isPaymentMethodVerified || 
-      raw.isPaymentVerified
-    );
+    const paymentVerificationValue =
+      raw.isPaymentMethodVerified ??
+      raw.buyer?.isPaymentMethodVerified ??
+      raw.isPaymentVerified;
+    const paymentVerificationKnown = paymentVerificationValue != null;
+    const isPaymentVerified = Boolean(paymentVerificationValue);
 
     // Preservar null si Apify no encontró el conteo de aplicantes (no regalar bonos ficticios)
     let proposalsCount: number | null = null;
@@ -114,9 +115,12 @@ export class ApifyJobAdapter implements JobDataSourcePort {
       clientTotalSpend,
       clientHireRate,
       proposalsCount,
+      proposalsCountKnown: proposalsCount != null,
       isPaymentVerified,
+      paymentVerificationKnown,
       skills,
       postedAt,
+      postedAtKnown: postedAt != null,
       rawPayload: raw,
     };
   }

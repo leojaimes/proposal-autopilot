@@ -9,6 +9,10 @@ import { TenantContextService } from '../../core/context/tenant-context.service'
 import { ApifyJobAdapter } from './adapters/apify-job.adapter';
 import { OfficialUpworkApiAdapter } from './adapters/official-upwork.adapter';
 import { ScrapingProgressService } from './scraping-progress.service';
+import { MarketTaxonomyAssignmentService } from './services/market-taxonomy-assignment.service';
+import { MarketSnapshotService } from './services/market-snapshot.service';
+import { MarketRadarOperationsService } from './services/market-radar-operations.service';
+import { MarketRadarDecisionService } from './services/market-radar-decision.service';
 
 @Module({
   imports: [ScoringModule, ProposalsModule],
@@ -18,6 +22,10 @@ import { ScrapingProgressService } from './scraping-progress.service';
     ScrapingProgressService,
     ApifyJobAdapter, 
     OfficialUpworkApiAdapter, 
+    MarketTaxonomyAssignmentService,
+    MarketSnapshotService,
+    MarketRadarOperationsService,
+    MarketRadarDecisionService,
     PrismaService, 
     TenantContextService
   ],

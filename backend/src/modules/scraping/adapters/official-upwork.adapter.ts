@@ -21,6 +21,9 @@ export class OfficialUpworkApiAdapter implements JobDataSourcePort {
 
   normalizeRaw(raw: Record<string, any>): NormalizedJob {
     // Normalizador para la estructura de respuesta GraphQL oficial de Upwork
+    const proposalsCount = raw.totalApplicants != null ? Number(raw.totalApplicants) : null;
+    const paymentVerificationValue = raw.client?.isPaymentVerified;
+    const postedAt = raw.createdDateTime ? new Date(raw.createdDateTime) : null;
     return {
       externalId: String(raw.ciphertext || raw.id || ''),
       title: raw.title || '',
@@ -34,10 +37,13 @@ export class OfficialUpworkApiAdapter implements JobDataSourcePort {
       clientRating: Number(raw.client?.feedbackScore || 0),
       clientTotalSpend: Number(raw.client?.totalSpent || 0),
       clientHireRate: Number(raw.client?.hireRate || null),
-      proposalsCount: Number(raw.totalApplicants || 0),
-      isPaymentVerified: Boolean(raw.client?.isPaymentVerified),
+      proposalsCount,
+      proposalsCountKnown: proposalsCount != null,
+      isPaymentVerified: Boolean(paymentVerificationValue),
+      paymentVerificationKnown: paymentVerificationValue != null,
       skills: Array.isArray(raw.skills) ? raw.skills.map((s: any) => s.name || String(s)) : [],
-      postedAt: raw.createdDateTime ? new Date(raw.createdDateTime) : new Date(),
+      postedAt,
+      postedAtKnown: postedAt != null,
       rawPayload: raw,
     };
   }

@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "viewport": { "width": 1440, "height": 900 },
+  "maxDiffPixels": 1000000,
+  "stepTimeoutMs": 30000,
+  "scenarioTimeoutMs": 120000,
+  "scenarios": [
+    {
+      "id": "market-radar-trends-local",
+      "profile": "nielsen",
+      "steps": [
+        { "action": "goto", "path": "/" },
+        { "action": "waitFor", "selector": "header", "state": "visible" },
+        { "action": "click", "selector": "header button:has-text('Radar de Mercado')" },
+        { "action": "waitFor", "selector": "text=Category opportunities", "state": "visible" },
+        { "action": "waitFor", "selector": "text=Observed market movements", "state": "visible" },
+        { "action": "fill", "selector": "input[placeholder='Your name']", "valueFromEnv": "MARKET_RADAR_DECISION_OPERATOR" },
+        { "action": "fill", "selector": "input[placeholder*='Why this category']", "valueFromEnv": "MARKET_RADAR_DECISION_RATIONALE" },
+        { "action": "click", "selector": "tr:has-text('Design systems') button:has-text('Prioritize')" },
+        { "action": "waitFor", "selector": "tr:has-text('Design systems'):has-text('PRIORITIZED')", "state": "visible" },
+        { "action": "click", "selector": "button:has-text('Inspect 2')" },
+        { "action": "waitFor", "selector": "text=Evidence for Design systems", "state": "visible" },
+        { "action": "click", "selector": "article:has-text('Design system audit') button:has-text('Mark submitted')" },
+        { "action": "waitFor", "selector": "text=Outcome recorded.", "state": "visible" },
+        { "action": "screenshot", "id": "market-radar-trends-evidence", "checkpoint": "Local persisted trends and evidence are visible in the Market Radar.", "fullPage": true, "captureOnly": true }
+      ]
+    }
+  ]
+}

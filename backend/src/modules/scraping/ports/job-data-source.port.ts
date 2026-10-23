@@ -18,9 +18,12 @@ export interface NormalizedJob {
   clientTotalSpend: number;
   clientHireRate: number | null;
   proposalsCount: number | null;
+  proposalsCountKnown: boolean;
   isPaymentVerified: boolean;
+  paymentVerificationKnown: boolean;
   skills: string[];
   postedAt: Date | null;
+  postedAtKnown: boolean;
   rawPayload: Record<string, any>;
 }
 

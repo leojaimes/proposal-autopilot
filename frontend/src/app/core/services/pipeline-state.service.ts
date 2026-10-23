@@ -2,6 +2,25 @@ import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { PipelineStep, ProofStory } from '../models/pipeline.model';
 
+export type MarketCategoryLane = 'CORE' | 'ADJACENT' | 'EXCLUDED';
+
+export interface MarketTaxonomyNode {
+  id: string;
+  slug: string;
+  name: string;
+  kind: 'SUBCATEGORY' | 'OCCUPATION';
+  parentId: string | null;
+}
+
+export interface ProfileCategoryPolicy {
+  taxonomyNodeId: string;
+  lane: MarketCategoryLane;
+  includeTerms?: string[];
+  excludeTerms?: string[];
+  priority?: number;
+  taxonomyNode?: MarketTaxonomyNode;
+}
+
 export interface CalibrationProfile {
   id: string;
   name: string;
@@ -24,6 +43,7 @@ export interface CalibrationProfile {
   hybridRoles?: string[];
   tangentialRoles?: string[];
   excludedRoles?: string[];
+  categoryPolicies?: ProfileCategoryPolicy[];
   proofStories: ProofStory[];
 }
 
@@ -49,6 +69,7 @@ interface WorkspaceProfile {
   hybridRoles?: string[];
   tangentialRoles?: string[];
   excludedRoles?: string[];
+  categoryPolicies?: ProfileCategoryPolicy[];
   isActive: boolean;
   proofStories?: Array<{
     id: string;
@@ -86,6 +107,13 @@ interface FullProfilePayload {
   targetRegions: string[];
   excludedCountries: string[];
   geoFilterMode: 'WEIGHTED_PREFERENCE' | 'STRICT_EXCLUDE';
+  categoryPolicies: Array<{
+    taxonomyNodeId: string;
+    lane: MarketCategoryLane;
+    includeTerms?: string[];
+    excludeTerms?: string[];
+    priority?: number;
+  }>;
   proofStories: Array<{ keyCode: string; companyOrProduct: string; impactMetric: string; description: string; domainTags: string[] }>;
 }
 
@@ -128,6 +156,8 @@ export class PipelineStateService {
   public readonly hybridRoles = signal<string[]>([]);
   public readonly tangentialRoles = signal<string[]>([]);
   public readonly excludedRoles = signal<string[]>([]);
+  public readonly marketTaxonomy = signal<MarketTaxonomyNode[]>([]);
+  public readonly categoryPolicies = signal<ProfileCategoryPolicy[]>([]);
   public readonly isSynthesizingTaxonomy = signal<boolean>(false);
   public readonly taxonomySuccessMessage = signal<string>('');
   public readonly proofStories = signal<ProofStory[]>([]);
@@ -175,6 +205,7 @@ export class PipelineStateService {
       hybridRoles: profile.hybridRoles || [],
       tangentialRoles: profile.tangentialRoles || [],
       excludedRoles: profile.excludedRoles || [],
+      categoryPolicies: profile.categoryPolicies || [],
       proofStories: (profile.proofStories || []).map((story) => ({
         id: story.id,
         company: story.companyOrProduct,
@@ -206,6 +237,7 @@ export class PipelineStateService {
     this.hybridRoles.set(profile.hybridRoles || []);
     this.tangentialRoles.set(profile.tangentialRoles || []);
     this.excludedRoles.set(profile.excludedRoles || []);
+    this.categoryPolicies.set(profile.categoryPolicies || []);
   }
 
   private applyWorkspace(workspace: WorkspaceResponse): void {
@@ -220,7 +252,11 @@ export class PipelineStateService {
     this.isLoadingProfiles.set(true);
     this.profilesLoadError.set('');
     try {
-      const workspace = await this.http.get<WorkspaceResponse>(`${this.getApiBase()}/config/workspace`).toPromise();
+      const [workspace, taxonomy] = await Promise.all([
+        this.http.get<WorkspaceResponse>(`${this.getApiBase()}/config/workspace`).toPromise(),
+        this.http.get<MarketTaxonomyNode[]>(`${this.getApiBase()}/config/market-taxonomy`).toPromise(),
+      ]);
+      if (taxonomy) this.marketTaxonomy.set(taxonomy);
       if (workspace) this.applyWorkspace(workspace);
     } catch (error) {
       console.error('No se pudieron cargar los perfiles desde PostgreSQL:', error);
@@ -326,6 +362,7 @@ export class PipelineStateService {
           hybridRoles: this.hybridRoles(),
           tangentialRoles: this.tangentialRoles(),
           excludedRoles: this.excludedRoles(),
+          categoryPolicies: this.categoryPolicies(),
           proofStories: this.proofStories(),
         };
       }
@@ -359,6 +396,13 @@ export class PipelineStateService {
       targetRegions: this.targetRegions(),
       excludedCountries: this.excludedCountries(),
       geoFilterMode: this.geoFilterMode(),
+      categoryPolicies: this.categoryPolicies().map((policy) => ({
+        taxonomyNodeId: policy.taxonomyNodeId,
+        lane: policy.lane,
+        includeTerms: policy.includeTerms || [],
+        excludeTerms: policy.excludeTerms || [],
+        priority: policy.priority ?? 0,
+      })),
       proofStories: this.proofStories().map((story) => ({
         keyCode: story.id,
         companyOrProduct: story.company,
@@ -367,6 +411,18 @@ export class PipelineStateService {
         domainTags: story.tags,
       })),
     };
+  }
+
+  public getCategoryLane(taxonomyNodeId: string): MarketCategoryLane | null {
+    return this.categoryPolicies().find((policy) => policy.taxonomyNodeId === taxonomyNodeId)?.lane ?? null;
+  }
+
+  public setCategoryLane(taxonomyNodeId: string, lane: MarketCategoryLane): void {
+    this.categoryPolicies.update((policies) => [
+      ...policies.filter((policy) => policy.taxonomyNodeId !== taxonomyNodeId),
+      { taxonomyNodeId, lane },
+    ]);
+    this.syncActiveProfile();
   }
 
   private enqueueActiveProfileSave(): void {

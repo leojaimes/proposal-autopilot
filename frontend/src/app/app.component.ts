@@ -52,7 +52,7 @@ import { ReportService } from './core/services/report.service';
             </main>
           } @else {
             <main class="flex-1 overflow-y-auto bg-app">
-              <app-market-radar (drilldownCategory)="handleDrilldown($event)"></app-market-radar>
+              <app-market-radar></app-market-radar>
             </main>
           }
         }
@@ -71,8 +71,5 @@ export class AppComponent {
   public readonly currentView = signal<AppViewMode>('TERMINAL');
   public readonly isSettingsOpen = signal<boolean>(false);
 
-  public handleDrilldown(category: string): void {
-    this.currentView.set('EXPLORER');
-  }
 }
 

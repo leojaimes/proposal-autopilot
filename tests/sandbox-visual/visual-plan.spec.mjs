@@ -61,8 +61,15 @@ async function click(page, scenario, step, captured) {
     return;
   }
   const capture = step.captureResponse;
-  const responsePromise = page.waitForResponse((response) => response.url() === capture.url
-    && response.request().method() === capture.method, { timeout: step.timeoutMs });
+  const expectedUrl = new URL(capture.url);
+  const responsePromise = page.waitForResponse((response) => {
+    const responseUrl = new URL(response.url());
+    return responseUrl.protocol === expectedUrl.protocol
+      && responseUrl.hostname === expectedUrl.hostname
+      && responseUrl.pathname === expectedUrl.pathname
+      && responseUrl.search === expectedUrl.search
+      && response.request().method() === capture.method;
+  }, { timeout: step.timeoutMs });
   const [response] = await Promise.all([
     responsePromise,
     page.locator(step.selector).click({ timeout: step.timeoutMs }),
