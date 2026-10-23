@@ -1,0 +1,40 @@
+{
+  "version": 2,
+  "viewport": { "width": 1440, "height": 900 },
+  "maxDiffPixels": 1000000,
+  "stepTimeoutMs": 30000,
+  "scenarioTimeoutMs": 120000,
+  "scenarios": [
+    {
+      "id": "market-radar-live-e2e",
+      "profile": "nielsen",
+      "steps": [
+        { "action": "goto", "path": "/" },
+        { "action": "waitFor", "selector": "header", "state": "visible" },
+        { "action": "click", "selector": "header button:has-text('Radar de Mercado')" },
+        { "action": "waitFor", "selector": "h1:has-text('Market Radar')", "state": "visible" },
+        { "action": "waitFor", "selector": "text=Category opportunities", "state": "visible" },
+        { "action": "waitFor", "selector": "text=Radar data health", "state": "visible" },
+        { "action": "waitFor", "selector": "tr:has-text('Design systems')", "state": "visible" },
+        { "action": "waitFor", "selector": "tr:has-text('Product UX')", "state": "visible" },
+        { "action": "waitFor", "selector": "tr:has-text('UX research')", "state": "visible" },
+        {
+          "action": "screenshot",
+          "id": "market-radar-live-table",
+          "checkpoint": "The live batch is visible in the Radar table with eligibility, AI leverage, fit, trend, decision, and evidence columns.",
+          "fullPage": true,
+          "captureOnly": true
+        },
+        { "action": "click", "selector": "tr:has-text('Design systems') button:has-text('Inspect')" },
+        { "action": "waitFor", "selector": "h2:has-text('Evidence for Design systems')", "state": "visible" },
+        {
+          "action": "screenshot",
+          "id": "market-radar-live-evidence",
+          "checkpoint": "The live evidence drill-down exposes structured job fields and source links without manual copy/paste.",
+          "fullPage": true,
+          "captureOnly": true
+        }
+      ]
+    }
+  ]
+}
