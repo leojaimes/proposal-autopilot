@@ -1,71 +1,41 @@
 ---
 name: proposal-generator
-description: >-
-  Trigger: generar propuesta, batch proposals, redactar cover letter, propuesta tecnica,
-  generate proposals, proposal generator, run proposal batch.
-  Genera en lote propuestas hiper-personalizadas y cover letters de 30-35 palabras
-  con descubrimiento de nombre de contacto, desglose técnico de 5 pasos (Figma Make, n8n, Claude, Qualtrics),
-  diagramas Mermaid de 6 nodos y enlaces a Google Doc / Walkthrough.
+description: "Trigger: generar propuesta, batch proposals, cover letter, proposal generator, Google Doc proposal. Generate ranked, job-specific Upwork proposals with a 35-word cover letter, Mermaid diagram, and document link."
+license: Apache-2.0
+metadata:
+  author: spotlight-engineering
+  version: "2.0"
 ---
 
-# Skill: Generador de Propuestas & Cover Letters de Alto Impacto
+## Activation Contract
 
-Esta skill ejecuta la generación en lote de propuestas para las vacantes de mayor puntaje (Highest Fit Score First), optimizadas específicamente para el comportamiento de escaneo rápido en la bandeja de entrada de clientes de Upwork.
+Use this skill after fit ranking when the user asks for one proposal or a batch. Read `positioning.md` and the complete job description before drafting.
 
----
+## Hard Rules
 
-## 1. Reglas Fundamentales del Flujo
+- Process jobs in descending Fit Score and preserve the factor breakdown.
+- Scan the full description for a contact name, signature, or company mention. Use it when found; otherwise use `Hey there,` or `Hi,`. Never use formal generic greetings.
+- Keep the cover letter between 30 and 35 words, including the document link. Count words programmatically. No em dashes.
+- Write in first person and name the specific project. Use a relevant proof story, never invented facts or placeholders.
+- Include a 5–6 step technical approach with real methods/tools: Figma, Figma Make, Claude, Qualtrics, N8N, usability testing, and heuristic evaluation when relevant.
+- Render a Mermaid `flowchart TD` with at most 6 nodes that matches the proposal steps.
+- Create one clean Google Doc per job with real headings and the rendered diagram embedded. If the Docs connector is unavailable, use the public walkthrough fallback and mark the document as pending.
 
-Para cada vacante ordenada de mayor a menor `fitScore`:
+## Execution Steps
 
-### Paso 1: Descubrimiento de Nombre de Contacto (Contact Name Discovery)
-* Escanear la descripción completa y las firmas del cliente (ej. *"thanks, Sara"*, *"Best, John"*, *"I'm Mike from Acme"*).
-* **Si se encuentra el nombre:** Abrir la cover letter con ese nombre: `"Hey Sara,"` o `"Hi Sara,"`.
-* **Si NO se encuentra el nombre:** Abrir con un saludo natural entre colegas: `"Hey there,"` o `"Hi,"`.
-* **Regla estricta:** NUNCA usar *"Dear Sir/Madam"*, *"Dear Hiring Manager"* ni *"Hiring Team"*.
+1. Load the job, fit score, `positioning.md`, proof stories, and profile voice rules.
+2. Discover the contact name and select the closest proof story.
+3. Draft the technical proposal, deliverables, and a realistic 10–15 business-day timeline.
+4. Generate the Mermaid diagram and validate node/step parity.
+5. Create the Google Doc or fallback walkthrough, then draft the ≤35-word cover letter with its link.
+6. Return one structured proposal record per job, sorted by Fit Score.
 
-### Paso 2: Cover Letter de 35 Palabras Máximo (Above The Fold)
-* **Límite psicológico:** 30 a 35 palabras en total incluyendo el enlace `[link]`.
-* **Estructura fija:**
-  1. **Saludo natural con nombre:** `"Hey [Name],"`
-  2. **Gancho de autoridad y resultado transferible:** `"I work with [herramienta clave del trabajo] daily. Having [métrica auditada en Proof Story], I just mapped the exact technical architecture for your project."`
-  3. **Llamado a la acción:** `"Free walkthrough and roadmap here: [link]."`
-* **Regla de estilo:** 0 guiones largos (`—`), 0 clichés de IA, tono directo estilo Slack.
+## Output Contract
 
-### Paso 3: Propuesta Técnica Completa en Primera Persona (5 a 6 Pasos)
-Estructurada en primera persona ("I") específicamente para el proyecto del cliente, sin plantillas con huecos en blanco:
-1. **Executive Summary & Diagnostic Hook:** Gancho de una sola línea demostrando que ya se analizó su caso a fondo + métrica de autoridad de la Proof Story (ej. *Pepper AI: 17k+ usuarios activos*).
-2. **Desglose Técnico de 5 a 6 Pasos con Herramientas Reales:**
-   * **Paso 1:** Research Synthesis & Heuristic Audit (usando *Claude* para síntesis temática y *Qualtrics* para encuestas estructuradas).
-   * **Paso 2:** Information Architecture & Workflow Mapping (definición de estados de usuario y handoffs de agentes).
-   * **Paso 3:** Rapid Prototyping & Component Architecture (usando *Figma & Figma Make* para tokens de diseño y componentes autolayout asistidos por IA).
-   * **Paso 4:** Agentic Automation & Workflow Integration (usando *n8n* para orquestación de flujos de trabajo con agentes y webhooks).
-   * **Paso 5:** Usability Testing & Iterative Hardening (pruebas estándar de usabilidad, métricas SUS y evaluación heurística).
-3. **Entregables y Cronograma Realista:** Hitos por semanas (Fase 1 Semana 1, Fase 2 Semana 2) con artefactos tangibles.
+Return `contactName`, `coverLetter35Words`, `technicalProposalBody`, `mermaidDiagramCode`, `proposalDocLink`, `fitScore`, factor breakdown, validation errors, and document status.
 
-### Paso 4: Diagrama de Flujo Mermaid (Máximo 6 Nodos)
-Un diagrama `flowchart TD` limpio que represente los 5-6 pasos metodológicos del proyecto:
-```mermaid
-flowchart TD
-  A[Discovery & Claude Research] --> B[Information Architecture]
-  B --> C[Figma AI-Assisted Prototype]
-  C --> D[n8n Workflow Automation]
-  D --> E[Usability Testing & Handover]
-```
+## References
 
-### Paso 5: Google Doc / Walkthrough Interactivo & PDF Ejecutivo
-* **En Upwork:** El enlace de la cover letter abre el Walkthrough o Google Doc limpio, formateado con encabezados reales y el diagrama integrado.
-* **Adjunto en Upwork:** Se adjunta el PDF generado por Gotenberg para clientes corporativos que desean archivar la propuesta.
-
----
-
-## 2. Ejecución en Lote mediante API o Terminal
-
-Para generar propuestas de forma masiva sobre todos los empleos de alto fit:
-
-```bash
-# Ejecutar síntesis para los empleos con High Fit
-curl -X POST https://pepper-tix-proposal-backend.zh4nwb.easypanel.host/api/scraping/synthesize-batch \
-  -H "Content-Type: application/json" \
-  -d '{"minScore": 75, "overwrite": false}'
-```
+- `positioning.md`
+- `references/proposal-generation-core.md`
+- `assets/hex-color-proposal-brief.json`

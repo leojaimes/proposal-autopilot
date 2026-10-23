@@ -1,0 +1,16 @@
+{
+  "jobTitle": "HEX-COLOR",
+  "seedCoverLetter": "Hey there, I work with Figma daily. Having cut design-related dev cycles by 25% at Meta, I just mapped the technical architecture for your project. Free walkthrough and roadmap here: [link].",
+  "knownInputs": {
+    "tool": "Figma",
+    "proofStory": "Standardized UX patterns across 3 Meta Fintech engineering teams",
+    "impactMetric": "25% reduction in design-related development cycles"
+  },
+  "missingBeforeGeneration": [
+    "full job description",
+    "contact name or signature",
+    "specific HEX-COLOR deliverables",
+    "budget and timeline constraints",
+    "Google Doc or walkthrough destination"
+  ]
+}
