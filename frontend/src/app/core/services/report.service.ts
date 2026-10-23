@@ -50,6 +50,10 @@ export class ReportService {
   public readonly elapsedTimeSeconds = signal<number>(0);
   public readonly hasCompletedSuccessfully = signal<boolean>(false);
 
+  // Incremented when a completed batch has rebuilt the persisted Market Radar snapshot.
+  private readonly _marketRadarRefreshVersion = signal<number>(0);
+  public readonly marketRadarRefreshVersion = this._marketRadarRefreshVersion.asReadonly();
+
   // Tri-Factor Positioning State
   public readonly offerHeadline = signal<string>('');
   public readonly targetAudience = signal<string>('');
@@ -202,6 +206,7 @@ export class ReportService {
 
     if (data.step === 'COMPLETED') {
       this.hasCompletedSuccessfully.set(true);
+      this._marketRadarRefreshVersion.update((version) => version + 1);
       this.refresh(); // Refresco reactivo automático de la lista de vacantes
       this.closeEventSource();
       if (this.timerInterval) clearInterval(this.timerInterval);

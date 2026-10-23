@@ -2,6 +2,7 @@ import { Component, ChangeDetectionStrategy, inject, signal, computed, OnInit, e
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { PipelineStateService } from '../../core/services/pipeline-state.service';
+import { ReportService } from '../../core/services/report.service';
 import {
   LucideChevronDown,
   LucideChevronUp,
@@ -127,6 +128,7 @@ export interface MarketRadarOperationalHealth {
 export class MarketRadarComponent implements OnInit {
   private readonly http = inject(HttpClient);
   public readonly pipeline = inject(PipelineStateService);
+  private readonly report = inject(ReportService);
 
   public readonly radarData = signal<RadarData | null>(null);
   public readonly isLoading = signal<boolean>(true);
@@ -141,6 +143,8 @@ export class MarketRadarComponent implements OnInit {
     effect(() => {
       // Re-ejecutar el análisis cuando cambia el perfil activo en la cabina
       this.pipeline.activeProfileId();
+      // El batch terminado ya persistió un snapshot nuevo; cargarlo sin interacción manual.
+      this.report.marketRadarRefreshVersion();
       this.fetchRadarData();
     });
   }
