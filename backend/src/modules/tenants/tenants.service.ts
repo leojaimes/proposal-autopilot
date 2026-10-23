@@ -50,6 +50,7 @@ export interface FullProfileSyncDto {
     includeTerms?: string[];
     excludeTerms?: string[];
     priority?: number;
+    aiLeverageEnabled?: boolean;
   }>;
   proofStories?: Array<{
     keyCode: string;
@@ -312,6 +313,7 @@ export class TenantsService {
               includeTerms: policy.includeTerms || [],
               excludeTerms: policy.excludeTerms || [],
               priority: policy.priority ?? 0,
+              aiLeverageEnabled: policy.aiLeverageEnabled === true,
             })),
           });
         }

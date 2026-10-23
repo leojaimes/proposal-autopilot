@@ -35,6 +35,7 @@ function snapshot(overrides: Record<string, unknown> = {}) {
       profileFit: 82,
       overallOpportunity: 65,
       fitSampleJobs: 1,
+      profileEligibility: 'ELIGIBLE',
       calculationVersion: 'market-radar-v1',
     }],
     ...overrides,
@@ -62,35 +63,45 @@ test('preserves the observed snapshot and profile context when recording a prior
   assert.equal(created.profileContext.profileFit, 82);
 });
 
-test('blocks prioritized decisions until Radar health is ready', async () => {
-  const prisma = { marketCategorySnapshot: { findFirst: async () => snapshot() } };
-  const operations = { getHealth: async () => ({ state: 'PARTIAL' }) };
-  const service = new MarketRadarDecisionService(prisma as any, operations as any);
+test('blocks every decision action until Radar health is ready', async () => {
+  for (const status of Object.values(MarketRadarDecisionStatus)) {
+    const prisma = { marketCategorySnapshot: { findFirst: async () => snapshot() } };
+    const operations = { getHealth: async () => ({ state: 'PARTIAL' }) };
+    const service = new MarketRadarDecisionService(prisma as any, operations as any);
 
-  await assert.rejects(
-    service.createDecision({
-      tenantId: 'tenant-1', profile, snapshotId: 'snapshot-1', status: MarketRadarDecisionStatus.PRIORITIZED,
-      rationale: 'Need more evidence.', operator: 'Armando',
-    }),
-    BadRequestException,
-  );
+    await assert.rejects(
+      service.createDecision({
+        tenantId: 'tenant-1', profile, snapshotId: 'snapshot-1', status,
+        rationale: 'Radar data is incomplete.', operator: 'Armando',
+      }),
+      BadRequestException,
+      `${status} must be blocked when Radar is not ready`,
+    );
+  }
 });
 
-test('rejects a category without an observed eligible profile fit', async () => {
-  const prisma = { marketCategorySnapshot: { findFirst: async () => snapshot({ profileOpportunities: [] }) } };
-  const operations = { getHealth: async () => ({ state: 'READY' }) };
-  const service = new MarketRadarDecisionService(prisma as any, operations as any);
+test('rejects decisions for pending or excluded profile opportunities even when Radar is ready', async () => {
+  for (const profileEligibility of ['PENDING', 'EXCLUDED'] as const) {
+    const prisma = {
+      marketCategorySnapshot: {
+        findFirst: async () => snapshot({ profileOpportunities: [{ ...snapshot().profileOpportunities[0], profileEligibility }] }),
+      },
+    };
+    const operations = { getHealth: async () => ({ state: 'READY' }) };
+    const service = new MarketRadarDecisionService(prisma as any, operations as any);
 
-  await assert.rejects(
-    service.createDecision({
-      tenantId: 'tenant-1', profile, snapshotId: 'snapshot-1', status: MarketRadarDecisionStatus.WATCHED,
-      rationale: 'No observed fit yet.', operator: 'Armando',
-    }),
-    BadRequestException,
-  );
+    await assert.rejects(
+      service.createDecision({
+        tenantId: 'tenant-1', profile, snapshotId: 'snapshot-1', status: MarketRadarDecisionStatus.WATCHED,
+        rationale: 'This profile cannot act on this category.', operator: 'Armando',
+      }),
+      BadRequestException,
+      `${profileEligibility} opportunities must not accept a decision`,
+    );
+  }
 });
 
-test('links an outcome to a tenant-owned proposal and its job', async () => {
+test('persists the complete decision-to-result chain with a tenant-owned proposal and realized value', async () => {
   let outcomeUpdate: any;
   const prisma = {
     marketRadarDecision: { findFirst: async () => ({ id: 'decision-1' }) },
@@ -104,9 +115,17 @@ test('links an outcome to a tenant-owned proposal and its job', async () => {
   await service.updateOutcome({
     tenantId: 'tenant-1', decisionId: 'decision-1', proposalId: 'proposal-1',
     submittedAt: new Date('2026-10-22T12:00:00.000Z'),
+    qualifiedRepliedAt: new Date('2026-10-23T12:00:00.000Z'),
+    interviewedAt: new Date('2026-10-24T12:00:00.000Z'),
+    wonAt: new Date('2026-10-25T12:00:00.000Z'),
+    realizedValue: 4800,
   });
 
   assert.equal(outcomeUpdate.create.jobPostId, 'job-1');
   assert.equal(outcomeUpdate.create.proposalId, 'proposal-1');
   assert.equal(outcomeUpdate.create.submittedAt.toISOString(), '2026-10-22T12:00:00.000Z');
+  assert.equal(outcomeUpdate.create.qualifiedRepliedAt.toISOString(), '2026-10-23T12:00:00.000Z');
+  assert.equal(outcomeUpdate.create.interviewedAt.toISOString(), '2026-10-24T12:00:00.000Z');
+  assert.equal(outcomeUpdate.create.wonAt.toISOString(), '2026-10-25T12:00:00.000Z');
+  assert.equal(outcomeUpdate.create.realizedValue, 4800);
 });

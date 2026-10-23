@@ -102,6 +102,8 @@
             <tr>
               <th class="px-4 py-3">#</th>
               <th class="px-4 py-3">Category</th>
+              <th class="px-4 py-3">Profile eligibility</th>
+              <th class="px-4 py-3">AI leverage</th>
               <th class="px-4 py-3">Demand 7d / 30d</th>
               <th class="px-4 py-3">Observed proposals</th>
               <th class="px-4 py-3">Fixed budget median</th>
@@ -121,6 +123,13 @@
                 <td class="px-4 py-3">
                   <p class="font-medium text-content-primary">{{ category.category }}</p>
                   <p class="mt-0.5 text-xs text-content-muted">{{ category.lane }} · {{ category.sampleJobs }} jobs · {{ category.asOf }}</p>
+                </td>
+                <td class="px-4 py-3"><span class="rounded-full px-2 py-1 text-xs font-semibold" [class]="getEligibilityBadgeClass(category.profileEligibility)">{{ getEligibilityLabel(category.profileEligibility) }}</span></td>
+                <td class="px-4 py-3">
+                  <span class="rounded-full px-2 py-1 text-xs font-semibold" [class]="category.aiLeverage.state === 'APPLICABLE' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-500/20 text-slate-300'">{{ getAiLeverageLabel(category.aiLeverage) }}</span>
+                  @if (getAiLeverageDescription(category.aiLeverage); as description) {
+                    <p class="mt-1 max-w-56 text-[10px] text-content-muted">{{ description }}</p>
+                  }
                 </td>
                 <td class="px-4 py-3 text-content-primary">{{ category.demand7d }} / {{ category.demand30d }}</td>
                 <td class="px-4 py-3" [class]="getProposalClass(category.medianProposals)">{{ category.medianProposals ?? 'Not observed' }}</td>
@@ -148,8 +157,8 @@
                   } @else {
                     <div class="flex flex-wrap gap-1">
                       <button (click)="createDecision(category, 'PRIORITIZED', decisionOperator.value, decisionRationale.value)" [disabled]="isSavingDecision() || data.operationalHealth.state !== 'READY'" class="rounded border border-emerald-500/30 px-2 py-1 text-[10px] text-emerald-300 disabled:opacity-40">Prioritize</button>
-                      <button (click)="createDecision(category, 'WATCHED', decisionOperator.value, decisionRationale.value)" [disabled]="isSavingDecision()" class="rounded border border-amber-500/30 px-2 py-1 text-[10px] text-amber-300 disabled:opacity-40">Watch</button>
-                      <button (click)="createDecision(category, 'DISMISSED', decisionOperator.value, decisionRationale.value)" [disabled]="isSavingDecision()" class="rounded border border-border-subtle px-2 py-1 text-[10px] text-content-muted disabled:opacity-40">Dismiss</button>
+                      <button (click)="createDecision(category, 'WATCHED', decisionOperator.value, decisionRationale.value)" [disabled]="isSavingDecision() || data.operationalHealth.state !== 'READY'" class="rounded border border-amber-500/30 px-2 py-1 text-[10px] text-amber-300 disabled:opacity-40">Watch</button>
+                      <button (click)="createDecision(category, 'DISMISSED', decisionOperator.value, decisionRationale.value)" [disabled]="isSavingDecision() || data.operationalHealth.state !== 'READY'" class="rounded border border-border-subtle px-2 py-1 text-[10px] text-content-muted disabled:opacity-40">Dismiss</button>
                     </div>
                   }
                 </td>
@@ -160,7 +169,7 @@
                 </td>
               </tr>
             } @empty {
-              <tr><td colspan="12" class="px-4 py-8 text-center text-content-muted">No category snapshots yet. Run a local scrape to create evidence.</td></tr>
+              <tr><td colspan="14" class="px-4 py-8 text-center text-content-muted">No category snapshots yet. Run a local scrape to create evidence.</td></tr>
             }
           </tbody>
         </table>
@@ -184,12 +193,30 @@
               <p class="mt-1 text-xs text-content-muted">Posted {{ job.postedAt ?? 'not observed' }} · proposals {{ job.proposalsCount ?? 'not observed' }} · fixed budget {{ job.fixedBudget == null ? 'not observed' : (job.fixedBudget | currency:'USD':'symbol':'1.0-0') }} · payment {{ job.paymentVerified == null ? 'not observed' : (job.paymentVerified ? 'verified' : 'not verified') }}</p>
               </a>
               @if (selected.decision; as decision) {
-                <div class="mt-3 flex flex-wrap gap-1 border-t border-border-subtle pt-3">
-                  <button (click)="recordOutcome(decision.id, job.id, 'submittedAt')" [disabled]="isSavingDecision()" class="rounded border border-border-subtle px-2 py-1 text-[10px] text-content-muted disabled:opacity-40">Mark submitted</button>
-                  <button (click)="recordOutcome(decision.id, job.id, 'qualifiedRepliedAt')" [disabled]="isSavingDecision()" class="rounded border border-border-subtle px-2 py-1 text-[10px] text-content-muted disabled:opacity-40">Mark qualified reply</button>
-                  <button (click)="recordOutcome(decision.id, job.id, 'interviewedAt')" [disabled]="isSavingDecision()" class="rounded border border-border-subtle px-2 py-1 text-[10px] text-content-muted disabled:opacity-40">Mark interview</button>
-                  <button (click)="recordOutcome(decision.id, job.id, 'wonAt')" [disabled]="isSavingDecision()" class="rounded border border-border-subtle px-2 py-1 text-[10px] text-content-muted disabled:opacity-40">Mark won</button>
+                @if (!decision.outcome?.jobPostId || decision.outcome?.jobPostId === job.id) {
+                <div class="mt-3 grid gap-2 border-t border-border-subtle pt-3 md:grid-cols-2">
+                  <label class="text-[10px] text-content-muted">Proposal ID
+                    <input #proposalId type="text" placeholder="Proposal ID" class="mt-1 w-full rounded border border-border-subtle bg-app px-2 py-1 text-xs text-content-primary" [value]="decision.outcome?.proposalId ?? ''" />
+                  </label>
+                  <label class="text-[10px] text-content-muted">Realized contract value
+                    <input #realizedValue type="number" min="0" step="0.01" placeholder="Realized contract value" class="mt-1 w-full rounded border border-border-subtle bg-app px-2 py-1 text-xs text-content-primary" [value]="decision.outcome?.realizedValue ?? ''" />
+                  </label>
                 </div>
+                <div class="mt-3 flex flex-wrap gap-1 border-t border-border-subtle pt-3">
+                  <button (click)="recordOutcome(decision.id, job.id, 'submittedAt', proposalId.value, realizedValue.value)" [disabled]="isSavingDecision()" class="rounded border border-border-subtle px-2 py-1 text-[10px] text-content-muted disabled:opacity-40">Mark submitted</button>
+                  <button (click)="recordOutcome(decision.id, job.id, 'qualifiedRepliedAt', proposalId.value, realizedValue.value)" [disabled]="isSavingDecision()" class="rounded border border-border-subtle px-2 py-1 text-[10px] text-content-muted disabled:opacity-40">Mark qualified reply</button>
+                  <button (click)="recordOutcome(decision.id, job.id, 'interviewedAt', proposalId.value, realizedValue.value)" [disabled]="isSavingDecision()" class="rounded border border-border-subtle px-2 py-1 text-[10px] text-content-muted disabled:opacity-40">Mark interview</button>
+                  <button (click)="recordOutcome(decision.id, job.id, 'wonAt', proposalId.value, realizedValue.value)" [disabled]="isSavingDecision()" class="rounded border border-border-subtle px-2 py-1 text-[10px] text-content-muted disabled:opacity-40">Mark contract</button>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-content-muted" aria-live="polite">
+                  <span>Submitted: {{ decision.outcome?.submittedAt ? 'recorded' : 'not recorded' }}</span>
+                  <span>Qualified response: {{ decision.outcome?.qualifiedRepliedAt ? 'recorded' : 'not recorded' }}</span>
+                  <span>Interview: {{ decision.outcome?.interviewedAt ? 'recorded' : 'not recorded' }}</span>
+                  <span>Contract: {{ decision.outcome?.wonAt ? 'recorded' : 'not recorded' }}</span>
+                </div>
+                } @else {
+                  <p class="mt-3 border-t border-border-subtle pt-3 text-[10px] text-content-muted">Outcome linked to another evidence job.</p>
+                }
               }
             </article>
           } @empty {

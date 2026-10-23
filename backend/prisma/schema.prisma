@@ -60,6 +60,17 @@ enum MarketCategoryLane {
   EXCLUDED
 }
 
+enum ProfileEligibility {
+  ELIGIBLE
+  EXCLUDED
+  PENDING
+}
+
+enum MarketAiLeverageState {
+  APPLICABLE
+  NOT_APPLICABLE
+}
+
 enum JobCategoryAssignmentSource {
   UPWORK
   RULES
@@ -213,6 +224,7 @@ model ProfileCategoryPolicy {
   includeTerms   String[]           @default([]) @map("include_terms")
   excludeTerms   String[]           @default([]) @map("exclude_terms")
   priority       Int                @default(0)
+  aiLeverageEnabled Boolean         @default(false) @map("ai_leverage_enabled")
   isActive       Boolean            @default(true) @map("is_active")
   policyVersion  Int                @default(1) @map("policy_version")
   createdAt      DateTime           @default(now()) @map("created_at")
@@ -372,6 +384,11 @@ model ProfileOpportunitySnapshot {
   profileFit               Decimal?           @map("profile_fit") @db.Decimal(5, 2)
   overallOpportunity       Decimal?           @map("overall_opportunity") @db.Decimal(5, 2)
   fitSampleJobs            Int                @default(0) @map("fit_sample_jobs")
+  profileEligibility       ProfileEligibility @default(PENDING) @map("profile_eligibility")
+  aiLeverageState          MarketAiLeverageState @default(NOT_APPLICABLE) @map("ai_leverage_state")
+  aiLeverageCapability     String?            @map("ai_leverage_capability") @db.VarChar(255)
+  aiLeverageTask           String?            @map("ai_leverage_task") @db.Text
+  aiLeverageExplanation    String?            @map("ai_leverage_explanation") @db.Text
   calculationVersion       String             @default("v1") @map("calculation_version") @db.VarChar(50)
   createdAt                DateTime           @default(now()) @map("created_at")
 

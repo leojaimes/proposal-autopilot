@@ -1,8 +1,11 @@
-import { FitTier, JobCategoryAssignmentSource, PrismaClient, StrategicLane } from '@prisma/client';
+import { FitTier, JobCategoryAssignmentSource, MarketCategoryLane, PrismaClient, StrategicLane } from '@prisma/client';
 import { MarketSnapshotService } from '../src/modules/scraping/services/market-snapshot.service';
 
 const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 const FIXTURE_PREFIX = 'sandbox-market-radar-trend-';
+const FIXTURE_PROPOSAL_ID = '00000000-0000-0000-0000-000000000123';
+const FIXTURE_POLICY_VERSION = 999;
+const FIXTURE_POLICY_MARKER = 'sandbox-market-radar-fixture';
 const SNAPSHOT_DATES = [new Date('2026-10-21T12:00:00.000Z'), new Date('2026-10-22T12:00:00.000Z')];
 const FIXTURE_PROFILE_NAME = process.env.MARKET_RADAR_FIXTURE_PROFILE_NAME;
 const prisma = new PrismaClient();
@@ -37,6 +40,18 @@ async function applyFixture(): Promise<void> {
     taxonomyNodeId('design-systems'),
     taxonomyNodeId('ai-prototyping'),
   ]);
+  await Promise.all([
+    prisma.profileCategoryPolicy.upsert({
+      where: { uq_profile_taxonomy_policy: { profileId: activeProfile.id, taxonomyNodeId: designSystemsId } },
+      update: { tenantId: DEFAULT_TENANT_ID, lane: MarketCategoryLane.CORE, aiLeverageEnabled: true, isActive: true, policyVersion: FIXTURE_POLICY_VERSION, includeTerms: [FIXTURE_POLICY_MARKER] },
+      create: { tenantId: DEFAULT_TENANT_ID, profileId: activeProfile.id, taxonomyNodeId: designSystemsId, lane: MarketCategoryLane.CORE, aiLeverageEnabled: true, isActive: true, policyVersion: FIXTURE_POLICY_VERSION, includeTerms: [FIXTURE_POLICY_MARKER] },
+    }),
+    prisma.profileCategoryPolicy.upsert({
+      where: { uq_profile_taxonomy_policy: { profileId: activeProfile.id, taxonomyNodeId: aiPrototypingId } },
+      update: { tenantId: DEFAULT_TENANT_ID, lane: MarketCategoryLane.ADJACENT, aiLeverageEnabled: true, isActive: true, policyVersion: FIXTURE_POLICY_VERSION, includeTerms: [FIXTURE_POLICY_MARKER] },
+      create: { tenantId: DEFAULT_TENANT_ID, profileId: activeProfile.id, taxonomyNodeId: aiPrototypingId, lane: MarketCategoryLane.ADJACENT, aiLeverageEnabled: true, isActive: true, policyVersion: FIXTURE_POLICY_VERSION, includeTerms: [FIXTURE_POLICY_MARKER] },
+    }),
+  ]);
   const jobs = await Promise.all([
     prisma.jobPost.create({ data: {
       tenantId: DEFAULT_TENANT_ID, externalUpworkId: `${FIXTURE_PREFIX}design-baseline`,
@@ -57,6 +72,13 @@ async function applyFixture(): Promise<void> {
       proposalsCount: 28, proposalsCountKnown: true, budgetFixed: 2500, isPaymentVerified: false, paymentVerificationKnown: true,
     } }),
   ]);
+  await prisma.proposal.create({ data: {
+    id: FIXTURE_PROPOSAL_ID,
+    jobPostId: jobs[0].id,
+    positioningProfileId: activeProfile.id,
+    coverLetter35Words: 'Deterministic fixture proposal for the local Market Radar result flow.',
+    technicalProposalBody: 'This proposal exists only to verify Radar decision-to-result associations locally.',
+  } });
 
   await prisma.jobCategoryAssignment.createMany({ data: [
     { tenantId: DEFAULT_TENANT_ID, jobPostId: jobs[0].id, taxonomyNodeId: designSystemsId, source: JobCategoryAssignmentSource.RULES, isPrimary: true },
@@ -84,6 +106,7 @@ async function cleanupFixture(): Promise<void> {
   }
   await prisma.marketRadarDecision.deleteMany({ where: { tenantId: DEFAULT_TENANT_ID } });
   await prisma.marketCategorySnapshot.deleteMany({ where: { tenantId: DEFAULT_TENANT_ID } });
+  await prisma.profileCategoryPolicy.deleteMany({ where: { tenantId: DEFAULT_TENANT_ID, policyVersion: FIXTURE_POLICY_VERSION, includeTerms: { has: FIXTURE_POLICY_MARKER } } });
   await prisma.jobPost.deleteMany({ where: { tenantId: DEFAULT_TENANT_ID, externalUpworkId: { startsWith: FIXTURE_PREFIX } } });
   console.log('Removed deterministic local market-radar fixture.');
 }

@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { MarketCategoryLane, MarketTaxonomyKind, Prisma } from '@prisma/client';
+import {
+  MarketAiLeverageState,
+  MarketCategoryLane,
+  MarketTaxonomyKind,
+  Prisma,
+  ProfileEligibility,
+} from '@prisma/client';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { MarketSnapshotCalculator, MarketSnapshotJob } from './market-snapshot-calculator.service';
 
@@ -7,9 +13,33 @@ const CALCULATION_VERSION = 'market-radar-v1';
 
 type CategoryResult = {
   taxonomyNodeId: string;
+  metadata: Prisma.JsonValue | null;
   jobs: Array<MarketSnapshotJob & { fitEvaluations: Array<{ positioningProfileId: string | null; overallScore: number }> }>;
   metrics: ReturnType<MarketSnapshotCalculator['calculate']>;
 };
+
+type AiLeverageDeclaration = {
+  capability: string;
+  task: string | null;
+  explanation: string | null;
+};
+
+function optionalText(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function readAiLeverageDeclaration(metadata: Prisma.JsonValue | null): AiLeverageDeclaration | null {
+  if (metadata == null || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
+  const declaration = (metadata as Record<string, unknown>).aiLeverage;
+  if (declaration == null || typeof declaration !== 'object' || Array.isArray(declaration)) return null;
+  const capability = optionalText((declaration as Record<string, unknown>).capability);
+  if (capability == null) return null;
+  return {
+    capability,
+    task: optionalText((declaration as Record<string, unknown>).task),
+    explanation: optionalText((declaration as Record<string, unknown>).explanation),
+  };
+}
 
 function utcDate(value: Date): Date {
   return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
@@ -43,7 +73,7 @@ export class MarketSnapshotService {
         id: true,
         categoryPolicies: {
           where: { isActive: true },
-          select: { taxonomyNodeId: true, lane: true },
+          select: { taxonomyNodeId: true, lane: true, aiLeverageEnabled: true },
         },
       },
     });
@@ -55,6 +85,7 @@ export class MarketSnapshotService {
       },
       select: {
         id: true,
+        metadata: true,
         jobAssignments: {
           where: { tenantId, isPrimary: true },
           select: {
@@ -99,6 +130,7 @@ export class MarketSnapshotService {
 
       return {
         taxonomyNodeId: category.id,
+        metadata: category.metadata,
         jobs,
         metrics: this.calculator.calculate(jobs, snapshotDate),
       };
@@ -166,6 +198,12 @@ export class MarketSnapshotService {
               verifiedClientsPct: result.metrics.verifiedClientsPct,
               profileFit,
             });
+          const profileEligibility = policy?.lane === MarketCategoryLane.EXCLUDED
+            ? ProfileEligibility.EXCLUDED
+            : policy == null || profileFit == null || fitScores.length === 0 || overallOpportunity == null
+              ? ProfileEligibility.PENDING
+              : ProfileEligibility.ELIGIBLE;
+          const aiLeverage = policy?.aiLeverageEnabled ? readAiLeverageDeclaration(result.metadata) : null;
 
           await transaction.profileOpportunitySnapshot.upsert({
             where: {
@@ -183,6 +221,11 @@ export class MarketSnapshotService {
               profileFit,
               overallOpportunity,
               fitSampleJobs: fitScores.length,
+              profileEligibility,
+              aiLeverageState: aiLeverage == null ? MarketAiLeverageState.NOT_APPLICABLE : MarketAiLeverageState.APPLICABLE,
+              aiLeverageCapability: aiLeverage?.capability ?? null,
+              aiLeverageTask: aiLeverage?.task ?? null,
+              aiLeverageExplanation: aiLeverage?.explanation ?? null,
               calculationVersion: CALCULATION_VERSION,
             },
             update: {
@@ -190,6 +233,11 @@ export class MarketSnapshotService {
               profileFit,
               overallOpportunity,
               fitSampleJobs: fitScores.length,
+              profileEligibility,
+              aiLeverageState: aiLeverage == null ? MarketAiLeverageState.NOT_APPLICABLE : MarketAiLeverageState.APPLICABLE,
+              aiLeverageCapability: aiLeverage?.capability ?? null,
+              aiLeverageTask: aiLeverage?.task ?? null,
+              aiLeverageExplanation: aiLeverage?.explanation ?? null,
             },
           });
         }

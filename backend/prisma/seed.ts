@@ -10,12 +10,25 @@ interface MarketTaxonomySeedNode {
   kind: 'CATEGORY' | 'OCCUPATION';
   parentSlug?: string;
   includeTerms?: string[];
+  aiLeverage?: {
+    capability: string;
+    task?: string;
+    explanation?: string;
+  };
 }
 
 const MARKET_TAXONOMY_V1: MarketTaxonomySeedNode[] = [
   { slug: 'digital-services', name: 'Digital services', kind: 'CATEGORY' as const },
   { slug: 'ux-product-design', name: 'UX & product design', kind: 'CATEGORY' as const, parentSlug: 'digital-services' },
-  { slug: 'design-systems', name: 'Design systems', kind: 'OCCUPATION' as const, parentSlug: 'ux-product-design', includeTerms: ['design system', 'design tokens', 'component library', 'figma variables'] },
+  {
+    slug: 'design-systems', name: 'Design systems', kind: 'OCCUPATION' as const, parentSlug: 'ux-product-design',
+    includeTerms: ['design system', 'design tokens', 'component library', 'figma variables'],
+    aiLeverage: {
+      capability: 'AI-assisted design-system acceleration',
+      task: 'Inventory components and map design tokens.',
+      explanation: 'The taxonomy explicitly declares this bounded AI-assisted delivery capability.',
+    },
+  },
   { slug: 'ux-research', name: 'UX research', kind: 'OCCUPATION' as const, parentSlug: 'ux-product-design', includeTerms: ['ux research', 'user research', 'usability testing', 'user interviews', 'heuristic evaluation'] },
   { slug: 'product-ux', name: 'Product UX', kind: 'OCCUPATION' as const, parentSlug: 'ux-product-design', includeTerms: ['product ux', 'product designer', 'ux ui', 'ui ux', 'user experience'] },
   { slug: 'ai-prototyping', name: 'AI prototyping', kind: 'OCCUPATION' as const, parentSlug: 'digital-services', includeTerms: ['ai prototyping', 'ai agent', 'agentic workflow', 'llm', 'generative ai'] },
@@ -85,7 +98,7 @@ async function main() {
         kind: node.kind,
         parentId,
         taxonomyVersion: 1,
-        metadata: { seed: 'market-taxonomy-v1', classification: { includeTerms: node.includeTerms || [] } },
+        metadata: { seed: 'market-taxonomy-v1', classification: { includeTerms: node.includeTerms || [] }, ...(node.aiLeverage ? { aiLeverage: node.aiLeverage } : {}) },
         isActive: true,
       },
       create: {
@@ -95,7 +108,7 @@ async function main() {
         kind: node.kind,
         parentId,
         taxonomyVersion: 1,
-        metadata: { seed: 'market-taxonomy-v1', classification: { includeTerms: node.includeTerms || [] } },
+        metadata: { seed: 'market-taxonomy-v1', classification: { includeTerms: node.includeTerms || [] }, ...(node.aiLeverage ? { aiLeverage: node.aiLeverage } : {}) },
       },
     });
 

@@ -29,6 +29,8 @@ export interface MarketCategoryRow {
   profileFit: number | null;
   fitSampleJobs: number;
   overallOpportunity: number | null;
+  profileEligibility: 'ELIGIBLE' | 'EXCLUDED' | 'PENDING';
+  aiLeverage: MarketAiLeverage;
   asOf: string;
   calculationVersion: string;
   decision: MarketRadarDecision | null;
@@ -51,6 +53,13 @@ export interface MarketRadarDecisionOutcome {
   interviewedAt: string | null;
   wonAt: string | null;
   realizedValue: number | null;
+}
+
+export interface MarketAiLeverage {
+  state: 'APPLICABLE' | 'NOT_APPLICABLE';
+  capability: string | null;
+  task: string | null;
+  explanation: string | null;
 }
 
 export interface MarketMetricCoverage {
@@ -209,8 +218,8 @@ export class MarketRadarComponent implements OnInit {
   ): void {
     const data = this.radarData();
     if (!data || this.isSavingDecision()) return;
-    if (status === 'PRIORITIZED' && data.operationalHealth.state !== 'READY') {
-      this.decisionMessage.set(`Cannot prioritize while Radar health is ${data.operationalHealth.state}.`);
+    if (data.operationalHealth.state !== 'READY') {
+      this.decisionMessage.set(`Cannot record a decision while Radar health is ${data.operationalHealth.state}.`);
       return;
     }
     if (!operator.trim() || !rationale.trim()) {
@@ -240,12 +249,27 @@ export class MarketRadarComponent implements OnInit {
     decisionId: string,
     jobPostId: string,
     milestone: 'submittedAt' | 'qualifiedRepliedAt' | 'interviewedAt' | 'wonAt',
+    proposalId: string,
+    realizedValue: string,
   ): void {
     if (this.isSavingDecision()) return;
+    const normalizedProposalId = proposalId.trim();
+    const normalizedValue = realizedValue.trim();
+    const parsedRealizedValue = normalizedValue === '' ? undefined : Number(normalizedValue);
+    if (parsedRealizedValue !== undefined && !Number.isFinite(parsedRealizedValue)) {
+      this.decisionMessage.set('Enter a valid realized contract value.');
+      return;
+    }
+
     this.isSavingDecision.set(true);
     this.decisionMessage.set('');
     const url = `${this.getApiBase()}/scraping/market-radar/decisions/${decisionId}/outcome`;
-    this.http.patch<any>(url, { jobPostId, [milestone]: new Date().toISOString() })
+    this.http.patch<any>(url, {
+      jobPostId,
+      [milestone]: new Date().toISOString(),
+      ...(normalizedProposalId && { proposalId: normalizedProposalId }),
+      ...(parsedRealizedValue !== undefined && { realizedValue: parsedRealizedValue }),
+    })
       .subscribe({
         next: () => {
           this.isSavingDecision.set(false);
@@ -264,6 +288,27 @@ export class MarketRadarComponent implements OnInit {
     if (score >= 55) return 'bg-emerald-500/20 text-emerald-300';
     if (score >= 40) return 'bg-amber-500/20 text-amber-300';
     return 'bg-red-500/20 text-red-300';
+  }
+
+  public getEligibilityLabel(eligibility: MarketCategoryRow['profileEligibility']): string {
+    if (eligibility === 'ELIGIBLE') return 'Eligible';
+    if (eligibility === 'EXCLUDED') return 'Excluded';
+    return 'Pending — not observed';
+  }
+
+  public getEligibilityBadgeClass(eligibility: MarketCategoryRow['profileEligibility']): string {
+    if (eligibility === 'ELIGIBLE') return 'bg-emerald-500/20 text-emerald-300';
+    if (eligibility === 'EXCLUDED') return 'bg-slate-500/20 text-slate-300';
+    return 'bg-amber-500/20 text-amber-300';
+  }
+
+  public getAiLeverageLabel(aiLeverage: MarketAiLeverage): string {
+    return aiLeverage.state === 'APPLICABLE' ? aiLeverage.capability ?? 'Applicable' : 'Not applicable';
+  }
+
+  public getAiLeverageDescription(aiLeverage: MarketAiLeverage): string | null {
+    if (aiLeverage.state !== 'APPLICABLE') return null;
+    return [aiLeverage.task, aiLeverage.explanation].filter((value): value is string => value != null).join(' ');
   }
 
   public getProposalClass(proposals: number | null): string {

@@ -14,4 +14,7 @@ Verify the Proposal Autopilot Market Radar against the local Docker stack only. 
 6. Cleanup removes only the fixture jobs and snapshots after the run.
 7. A `READY` category records a human `PRIORITIZED` decision with the operator and rationale provided by the test environment.
 8. The recorded decision remains visible beside its category after the Radar refreshes.
-9. An evidence job can be linked to the decision and marked as a submitted outcome.
+9. An evidence job and its deterministic proposal can be linked to the decision.
+10. The complete outcome chain records submitted, qualified response, interview, contract, and realized value for that association.
+11. The table labels an observed profile category as Eligible and shows its declared AI leverage capability.
+12. A category without declared taxonomy AI leverage is shown as Not applicable, never as a numeric zero.

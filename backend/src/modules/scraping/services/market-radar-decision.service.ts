@@ -58,21 +58,20 @@ export class MarketRadarDecisionService {
         evidenceJobs: { select: { jobPostId: true } },
         profileOpportunities: {
           where: { profileId: input.profile.id },
-          select: { lane: true, profileFit: true, overallOpportunity: true, fitSampleJobs: true, calculationVersion: true },
+          select: { lane: true, profileFit: true, overallOpportunity: true, fitSampleJobs: true, profileEligibility: true, calculationVersion: true },
         },
       },
     });
     if (!snapshot) throw new NotFoundException('El snapshot de Radar no existe para este tenant.');
 
-    const opportunity = snapshot.profileOpportunities[0] ?? null;
-    if (!opportunity || opportunity.lane === MarketCategoryLane.EXCLUDED || opportunity.profileFit == null) {
-      throw new BadRequestException('La categoría no tiene un ajuste elegible y observado para el perfil activo.');
+    const health = await this.radarOperations.getHealth(input.tenantId);
+    if (health.state !== 'READY') {
+      throw new BadRequestException(`No se puede registrar una decisión mientras el Radar está ${health.state}.`);
     }
-    if (input.status === MarketRadarDecisionStatus.PRIORITIZED) {
-      const health = await this.radarOperations.getHealth(input.tenantId);
-      if (health.state !== 'READY') {
-        throw new BadRequestException(`No se puede priorizar mientras el Radar está ${health.state}.`);
-      }
+
+    const opportunity = snapshot.profileOpportunities[0] ?? null;
+    if (!opportunity || opportunity.profileEligibility !== 'ELIGIBLE') {
+      throw new BadRequestException('La categoría no tiene un ajuste elegible y observado para el perfil activo.');
     }
 
     const snapshotContext: Prisma.InputJsonValue = {

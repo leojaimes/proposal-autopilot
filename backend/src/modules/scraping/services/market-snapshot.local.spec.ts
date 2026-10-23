@@ -4,7 +4,9 @@ import { test } from 'node:test';
 import {
   FitTier,
   JobCategoryAssignmentSource,
+  MarketAiLeverageState,
   MarketCategoryLane,
+  ProfileEligibility,
   PrismaClient,
   StrategicLane,
 } from '@prisma/client';
@@ -19,8 +21,17 @@ test('persists reproducible market and profile-opportunity snapshots in local Po
   });
 
   try {
-    const taxonomyNode = await prisma.marketTaxonomyNode.findUniqueOrThrow({
+    const designSystems = await prisma.marketTaxonomyNode.findUniqueOrThrow({
       where: { slug: 'design-systems' },
+    });
+    const aiPrototyping = await prisma.marketTaxonomyNode.findUniqueOrThrow({
+      where: { slug: 'ai-prototyping' },
+    });
+    const uxResearch = await prisma.marketTaxonomyNode.findUniqueOrThrow({
+      where: { slug: 'ux-research' },
+    });
+    const productUx = await prisma.marketTaxonomyNode.findUniqueOrThrow({
+      where: { slug: 'product-ux' },
     });
     const profile = await prisma.positioningProfile.create({
       data: {
@@ -35,9 +46,27 @@ test('persists reproducible market and profile-opportunity snapshots in local Po
       data: {
         tenantId: tenant.id,
         profileId: profile.id,
-        taxonomyNodeId: taxonomyNode.id,
+        taxonomyNodeId: designSystems.id,
         lane: MarketCategoryLane.CORE,
+        aiLeverageEnabled: true,
       },
+    });
+    await prisma.profileCategoryPolicy.createMany({
+      data: [
+        {
+          tenantId: tenant.id,
+          profileId: profile.id,
+          taxonomyNodeId: aiPrototyping.id,
+          lane: MarketCategoryLane.CORE,
+          aiLeverageEnabled: true,
+        },
+        {
+          tenantId: tenant.id,
+          profileId: profile.id,
+          taxonomyNodeId: uxResearch.id,
+          lane: MarketCategoryLane.EXCLUDED,
+        },
+      ],
     });
 
     const jobs = await Promise.all([
@@ -73,22 +102,47 @@ test('persists reproducible market and profile-opportunity snapshots in local Po
           paymentVerificationKnown: true,
         },
       }),
+      prisma.jobPost.create({
+        data: {
+          tenantId: tenant.id,
+          externalUpworkId: `local-radar-job-c-${suffix}`,
+          title: 'AI product prototype',
+          description: 'Prototype an LLM workflow for a SaaS product.',
+          jobUrl: 'https://example.invalid/local-radar-c',
+          postedAt: new Date('2026-10-20T12:00:00.000Z'),
+          postedAtKnown: true,
+          proposalsCount: 6,
+          proposalsCountKnown: true,
+          budgetFixed: 3000,
+          isPaymentVerified: true,
+          paymentVerificationKnown: true,
+        },
+      }),
     ]);
 
     await prisma.jobCategoryAssignment.createMany({
-      data: jobs.map((job) => ({
+      data: [
+        ...jobs.slice(0, 2).map((job) => ({
         tenantId: tenant.id,
         jobPostId: job.id,
-        taxonomyNodeId: taxonomyNode.id,
+        taxonomyNodeId: designSystems.id,
         source: JobCategoryAssignmentSource.RULES,
         isPrimary: true,
-      })),
+        })),
+        {
+          tenantId: tenant.id,
+          jobPostId: jobs[2].id,
+          taxonomyNodeId: aiPrototyping.id,
+          source: JobCategoryAssignmentSource.RULES,
+          isPrimary: true,
+        },
+      ],
     });
     await prisma.fitEvaluation.createMany({
       data: jobs.map((job, index) => ({
         jobPostId: job.id,
         positioningProfileId: profile.id,
-        overallScore: index === 0 ? 80 : 90,
+        overallScore: index === 0 ? 80 : index === 1 ? 90 : 70,
         fitTier: FitTier.HIGH,
         strategicLane: StrategicLane.CORE_AI_UX,
         normalizedRole: 'Design systems',
@@ -107,7 +161,7 @@ test('persists reproducible market and profile-opportunity snapshots in local Po
       where: {
         uq_market_snapshot_version: {
           tenantId: tenant.id,
-          taxonomyNodeId: taxonomyNode.id,
+          taxonomyNodeId: designSystems.id,
           asOf: new Date('2026-10-22T00:00:00.000Z'),
           calculationVersion: 'market-radar-v1',
         },
@@ -125,6 +179,23 @@ test('persists reproducible market and profile-opportunity snapshots in local Po
     assert.equal(snapshot.profileOpportunities[0].lane, MarketCategoryLane.CORE);
     assert.equal(Number(snapshot.profileOpportunities[0].profileFit), 85);
     assert.notEqual(snapshot.profileOpportunities[0].overallOpportunity, null);
+    assert.equal(snapshot.profileOpportunities[0].profileEligibility, ProfileEligibility.ELIGIBLE);
+    assert.equal(snapshot.profileOpportunities[0].aiLeverageState, MarketAiLeverageState.APPLICABLE);
+    assert.equal(snapshot.profileOpportunities[0].aiLeverageCapability, 'AI-assisted design-system acceleration');
+
+    const opportunities = await prisma.profileOpportunitySnapshot.findMany({
+      where: {
+        profileId: profile.id,
+        marketCategorySnapshot: { tenantId: tenant.id, asOf: new Date('2026-10-22T00:00:00.000Z') },
+      },
+      include: { marketCategorySnapshot: { include: { taxonomyNode: true } } },
+    });
+    const bySlug = new Map(opportunities.map((opportunity) => [opportunity.marketCategorySnapshot.taxonomyNode.slug, opportunity]));
+
+    assert.equal(bySlug.get('ai-prototyping')?.profileEligibility, ProfileEligibility.ELIGIBLE);
+    assert.equal(bySlug.get('ai-prototyping')?.aiLeverageState, MarketAiLeverageState.NOT_APPLICABLE);
+    assert.equal(bySlug.get('ux-research')?.profileEligibility, ProfileEligibility.EXCLUDED);
+    assert.equal(bySlug.get('product-ux')?.profileEligibility, ProfileEligibility.PENDING);
   } finally {
     await prisma.tenant.delete({ where: { id: tenant.id } });
     await prisma.$disconnect();
