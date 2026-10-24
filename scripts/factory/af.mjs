@@ -21,6 +21,7 @@ Comandos disponibles:
   snap <url> [salida]    Toma una captura headless con Playwright para evidencia visual.
   flow [url]             Ejecuta el flujo E2E real ("Buscar Más Proyectos" -> SSE -> Radar).
   journey [nombre]       Ejecuta un recorrido E2E declarativo y genera un Storyboard visual.
+  discover-flows [url]   Rastrea el frontend y auto-genera recorridos y mapa de navegación Mermaid.
   migrate [cmd]          Aplica (deploy) o consulta (status) migraciones con puerto seguro.
   verify-db [--pre|--post] Inspecciona integridad de PostgreSQL para cero pérdida de datos.
   guardian [secs]        Sondea salud del contenedor en EasyPanel y ejecuta auto-rollback si falla.
@@ -79,6 +80,12 @@ async function main() {
       const urlIdx = args.indexOf('--url');
       const url = urlIdx !== -1 ? args[urlIdx + 1] : undefined;
       await runJourney(args[0], { headed, url });
+      break;
+    }
+
+    case 'discover-flows': {
+      const { discoverUiFlows } = await import('./discover-flows.mjs');
+      await discoverUiFlows(args[0] || 'http://localhost:7001');
       break;
     }
 

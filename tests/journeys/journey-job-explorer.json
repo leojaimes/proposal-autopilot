@@ -1,0 +1,23 @@
+{
+  "journey": "journey-job-explorer",
+  "title": "Recorrido E2E: Motor de Búsqueda y Explorador de Vacantes",
+  "description": "Cambia a la vista Motor de Búsqueda, filtra por fit y revisa vacantes indexadas.",
+  "baseUrl": "http://localhost:7001",
+  "steps": [
+    {
+      "id": "01-switch-to-explorer",
+      "description": "Hacer clic en la pestaña 'Motor de Búsqueda'",
+      "action": "click",
+      "target": "button:has-text('Motor de Búsqueda')",
+      "waitFor": "text=Motor de Búsqueda",
+      "capture": true
+    },
+    {
+      "id": "02-verify-explorer-table",
+      "description": "Confirmar renderizado de vacantes en el explorador",
+      "action": "wait",
+      "durationMs": 2000,
+      "capture": true
+    }
+  ]
+}

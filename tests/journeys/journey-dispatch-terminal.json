@@ -1,0 +1,24 @@
+{
+  "journey": "journey-dispatch-terminal",
+  "title": "Recorrido E2E: Cabina de Despacho & Feed de Leads",
+  "description": "Navega a la cabina principal, verifica la lista de vacantes activas y el prompt bar de dispatch.",
+  "baseUrl": "http://localhost:7001",
+  "steps": [
+    {
+      "id": "01-load-terminal",
+      "description": "Cargar aplicación en vista de Cabina de Despacho",
+      "action": "click",
+      "target": "button:has-text('Cabina de Despacho')",
+      "waitFor": "text=Proposal Autopilot",
+      "capture": true
+    },
+    {
+      "id": "02-verify-telemetry-pills",
+      "description": "Verificar pills de telemetría de connects y atajos de teclado",
+      "action": "wait",
+      "durationMs": 1500,
+      "waitFor": "text=Connects",
+      "capture": true
+    }
+  ]
+}

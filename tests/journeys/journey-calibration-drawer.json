@@ -1,0 +1,23 @@
+{
+  "journey": "journey-calibration-drawer",
+  "title": "Recorrido E2E: Apertura y Control del Cajón de Calibración",
+  "description": "Abre el cajón lateral de calibración (Engine Settings Drawer) y valida los controles de configuración.",
+  "baseUrl": "http://localhost:7001",
+  "steps": [
+    {
+      "id": "01-open-calibration-drawer",
+      "description": "Hacer clic en el botón 'Calibrar' del header",
+      "action": "click",
+      "target": "button:has-text('Calibrar')",
+      "waitFor": "text=Calibración",
+      "capture": true
+    },
+    {
+      "id": "02-inspect-drawer-controls",
+      "description": "Verificar campos de tarifa horaria y palabras de descarte",
+      "action": "wait",
+      "durationMs": 2000,
+      "capture": true
+    }
+  ]
+}
