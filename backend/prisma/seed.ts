@@ -37,6 +37,7 @@ const MARKET_TAXONOMY_V1: MarketTaxonomySeedNode[] = [
   { slug: 'backend-api-engineering', name: 'Backend & API engineering', kind: 'OCCUPATION' as const, parentSlug: 'digital-services', includeTerms: ['backend', 'api', 'nestjs', 'graphql', 'microservice'] },
   { slug: 'cms-ecommerce', name: 'CMS & e-commerce', kind: 'OCCUPATION' as const, parentSlug: 'digital-services', includeTerms: ['wordpress', 'shopify', 'webflow', 'ecommerce', 'e commerce'] },
   { slug: 'social-media-content', name: 'Social media content', kind: 'OCCUPATION' as const, parentSlug: 'digital-services', includeTerms: ['social media', 'content creation', 'instagram', 'tiktok', 'reels'] },
+  { slug: 'other-services', name: 'Other digital services', kind: 'OCCUPATION' as const, parentSlug: 'digital-services' },
 ];
 
 async function main() {
@@ -98,7 +99,7 @@ async function main() {
         kind: node.kind,
         parentId,
         taxonomyVersion: 1,
-        metadata: { seed: 'market-taxonomy-v1', classification: { includeTerms: node.includeTerms || [] }, ...(node.aiLeverage ? { aiLeverage: node.aiLeverage } : {}) },
+        metadata: { seed: 'market-taxonomy-v1', classification: { includeTerms: node.includeTerms || [] }, ...(node.slug === 'other-services' ? { fallback: true } : {}), ...(node.aiLeverage ? { aiLeverage: node.aiLeverage } : {}) },
         isActive: true,
       },
       create: {
@@ -108,7 +109,7 @@ async function main() {
         kind: node.kind,
         parentId,
         taxonomyVersion: 1,
-        metadata: { seed: 'market-taxonomy-v1', classification: { includeTerms: node.includeTerms || [] }, ...(node.aiLeverage ? { aiLeverage: node.aiLeverage } : {}) },
+        metadata: { seed: 'market-taxonomy-v1', classification: { includeTerms: node.includeTerms || [] }, ...(node.slug === 'other-services' ? { fallback: true } : {}), ...(node.aiLeverage ? { aiLeverage: node.aiLeverage } : {}) },
       },
     });
 
