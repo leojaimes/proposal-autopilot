@@ -15,6 +15,7 @@ function configuredPositiveInteger(name: string, fallback: number): number {
 export type MarketRadarHealth = {
   state: 'READY' | 'PARTIAL' | 'STALE' | 'NO_SNAPSHOTS';
   latestSnapshotAsOf: Date | null;
+  latestSnapshotRevision: number | null;
   latestCompletedScrapeAt: Date | null;
   ageDays: number | null;
   expectedCategories: number;
@@ -22,6 +23,8 @@ export type MarketRadarHealth = {
   retainedSnapshots: number;
   retentionDays: number;
   staleAfterDays: number;
+  pendingClassificationJobs: number;
+  failedClassificationJobs: number;
 };
 
 @Injectable()
@@ -44,7 +47,14 @@ export class MarketRadarOperationsService {
   }
 
   async getHealth(tenantId: string, now = new Date()): Promise<MarketRadarHealth> {
-    const [expectedCategories, latestSnapshot, latestCompletedBatch, retainedSnapshots] = await Promise.all([
+    const [
+      expectedCategories,
+      latestSnapshot,
+      latestCompletedBatch,
+      retainedSnapshots,
+      pendingClassificationJobs,
+      failedClassificationJobs,
+    ] = await Promise.all([
       this.prisma.marketTaxonomyNode.count({
         where: {
           isActive: true,
@@ -54,7 +64,7 @@ export class MarketRadarOperationsService {
       this.prisma.marketCategorySnapshot.findFirst({
         where: { tenantId, isCurrent: true },
         orderBy: { asOf: 'desc' },
-        select: { asOf: true },
+        select: { asOf: true, revision: true },
       }),
       this.prisma.batchRun.findFirst({
         where: { tenantId, status: 'COMPLETED' },
@@ -62,6 +72,18 @@ export class MarketRadarOperationsService {
         select: { finishedAt: true },
       }),
       this.prisma.marketCategorySnapshot.count({ where: { tenantId, isCurrent: true } }),
+      this.prisma.taxonomyClassificationWork?.count({
+        where: {
+          tenantId,
+          status: { in: ['PENDING', 'PROCESSING', 'RETRYING'] },
+        },
+      }) ?? 0,
+      this.prisma.taxonomyClassificationWork?.count({
+        where: {
+          tenantId,
+          status: 'FAILED',
+        },
+      }) ?? 0,
     ]);
     const latestSnapshotCategories = latestSnapshot == null
       ? 0
@@ -77,13 +99,14 @@ export class MarketRadarOperationsService {
       ? 'NO_SNAPSHOTS'
       : ageDays > staleAfterDays
         ? 'STALE'
-        : latestSnapshotCategories < expectedCategories
+        : (latestSnapshotCategories < expectedCategories || pendingClassificationJobs > 0)
           ? 'PARTIAL'
           : 'READY';
 
     return {
       state,
       latestSnapshotAsOf: latestSnapshot?.asOf ?? null,
+      latestSnapshotRevision: latestSnapshot?.revision ?? null,
       latestCompletedScrapeAt: latestCompletedBatch?.finishedAt ?? null,
       ageDays,
       expectedCategories,
@@ -91,6 +114,8 @@ export class MarketRadarOperationsService {
       retainedSnapshots,
       retentionDays,
       staleAfterDays,
+      pendingClassificationJobs,
+      failedClassificationJobs,
     };
   }
 }

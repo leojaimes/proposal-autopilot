@@ -19,6 +19,7 @@ export interface ScrapingProgressEvent {
   classificationFailed?: number;
   radarRebuildStatus?: 'QUEUED' | 'COMPLETED' | 'FAILED';
   radarSnapshotUpdated?: boolean;
+  radarRevision?: number;
   error?: string;
   timestamp: string;
 }

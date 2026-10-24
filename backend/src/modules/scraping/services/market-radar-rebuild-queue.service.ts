@@ -91,7 +91,15 @@ export class MarketRadarRebuildQueueService implements OnModuleDestroy {
   private async executeRebuild(tenantId: string, batchIds: Set<string>): Promise<void> {
     try {
       await this.radarOperations.rebuildAfterSuccessfulBatch(tenantId);
-      this.emitStatus(tenantId, batchIds, 'COMPLETED', 'Market Radar updated after taxonomy classification');
+      const health = await this.radarOperations.getHealth(tenantId);
+      this.emitStatus(
+        tenantId,
+        batchIds,
+        'COMPLETED',
+        'Market Radar updated after taxonomy classification',
+        undefined,
+        health.latestSnapshotRevision ?? undefined,
+      );
     } catch (error: unknown) {
       const normalized = error instanceof Error ? error : new Error(String(error));
       this.logger.error(`Async Market Radar rebuild failed for tenant ${tenantId}: ${normalized.message}`);
@@ -114,6 +122,7 @@ export class MarketRadarRebuildQueueService implements OnModuleDestroy {
     status: MarketRadarRebuildStatus,
     message: string,
     error?: string,
+    radarRevision?: number,
   ): void {
     for (const batchId of batchIds) {
       const latest = this.progress.getLatestEvent(batchId);
@@ -123,6 +132,7 @@ export class MarketRadarRebuildQueueService implements OnModuleDestroy {
         message,
         radarRebuildStatus: status,
         radarSnapshotUpdated: status === 'COMPLETED',
+        ...(radarRevision != null ? { radarRevision } : {}),
         ...(error ? { error } : {}),
       });
     }

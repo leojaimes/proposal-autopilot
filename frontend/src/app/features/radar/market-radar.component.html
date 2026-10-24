@@ -42,11 +42,24 @@
 
     <section class="flex flex-col gap-2 rounded-2xl border border-border-subtle bg-surface-elevated p-4 text-sm md:flex-row md:items-center md:justify-between">
       <div>
-        <p class="font-medium text-content-primary">Radar data health</p>
+        <div class="flex items-center gap-2">
+          <p class="font-medium text-content-primary">Radar data health</p>
+          @if (data.operationalHealth.latestSnapshotRevision) {
+            <span class="rounded-md border border-brand-primary/30 bg-brand-primary/10 px-1.5 py-0.5 text-[10px] font-mono font-medium text-brand-primary">
+              Rev {{ data.operationalHealth.latestSnapshotRevision }}
+            </span>
+          }
+        </div>
         <p class="mt-1 text-xs text-content-muted">
           Latest snapshot {{ data.operationalHealth.latestSnapshotAsOf ?? 'not available' }} ·
           {{ data.operationalHealth.latestSnapshotCategories }}/{{ data.operationalHealth.expectedCategories }} categories ·
           retained {{ data.operationalHealth.retainedSnapshots }} snapshots
+          @if (data.operationalHealth.pendingClassificationJobs && data.operationalHealth.pendingClassificationJobs > 0) {
+            · <span class="text-amber-400 font-medium">{{ data.operationalHealth.pendingClassificationJobs }} jobs classifying</span>
+          }
+          @if (data.operationalHealth.failedClassificationJobs && data.operationalHealth.failedClassificationJobs > 0) {
+            · <span class="text-red-400 font-medium">{{ data.operationalHealth.failedClassificationJobs }} failed</span>
+          }
         </p>
       </div>
       <span class="w-fit rounded-full px-2 py-1 text-xs font-semibold" [class]="getHealthClass(data.operationalHealth.state)">

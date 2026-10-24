@@ -79,3 +79,28 @@ test('prunes only snapshots older than the configured retention window after reb
     else process.env.MARKET_RADAR_RETENTION_DAYS = originalRetention;
   }
 });
+
+test('withholds readiness and marks partial when classification work remains pending', async () => {
+  const asOf = new Date('2026-10-22T00:00:00.000Z');
+  const prisma = {
+    marketTaxonomyNode: { count: async () => 3 },
+    marketCategorySnapshot: {
+      findFirst: async () => ({ asOf, revision: 2 }),
+      count: async () => 3,
+    },
+    batchRun: { findFirst: async () => ({ finishedAt: new Date('2026-10-22T10:00:00.000Z') }) },
+    taxonomyClassificationWork: {
+      count: async ({ where }: { where: { status?: unknown } }) => {
+        if (typeof where.status === 'object' && where.status !== null) return 2;
+        return 0;
+      },
+    },
+  };
+  const service = new MarketRadarOperationsService({ rebuildForTenant: async () => ({}) } as any, prisma as any);
+
+  const health = await service.getHealth('tenant', new Date('2026-10-22T12:00:00.000Z'));
+
+  assert.equal(health.state, 'PARTIAL');
+  assert.equal(health.latestSnapshotRevision, 2);
+  assert.equal(health.pendingClassificationJobs, 2);
+});

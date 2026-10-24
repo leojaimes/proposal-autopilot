@@ -17,6 +17,7 @@ export interface ScrapingProgressEvent {
   mediumFitCount?: number;
   radarRebuildStatus?: 'QUEUED' | 'COMPLETED' | 'FAILED';
   radarSnapshotUpdated?: boolean;
+  radarRevision?: number;
   error?: string;
   timestamp: string;
 }
@@ -55,6 +56,7 @@ export class ReportService {
   // Incremented when a completed batch has rebuilt the persisted Market Radar snapshot.
   private readonly _marketRadarRefreshVersion = signal<number>(0);
   public readonly marketRadarRefreshVersion = this._marketRadarRefreshVersion.asReadonly();
+  public readonly currentRadarRevision = signal<number | null>(null);
 
   // Tri-Factor Positioning State
   public readonly offerHeadline = signal<string>('');
@@ -204,6 +206,10 @@ export class ReportService {
     }
     if (data.highFitCount !== undefined) {
       this.progressHighFitCount.set(data.highFitCount);
+    }
+
+    if (data.radarRevision != null) {
+      this.currentRadarRevision.set(data.radarRevision);
     }
 
     if (data.radarSnapshotUpdated) {

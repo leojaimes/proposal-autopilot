@@ -103,6 +103,7 @@ export interface RadarData {
 export interface MarketRadarOperationalHealth {
   state: 'READY' | 'PARTIAL' | 'STALE' | 'NO_SNAPSHOTS';
   latestSnapshotAsOf: string | null;
+  latestSnapshotRevision: number | null;
   latestCompletedScrapeAt: string | null;
   ageDays: number | null;
   expectedCategories: number;
@@ -110,6 +111,8 @@ export interface MarketRadarOperationalHealth {
   retainedSnapshots: number;
   retentionDays: number;
   staleAfterDays: number;
+  pendingClassificationJobs?: number;
+  failedClassificationJobs?: number;
 }
 
 @Component({

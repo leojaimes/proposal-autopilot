@@ -26,6 +26,7 @@ test('arms a follow-up rebuild when work is scheduled while an active rebuild is
         await firstRebuildGate.promise;
       }
     },
+    getHealth: async () => ({ latestSnapshotRevision: 2 }),
   };
 
   const emittedEvents: Array<Record<string, unknown>> = [];
