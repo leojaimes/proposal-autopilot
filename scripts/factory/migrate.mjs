@@ -45,6 +45,19 @@ export function runMigration(action = 'deploy') {
       return { success: true };
     }
 
+    if (action === 'resolve') {
+      const migrationName = process.argv[3] || '20261023200000_taxonomy_classification_work_outbox';
+      console.log(`🔧 Desbloqueando migración fallida: ${migrationName}...`);
+      const out = execSync(`npx prisma migrate resolve --rolled-back ${migrationName}`, {
+        cwd: BACKEND_DIR,
+        env,
+        encoding: 'utf8'
+      });
+      console.log(out.trim());
+      console.log(`✅ Migración ${migrationName} desmarcada como rolled-back.`);
+      return { success: true };
+    }
+
     // Default: deploy
     console.log('🚀 Aplicando migraciones pendientes (npx prisma migrate deploy)...');
     const out = execSync('npx prisma migrate deploy', {

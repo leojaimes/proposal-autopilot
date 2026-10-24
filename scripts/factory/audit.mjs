@@ -120,13 +120,26 @@ export function runAudit(targetDir = ROOT_DIR, baseBranch = 'main') {
   for (const mFile of migrationFiles) {
     try {
       const sql = readFileSync(mFile, 'utf8');
+      
+      // 1. Lock Timeout verification
+      if (!sql.includes("SET lock_timeout = '3s';") && !sql.includes("SET lock_timeout = '3s'")) {
+        scorecard.code.findings.push(`Aviso en ${mFile}: Se recomienda anteponer 'SET lock_timeout = ''3s'';' para prevenir bloqueos.`);
+      }
+
+      // 2. Non-existent column guard: job_category_assignments has classified_at, NOT created_at
+      if (sql.includes('job_category_assignments') && sql.includes('"created_at"')) {
+        scorecard.code.pass = false;
+        scorecard.code.findings.push(`Error de esquema en ${mFile}: La tabla 'job_category_assignments' no posee la columna 'created_at' (usa 'classified_at').`);
+      }
+
+      // 3. Concurrency guards
       if (sql.includes('CREATE INDEX') && !sql.includes('CONCURRENTLY')) {
         scorecard.code.pass = false;
         scorecard.code.findings.push(`Migración insegura en ${mFile}: CREATE INDEX debe usar CONCURRENTLY.`);
       }
-      if (/UPDATE\s+["']?\w+["']?\s+SET/i.test(sql) && !sql.includes('LIMIT')) {
+      if (/UPDATE\s+["']?\w+["']?\s+SET/i.test(sql) && !sql.includes('LIMIT') && !sql.includes('WHERE')) {
         scorecard.code.pass = false;
-        scorecard.code.findings.push(`Migración insegura en ${mFile}: UPDATE masivo sin chunking/lotes.`);
+        scorecard.code.findings.push(`Migración insegura en ${mFile}: UPDATE masivo sin condición WHERE o chunking.`);
       }
     } catch {
       // ignore

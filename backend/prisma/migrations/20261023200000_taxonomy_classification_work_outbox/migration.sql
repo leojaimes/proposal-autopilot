@@ -1,3 +1,5 @@
+SET lock_timeout = '3s';
+
 -- Durable at-least-once taxonomy classification work. A JobPost and its first
 -- work record are written in the same transaction by the ingestion path.
 CREATE TYPE "TaxonomyClassificationWorkStatus" AS ENUM (
@@ -48,7 +50,7 @@ WITH ranked_primary_assignments AS (
     "id",
     ROW_NUMBER() OVER (
       PARTITION BY "job_post_id"
-      ORDER BY "classified_at" DESC, "created_at" DESC, "id" DESC
+      ORDER BY "classified_at" DESC, "id" DESC
     ) AS rank
   FROM "job_category_assignments"
   WHERE "is_primary" = true
