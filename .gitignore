@@ -25,6 +25,7 @@ tests-results/
 /playwright-report/
 /blob-report/
 /test-results-sha/
+tests/sandbox-visual/evidence/
 
 # diagnostic and test images exclusion
 **/diagnostic-*.png

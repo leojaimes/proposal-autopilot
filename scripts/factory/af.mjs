@@ -20,6 +20,7 @@ Comandos disponibles:
   test [comando/filtro]  Ejecuta tests filtrando el 95% del ruido para ahorrar tokens.
   snap <url> [salida]    Toma una captura headless con Playwright para evidencia visual.
   flow [url]             Ejecuta el flujo E2E real ("Buscar Más Proyectos" -> SSE -> Radar).
+  journey [nombre]       Ejecuta un recorrido E2E declarativo y genera un Storyboard visual.
   migrate [cmd]          Aplica (deploy) o consulta (status) migraciones con puerto seguro.
   verify-db [--pre|--post] Inspecciona integridad de PostgreSQL para cero pérdida de datos.
   guardian [secs]        Sondea salud del contenedor en EasyPanel y ejecuta auto-rollback si falla.
@@ -62,6 +63,22 @@ async function main() {
     case 'flow': {
       const { runRadarScrapeFlow } = await import('./flow.mjs');
       await runRadarScrapeFlow(args[0] || 'http://localhost:7001');
+      break;
+    }
+
+    case 'journey': {
+      const { runJourney, listJourneys } = await import('./journey.mjs');
+      if (!args[0] || args[0] === '--list') {
+        console.log('📋 Recorridos declarativos disponibles:');
+        for (const j of listJourneys()) {
+          console.log(`  - ${j.id}: ${j.title} (${j.stepsCount} pasos)`);
+        }
+        break;
+      }
+      const headed = args.includes('--headed');
+      const urlIdx = args.indexOf('--url');
+      const url = urlIdx !== -1 ? args[urlIdx + 1] : undefined;
+      await runJourney(args[0], { headed, url });
       break;
     }
 

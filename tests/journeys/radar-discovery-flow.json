@@ -1,0 +1,39 @@
+{
+  "journey": "radar-discovery-flow",
+  "title": "Descubrimiento de Flujo: Radar de Mercado & Ingestión Reactiva",
+  "description": "Navega al Radar de Mercado, captura el baseline, dispara la búsqueda de más proyectos y valida el refresco reactivo por SSE.",
+  "baseUrl": "http://localhost:7001",
+  "steps": [
+    {
+      "id": "01-home-view",
+      "description": "Cargar aplicación en vista inicial",
+      "action": "navigate",
+      "waitFor": "text=Proposal Autopilot",
+      "capture": true
+    },
+    {
+      "id": "02-open-radar",
+      "description": "Navegar a la pestaña Radar de Mercado",
+      "action": "click",
+      "target": "button:has-text('Radar de Mercado')",
+      "waitFor": "text=Market Radar",
+      "capture": true
+    },
+    {
+      "id": "03-trigger-search",
+      "description": "Hacer clic en 'Buscar Más Proyectos' para iniciar scraping",
+      "action": "click",
+      "target": "button:has-text('Buscar Más Proyectos')",
+      "waitFor": "text=Buscando en Upwork",
+      "capture": true
+    },
+    {
+      "id": "04-verify-sse-completion",
+      "description": "Esperar finalización de ingestión SSE y verificar estado reactivo",
+      "action": "wait",
+      "durationMs": 10000,
+      "waitFor": "text=Rev",
+      "capture": true
+    }
+  ]
+}
