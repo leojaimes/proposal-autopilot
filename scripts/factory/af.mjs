@@ -19,6 +19,7 @@ Comandos disponibles:
   start <id> [titulo]    Crea un worktree aislado y prepara SPEC.md con contexto del Brain.
   test [comando/filtro]  Ejecuta tests filtrando el 95% del ruido para ahorrar tokens.
   snap <url> [salida]    Toma una captura headless con Playwright para evidencia visual.
+  flow [url]             Ejecuta el flujo E2E real ("Buscar Más Proyectos" -> SSE -> Radar).
   audit [dir]            Ejecuta las 4 auditorías (Seguridad, UX, UI, Código).
   approve [dir]          Arbitra el Scorecard: genera FEEDBACK.md o Dossier Ejecutivo.
   finish <id> [--yes]    Aduana Visual Pre-Deploy: pide visto bueno y despliega a 'main' (GHCR).
@@ -53,6 +54,12 @@ async function main() {
     case 'snap':
       await captureScreenshot(args[0] || 'http://localhost:4200', args[1] || './preview.png');
       break;
+
+    case 'flow': {
+      const { runRadarScrapeFlow } = await import('./flow.mjs');
+      await runRadarScrapeFlow(args[0] || 'http://localhost:7001');
+      break;
+    }
 
     case 'audit':
       runAudit(args[0] || process.cwd());
