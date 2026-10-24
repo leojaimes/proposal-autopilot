@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
 
 const ROOT_DIR = resolve('.');
 const BACKEND_DIR = resolve(ROOT_DIR, 'backend');
@@ -16,7 +16,7 @@ function getSafeDbEnv() {
   return env;
 }
 
-export function runMigration(action = 'deploy') {
+export async function runMigration(action = 'deploy') {
   console.log(`\n🗄️ AI FACTORY MIGRATION ENGINE: ${action.toUpperCase()}`);
   console.log('═'.repeat(60));
 
@@ -42,6 +42,41 @@ export function runMigration(action = 'deploy') {
         encoding: 'utf8'
       });
       console.log('✅ Cliente Prisma generado.');
+      return { success: true };
+    }
+
+    if (action === 'doctor') {
+      console.log('🩺 Diagnosticando estado de migraciones en la base de datos...');
+      const prismaPath = join(BACKEND_DIR, 'node_modules', '@prisma', 'client', 'index.js');
+      const { PrismaClient } = await import(`file://${prismaPath.replace(/\\/g, '/')}`);
+      const prisma = new PrismaClient({ datasources: { db: { url: env.DATABASE_URL } } });
+      try {
+        const rows = await prisma.$queryRawUnsafe(`
+          SELECT migration_name, started_at, finished_at, rolled_back_at 
+          FROM "_prisma_migrations" 
+          ORDER BY started_at DESC
+        `);
+        const failed = rows.filter(r => !r.finished_at && !r.rolled_back_at);
+        if (failed.length === 0) {
+          console.log('✅ Base de datos sana: No hay migraciones bloqueadas o fallidas.');
+        } else {
+          console.log(`🚨 Se encontraron ${failed.length} migración(es) fallida(s) bloqueando el sistema:`);
+          for (const f of failed) {
+            console.log(`  - ❌ ${f.migration_name} (Iniciada: ${f.started_at})`);
+            console.log(`     Desmarcando automáticamente como rolled-back...`);
+            await prisma.$executeRawUnsafe(`
+              UPDATE "_prisma_migrations" 
+              SET rolled_back_at = NOW() 
+              WHERE migration_name = '${f.migration_name}'
+            `);
+            console.log(`     ✅ Migración ${f.migration_name} desmarcada. El sistema puede reintentar.`);
+          }
+        }
+      } catch (err) {
+        console.error('❌ Error al consultar _prisma_migrations:', err.message);
+      } finally {
+        await prisma.$disconnect();
+      }
       return { success: true };
     }
 

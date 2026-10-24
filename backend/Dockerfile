@@ -27,8 +27,10 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
+COPY scripts/docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
 
 EXPOSE 7000
 
 ENV PORT=7000
-CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && node dist/main.js"]
+CMD ["./docker-entrypoint.sh"]

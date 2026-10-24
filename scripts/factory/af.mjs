@@ -65,7 +65,7 @@ async function main() {
 
     case 'migrate': {
       const { runMigration } = await import('./migrate.mjs');
-      runMigration(args[0] || 'deploy');
+      await runMigration(args[0] || 'deploy');
       break;
     }
 

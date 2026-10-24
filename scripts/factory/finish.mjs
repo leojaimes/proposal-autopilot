@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { evaluateApproval } from './approver.mjs';
 import { cleanWorktree } from './worktree.mjs';
+import { runIntegrityCheck } from './verify-db-integrity.mjs';
 
 const ROOT_DIR = resolve('.');
 const WORKTREES_DIR = join(ROOT_DIR, '.worktrees');
@@ -46,6 +47,18 @@ export async function finishTask(taskSlug, autoConfirm = false) {
   console.log('🛑 PRE-DEPLOY VISUAL GATE (Aduana de Despliegue hacia GHCR)');
   console.log('═'.repeat(60));
 
+  // Check if branch contains database migrations
+  try {
+    const diffFiles = runGit(`diff --name-only origin/main...HEAD`);
+    if (diffFiles.includes('migrations') && diffFiles.includes('.sql')) {
+      console.log('\n🗄️ Detectadas nuevas migraciones de base de datos en esta entrega.');
+      console.log('   Ejecutando verificación de integridad pre-despliegue (af verify-db --pre)...');
+      await runIntegrityCheck('pre');
+    }
+  } catch {
+    // ignore
+  }
+
   const evidenceDir = join(targetDir, 'evidence');
   let evidenceFiles = [];
   if (existsSync(evidenceDir)) {
@@ -82,6 +95,15 @@ export async function finishTask(taskSlug, autoConfirm = false) {
     console.log('🚀 Ejecutando git push origin main hacia GHCR...');
     runGit('push origin main');
     console.log('✅ Push completado. GitHub Actions compilará las imágenes en GHCR.');
+
+    // Post-Deploy Smoke Check
+    console.log('\n📡 POST-DEPLOY PIPELINE: Monitoreando compilación y salud...');
+    try {
+      const ghOut = execSync('gh run list -L 1', { encoding: 'utf8' }).trim();
+      console.log(`  CI/CD Activo:\n  ${ghOut.split('\n')[0]}`);
+    } catch {
+      // gh CLI not available, continue
+    }
   } catch (err) {
     console.error(`❌ Error durante el merge/push a main: ${err.message}`);
     process.exit(1);

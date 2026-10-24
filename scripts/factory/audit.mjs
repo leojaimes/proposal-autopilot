@@ -3,6 +3,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { recordTelemetry } from './telemetry.mjs';
+import { dryRunMigrationFile } from './dry-run-migration.mjs';
 
 const ROOT_DIR = resolve('.');
 
@@ -140,6 +141,13 @@ export function runAudit(targetDir = ROOT_DIR, baseBranch = 'main') {
       if (/UPDATE\s+["']?\w+["']?\s+SET/i.test(sql) && !sql.includes('LIMIT') && !sql.includes('WHERE')) {
         scorecard.code.pass = false;
         scorecard.code.findings.push(`Migración insegura en ${mFile}: UPDATE masivo sin condición WHERE o chunking.`);
+      }
+
+      // 4. PostgreSQL Transactional Dry-Run (catches syntax, column mismatches, table errors in DB)
+      const dryRunRes = dryRunMigrationFile(resolve(mFile));
+      if (!dryRunRes.valid) {
+        scorecard.code.pass = false;
+        scorecard.code.findings.push(`Fallo en Dry-Run de migración ${mFile}: ${dryRunRes.error}`);
       }
     } catch {
       // ignore
