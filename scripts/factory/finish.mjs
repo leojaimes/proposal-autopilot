@@ -96,13 +96,24 @@ export async function finishTask(taskSlug, autoConfirm = false) {
     runGit('push origin main');
     console.log('✅ Push completado. GitHub Actions compilará las imágenes en GHCR.');
 
-    // Post-Deploy Smoke Check
+    // Post-Deploy Smoke Check & Canary Guardian
     console.log('\n📡 POST-DEPLOY PIPELINE: Monitoreando compilación y salud...');
     try {
       const ghOut = execSync('gh run list -L 1', { encoding: 'utf8' }).trim();
       console.log(`  CI/CD Activo:\n  ${ghOut.split('\n')[0]}`);
     } catch {
       // gh CLI not available, continue
+    }
+
+    try {
+      const { monitorDeployment } = await import('./guardian.mjs');
+      console.log('\n🛡️ Activando Guardián Canario para verificar EasyPanel...');
+      const canaryResult = await monitorDeployment(45);
+      if (!canaryResult.success) {
+        console.error('❌ El Guardián Canario detectó fallo y ejecutó rollback automático en EasyPanel.');
+      }
+    } catch (err) {
+      console.log(`ℹ️ Monitoreo remoto del Guardián omitido (${err.message}).`);
     }
   } catch (err) {
     console.error(`❌ Error durante el merge/push a main: ${err.message}`);

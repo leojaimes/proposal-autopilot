@@ -51,4 +51,5 @@ tests-results/
 .worktrees/
 *.telemetry.jsonl
 *.db_integrity_baseline.json
+POST_MORTEM_*.md
 graphify-out/cache/
