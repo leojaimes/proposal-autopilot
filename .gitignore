@@ -50,4 +50,5 @@ tests-results/
 # AI Factory & Graphify Cache
 .worktrees/
 *.telemetry.jsonl
+*.db_integrity_baseline.json
 graphify-out/cache/

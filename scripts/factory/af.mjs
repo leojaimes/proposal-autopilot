@@ -21,6 +21,7 @@ Comandos disponibles:
   snap <url> [salida]    Toma una captura headless con Playwright para evidencia visual.
   flow [url]             Ejecuta el flujo E2E real ("Buscar Más Proyectos" -> SSE -> Radar).
   migrate [cmd]          Aplica (deploy) o consulta (status) migraciones con puerto seguro.
+  verify-db [--pre|--post] Inspecciona integridad de PostgreSQL para cero pérdida de datos.
   audit [dir]            Ejecuta las 4 auditorías (Seguridad, UX, UI, Código).
   approve [dir]          Arbitra el Scorecard: genera FEEDBACK.md o Dossier Ejecutivo.
   finish <id> [--yes]    Aduana Visual Pre-Deploy: pide visto bueno y despliega a 'main' (GHCR).
@@ -65,6 +66,13 @@ async function main() {
     case 'migrate': {
       const { runMigration } = await import('./migrate.mjs');
       runMigration(args[0] || 'deploy');
+      break;
+    }
+
+    case 'verify-db': {
+      const { runIntegrityCheck } = await import('./verify-db-integrity.mjs');
+      const mode = args.includes('--post') ? 'post' : 'pre';
+      await runIntegrityCheck(mode);
       break;
     }
 
