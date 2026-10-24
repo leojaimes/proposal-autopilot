@@ -46,3 +46,8 @@ tests-results/
 !/.sandbox/requirements/
 /.sandbox/requirements/*
 !/.sandbox/requirements/*.md
+
+# AI Factory & Graphify Cache
+.worktrees/
+*.telemetry.jsonl
+graphify-out/cache/
