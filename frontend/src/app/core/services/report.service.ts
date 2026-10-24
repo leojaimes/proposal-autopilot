@@ -15,6 +15,8 @@ export interface ScrapingProgressEvent {
   currentJobTitle?: string;
   highFitCount?: number;
   mediumFitCount?: number;
+  radarRebuildStatus?: 'QUEUED' | 'COMPLETED' | 'FAILED';
+  radarSnapshotUpdated?: boolean;
   error?: string;
   timestamp: string;
 }
@@ -202,6 +204,10 @@ export class ReportService {
     }
     if (data.highFitCount !== undefined) {
       this.progressHighFitCount.set(data.highFitCount);
+    }
+
+    if (data.radarSnapshotUpdated) {
+      this._marketRadarRefreshVersion.update((version) => version + 1);
     }
 
     if (data.step === 'COMPLETED') {

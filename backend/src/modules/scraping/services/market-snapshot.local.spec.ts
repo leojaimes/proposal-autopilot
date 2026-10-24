@@ -6,6 +6,7 @@ import {
   JobCategoryAssignmentSource,
   MarketAiLeverageState,
   MarketCategoryLane,
+  MarketRadarDecisionStatus,
   ProfileEligibility,
   PrismaClient,
   StrategicLane,
@@ -157,18 +158,19 @@ test('persists reproducible market and profile-opportunity snapshots in local Po
     const service = new MarketSnapshotService(prisma as any);
     await service.rebuildForTenant(tenant.id, new Date('2026-10-22T12:00:00.000Z'));
 
-    const snapshot = await prisma.marketCategorySnapshot.findUniqueOrThrow({
+    const snapshot = await prisma.marketCategorySnapshot.findFirstOrThrow({
       where: {
-        uq_market_snapshot_version: {
-          tenantId: tenant.id,
-          taxonomyNodeId: designSystems.id,
-          asOf: new Date('2026-10-22T00:00:00.000Z'),
-          calculationVersion: 'market-radar-v1',
-        },
+        tenantId: tenant.id,
+        taxonomyNodeId: designSystems.id,
+        asOf: new Date('2026-10-22T00:00:00.000Z'),
+        calculationVersion: 'market-radar-v1',
+        isCurrent: true,
       },
       include: { evidenceJobs: true, profileOpportunities: true },
     });
 
+    assert.equal(snapshot.revision, 1);
+    assert.equal(snapshot.isCurrent, true);
     assert.equal(snapshot.demand7d, 1);
     assert.equal(snapshot.demand30d, 2);
     assert.equal(Number(snapshot.medianProposals), 6);
@@ -183,10 +185,83 @@ test('persists reproducible market and profile-opportunity snapshots in local Po
     assert.equal(snapshot.profileOpportunities[0].aiLeverageState, MarketAiLeverageState.APPLICABLE);
     assert.equal(snapshot.profileOpportunities[0].aiLeverageCapability, 'AI-assisted design-system acceleration');
 
+    // 1. Same payload reuses current revision (idempotence without new revision)
+    await service.rebuildForTenant(tenant.id, new Date('2026-10-22T12:00:00.000Z'));
+    const recheckedSnapshot = await prisma.marketCategorySnapshot.findFirstOrThrow({
+      where: {
+        tenantId: tenant.id,
+        taxonomyNodeId: designSystems.id,
+        asOf: new Date('2026-10-22T00:00:00.000Z'),
+        isCurrent: true,
+      },
+    });
+    assert.equal(recheckedSnapshot.id, snapshot.id, 'Same payload must reuse current revision');
+    assert.equal(recheckedSnapshot.revision, 1);
+
+    // 2. Link decision to initial snapshot
+    await prisma.marketRadarDecision.create({
+      data: {
+        tenantId: tenant.id,
+        positioningProfileId: profile.id,
+        marketCategorySnapshotId: snapshot.id,
+        taxonomyNodeId: designSystems.id,
+        status: MarketRadarDecisionStatus.PRIORITIZED,
+        rationale: 'Preserved snapshot decision test.',
+        operatorLabel: 'test-operator',
+        snapshotContext: {},
+        profileContext: {},
+      },
+    });
+
+    // 3. Changed payload with existing decision creates new revision and deactivates prior
+    const newJob = await prisma.jobPost.create({
+      data: {
+        tenantId: tenant.id,
+        externalUpworkId: `local-radar-job-d-${suffix}`,
+        title: 'Design systems lead',
+        description: 'Lead token strategy.',
+        jobUrl: 'https://example.invalid/local-radar-d',
+        postedAt: new Date('2026-10-22T08:00:00.000Z'),
+        postedAtKnown: true,
+        proposalsCount: 2,
+        proposalsCountKnown: true,
+        budgetFixed: 5000,
+        isPaymentVerified: true,
+        paymentVerificationKnown: true,
+      },
+    });
+    await prisma.jobCategoryAssignment.create({
+      data: {
+        tenantId: tenant.id,
+        jobPostId: newJob.id,
+        taxonomyNodeId: designSystems.id,
+        source: JobCategoryAssignmentSource.RULES,
+        isPrimary: true,
+      },
+    });
+
+    await service.rebuildForTenant(tenant.id, new Date('2026-10-22T12:00:00.000Z'));
+
+    const activeSnapshot = await prisma.marketCategorySnapshot.findFirstOrThrow({
+      where: {
+        tenantId: tenant.id,
+        taxonomyNodeId: designSystems.id,
+        asOf: new Date('2026-10-22T00:00:00.000Z'),
+        isCurrent: true,
+      },
+    });
+    assert.notEqual(activeSnapshot.id, snapshot.id, 'New revision must be created for changed content');
+    assert.equal(activeSnapshot.revision, 2);
+
+    const deactivatedSnapshot = await prisma.marketCategorySnapshot.findUniqueOrThrow({
+      where: { id: snapshot.id },
+    });
+    assert.equal(deactivatedSnapshot.isCurrent, false, 'Prior snapshot revision must be deactivated');
+
     const opportunities = await prisma.profileOpportunitySnapshot.findMany({
       where: {
         profileId: profile.id,
-        marketCategorySnapshot: { tenantId: tenant.id, asOf: new Date('2026-10-22T00:00:00.000Z') },
+        marketCategorySnapshot: { tenantId: tenant.id, asOf: new Date('2026-10-22T00:00:00.000Z'), isCurrent: true },
       },
       include: { marketCategorySnapshot: { include: { taxonomyNode: true } } },
     });

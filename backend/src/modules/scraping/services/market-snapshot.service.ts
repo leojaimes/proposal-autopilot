@@ -6,6 +6,7 @@ import {
   Prisma,
   ProfileEligibility,
 } from '@prisma/client';
+import { createHash } from 'node:crypto';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { MarketSnapshotCalculator, MarketSnapshotJob } from './market-snapshot-calculator.service';
 
@@ -13,9 +14,28 @@ const CALCULATION_VERSION = 'market-radar-v1';
 
 type CategoryResult = {
   taxonomyNodeId: string;
+  taxonomyVersion: number;
   metadata: Prisma.JsonValue | null;
   jobs: Array<MarketSnapshotJob & { fitEvaluations: Array<{ positioningProfileId: string | null; overallScore: number }> }>;
   metrics: ReturnType<MarketSnapshotCalculator['calculate']>;
+  profileOpportunities: ProfileOpportunityPayload[];
+};
+
+type PersistedMetrics = Omit<ReturnType<MarketSnapshotCalculator['calculate']>, 'evidenceJobIds' | 'metricCoverage'> & {
+  metricCoverage: Prisma.InputJsonValue;
+};
+
+type ProfileOpportunityPayload = {
+  profileId: string;
+  lane: MarketCategoryLane;
+  profileFit: number | null;
+  overallOpportunity: number | null;
+  fitSampleJobs: number;
+  profileEligibility: ProfileEligibility;
+  aiLeverageState: MarketAiLeverageState;
+  aiLeverageCapability: string | null;
+  aiLeverageTask: string | null;
+  aiLeverageExplanation: string | null;
 };
 
 type AiLeverageDeclaration = {
@@ -59,6 +79,26 @@ function inverseCompetition(value: number, cohortMinimum: number, cohortMaximum:
   return ((cohortMaximum - value) / (cohortMaximum - cohortMinimum)) * 100;
 }
 
+function contentHash(value: unknown): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function sourceLineage(
+  taxonomyVersion: number,
+  evidenceJobIds: string[],
+  jobs: MarketSnapshotJob[],
+): Prisma.InputJsonValue {
+  return {
+    taxonomyVersion,
+    evidenceJobIds: [...evidenceJobIds].sort(),
+    sourceBatchIds: [...new Set(
+      jobs
+        .filter((job) => evidenceJobIds.includes(job.id))
+        .flatMap((job) => job.batchRunId == null ? [] : [job.batchRunId]),
+    )].sort(),
+  };
+}
+
 @Injectable()
 export class MarketSnapshotService {
   private readonly calculator = new MarketSnapshotCalculator();
@@ -85,6 +125,7 @@ export class MarketSnapshotService {
       },
       select: {
         id: true,
+        taxonomyVersion: true,
         metadata: true,
         jobAssignments: {
           where: { tenantId, isPrimary: true },
@@ -130,9 +171,11 @@ export class MarketSnapshotService {
 
       return {
         taxonomyNodeId: category.id,
+        taxonomyVersion: category.taxonomyVersion,
         metadata: category.metadata,
         jobs,
         metrics: this.calculator.calculate(jobs, snapshotDate),
+        profileOpportunities: [],
       };
     });
 
@@ -142,6 +185,51 @@ export class MarketSnapshotService {
     const competitionMinimum = Math.min(...observedProposalMedians);
     const competitionMaximum = Math.max(...observedProposalMedians);
 
+    for (const result of results) {
+      const evidenceJobIds = result.metrics.evidenceJobIds;
+      result.profileOpportunities = profiles.map((profile) => {
+        const policy = profile.categoryPolicies.find((item) => item.taxonomyNodeId === result.taxonomyNodeId);
+        const lane = policy?.lane ?? MarketCategoryLane.ADJACENT;
+        const fitScores = result.jobs
+          .filter((job) => evidenceJobIds.includes(job.id))
+          .flatMap((job) => job.fitEvaluations
+            .filter((evaluation) => evaluation.positioningProfileId === profile.id)
+            .map((evaluation) => evaluation.overallScore));
+        const profileFit = average(fitScores);
+        const hasObservedCompetition = result.metrics.medianProposals != null;
+        const overallOpportunity = lane === MarketCategoryLane.EXCLUDED || profileFit == null || !hasObservedCompetition
+          ? null
+          : this.calculateOpportunity({
+            demand30d: result.metrics.demand30d,
+            demandMaximum,
+            medianProposals: result.metrics.medianProposals,
+            competitionMinimum,
+            competitionMaximum,
+            verifiedClientsPct: result.metrics.verifiedClientsPct,
+            profileFit,
+          });
+        const profileEligibility = policy?.lane === MarketCategoryLane.EXCLUDED
+          ? ProfileEligibility.EXCLUDED
+          : policy == null || profileFit == null || fitScores.length === 0 || overallOpportunity == null
+            ? ProfileEligibility.PENDING
+            : ProfileEligibility.ELIGIBLE;
+        const aiLeverage = policy?.aiLeverageEnabled ? readAiLeverageDeclaration(result.metadata) : null;
+
+        return {
+          profileId: profile.id,
+          lane,
+          profileFit,
+          overallOpportunity,
+          fitSampleJobs: fitScores.length,
+          profileEligibility,
+          aiLeverageState: aiLeverage == null ? MarketAiLeverageState.NOT_APPLICABLE : MarketAiLeverageState.APPLICABLE,
+          aiLeverageCapability: aiLeverage?.capability ?? null,
+          aiLeverageTask: aiLeverage?.task ?? null,
+          aiLeverageExplanation: aiLeverage?.explanation ?? null,
+        };
+      });
+    }
+
     await this.prisma.$transaction(async (transaction) => {
       for (const result of results) {
         const { evidenceJobIds, ...snapshotMetrics } = result.metrics;
@@ -149,102 +237,120 @@ export class MarketSnapshotService {
           ...snapshotMetrics,
           metricCoverage: snapshotMetrics.metricCoverage as unknown as Prisma.InputJsonValue,
         };
-        const snapshot = await transaction.marketCategorySnapshot.upsert({
+        const lineage = sourceLineage(result.taxonomyVersion, evidenceJobIds, result.jobs);
+        const snapshotContent = {
+          taxonomyVersion: result.taxonomyVersion,
+          calculationVersion: CALCULATION_VERSION,
+          asOf: snapshotDate.toISOString(),
+          metrics: persistedMetrics,
+          sourceLineage: lineage,
+          profileOpportunities: result.profileOpportunities,
+        };
+        const hash = contentHash(snapshotContent);
+        const currentSnapshot = await transaction.marketCategorySnapshot.findFirst({
           where: {
-            uq_market_snapshot_version: {
-              tenantId,
-              taxonomyNodeId: result.taxonomyNodeId,
-              asOf: snapshotDate,
-              calculationVersion: CALCULATION_VERSION,
-            },
-          },
-          create: {
             tenantId,
             taxonomyNodeId: result.taxonomyNodeId,
             asOf: snapshotDate,
             calculationVersion: CALCULATION_VERSION,
-            ...persistedMetrics,
+            isCurrent: true,
           },
-          update: {
-            ...persistedMetrics,
-          },
+          select: { id: true, revision: true, contentHash: true },
         });
 
-        await transaction.marketSnapshotEvidenceJob.deleteMany({ where: { snapshotId: snapshot.id } });
+        if (currentSnapshot?.contentHash === hash) continue;
+
+        const snapshot = await this.createRevision(transaction, {
+          tenantId,
+          taxonomyNodeId: result.taxonomyNodeId,
+          snapshotDate,
+          taxonomyVersion: result.taxonomyVersion,
+          sourceLineage: lineage,
+          contentHash: hash,
+          persistedMetrics,
+          currentSnapshot,
+        });
+
         if (evidenceJobIds.length > 0) {
           await transaction.marketSnapshotEvidenceJob.createMany({
             data: evidenceJobIds.map((jobPostId) => ({ snapshotId: snapshot.id, jobPostId })),
           });
         }
 
-        for (const profile of profiles) {
-          const policy = profile.categoryPolicies.find((item) => item.taxonomyNodeId === result.taxonomyNodeId);
-          const lane = policy?.lane ?? MarketCategoryLane.ADJACENT;
-          const fitScores = result.jobs
-            .filter((job) => evidenceJobIds.includes(job.id))
-            .flatMap((job) => job.fitEvaluations
-              .filter((evaluation) => evaluation.positioningProfileId === profile.id)
-              .map((evaluation) => evaluation.overallScore));
-          const profileFit = average(fitScores);
-          const hasObservedCompetition = result.metrics.medianProposals != null;
-          const overallOpportunity = lane === MarketCategoryLane.EXCLUDED || profileFit == null || !hasObservedCompetition
-            ? null
-            : this.calculateOpportunity({
-              demand30d: result.metrics.demand30d,
-              demandMaximum,
-              medianProposals: result.metrics.medianProposals,
-              competitionMinimum,
-              competitionMaximum,
-              verifiedClientsPct: result.metrics.verifiedClientsPct,
-              profileFit,
-            });
-          const profileEligibility = policy?.lane === MarketCategoryLane.EXCLUDED
-            ? ProfileEligibility.EXCLUDED
-            : policy == null || profileFit == null || fitScores.length === 0 || overallOpportunity == null
-              ? ProfileEligibility.PENDING
-              : ProfileEligibility.ELIGIBLE;
-          const aiLeverage = policy?.aiLeverageEnabled ? readAiLeverageDeclaration(result.metadata) : null;
-
-          await transaction.profileOpportunitySnapshot.upsert({
-            where: {
-              uq_profile_opportunity_snapshot: {
-                profileId: profile.id,
-                marketCategorySnapshotId: snapshot.id,
-                calculationVersion: CALCULATION_VERSION,
-              },
-            },
-            create: {
+        if (result.profileOpportunities.length > 0) {
+          await transaction.profileOpportunitySnapshot.createMany({
+            data: result.profileOpportunities.map((opportunity) => ({
               tenantId,
-              profileId: profile.id,
+              profileId: opportunity.profileId,
               marketCategorySnapshotId: snapshot.id,
-              lane,
-              profileFit,
-              overallOpportunity,
-              fitSampleJobs: fitScores.length,
-              profileEligibility,
-              aiLeverageState: aiLeverage == null ? MarketAiLeverageState.NOT_APPLICABLE : MarketAiLeverageState.APPLICABLE,
-              aiLeverageCapability: aiLeverage?.capability ?? null,
-              aiLeverageTask: aiLeverage?.task ?? null,
-              aiLeverageExplanation: aiLeverage?.explanation ?? null,
+              lane: opportunity.lane,
+              profileFit: opportunity.profileFit,
+              overallOpportunity: opportunity.overallOpportunity,
+              fitSampleJobs: opportunity.fitSampleJobs,
+              profileEligibility: opportunity.profileEligibility,
+              aiLeverageState: opportunity.aiLeverageState,
+              aiLeverageCapability: opportunity.aiLeverageCapability,
+              aiLeverageTask: opportunity.aiLeverageTask,
+              aiLeverageExplanation: opportunity.aiLeverageExplanation,
               calculationVersion: CALCULATION_VERSION,
-            },
-            update: {
-              lane,
-              profileFit,
-              overallOpportunity,
-              fitSampleJobs: fitScores.length,
-              profileEligibility,
-              aiLeverageState: aiLeverage == null ? MarketAiLeverageState.NOT_APPLICABLE : MarketAiLeverageState.APPLICABLE,
-              aiLeverageCapability: aiLeverage?.capability ?? null,
-              aiLeverageTask: aiLeverage?.task ?? null,
-              aiLeverageExplanation: aiLeverage?.explanation ?? null,
-            },
+            })),
           });
         }
       }
     });
 
     return { categories: results.length, profiles: profiles.length, asOf: snapshotDate };
+  }
+
+  private async createRevision(
+    transaction: Prisma.TransactionClient,
+    input: {
+      tenantId: string;
+      taxonomyNodeId: string;
+      snapshotDate: Date;
+      taxonomyVersion: number;
+      sourceLineage: Prisma.InputJsonValue;
+      contentHash: string;
+      persistedMetrics: PersistedMetrics;
+      currentSnapshot: { id: string; revision: number; contentHash: string } | null;
+    },
+  ) {
+    const previousRevision = input.currentSnapshot?.revision ?? await transaction.marketCategorySnapshot.findFirst({
+      where: {
+        tenantId: input.tenantId,
+        taxonomyNodeId: input.taxonomyNodeId,
+        asOf: input.snapshotDate,
+        calculationVersion: CALCULATION_VERSION,
+      },
+      orderBy: { revision: 'desc' },
+      select: { revision: true },
+    });
+
+    if (input.currentSnapshot) {
+      await transaction.marketCategorySnapshot.update({
+        where: { id: input.currentSnapshot.id },
+        data: { isCurrent: false },
+      });
+    }
+
+    const previousRevisionNumber = typeof previousRevision === 'number'
+      ? previousRevision
+      : previousRevision?.revision ?? 0;
+
+    return transaction.marketCategorySnapshot.create({
+      data: {
+        tenantId: input.tenantId,
+        taxonomyNodeId: input.taxonomyNodeId,
+        asOf: input.snapshotDate,
+        revision: previousRevisionNumber + 1,
+        isCurrent: true,
+        taxonomyVersion: input.taxonomyVersion,
+        sourceLineage: input.sourceLineage,
+        contentHash: input.contentHash,
+        calculationVersion: CALCULATION_VERSION,
+        ...input.persistedMetrics,
+      },
+    });
   }
 
   private calculateOpportunity(input: {

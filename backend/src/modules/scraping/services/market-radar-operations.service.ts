@@ -52,7 +52,7 @@ export class MarketRadarOperationsService {
         },
       }),
       this.prisma.marketCategorySnapshot.findFirst({
-        where: { tenantId },
+        where: { tenantId, isCurrent: true },
         orderBy: { asOf: 'desc' },
         select: { asOf: true },
       }),
@@ -61,12 +61,12 @@ export class MarketRadarOperationsService {
         orderBy: { finishedAt: 'desc' },
         select: { finishedAt: true },
       }),
-      this.prisma.marketCategorySnapshot.count({ where: { tenantId } }),
+      this.prisma.marketCategorySnapshot.count({ where: { tenantId, isCurrent: true } }),
     ]);
     const latestSnapshotCategories = latestSnapshot == null
       ? 0
       : await this.prisma.marketCategorySnapshot.count({
-        where: { tenantId, asOf: latestSnapshot.asOf },
+        where: { tenantId, asOf: latestSnapshot.asOf, isCurrent: true },
       });
     const staleAfterDays = configuredPositiveInteger('MARKET_RADAR_STALE_AFTER_DAYS', 2);
     const retentionDays = configuredPositiveInteger('MARKET_RADAR_RETENTION_DAYS', 180);

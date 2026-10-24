@@ -13,6 +13,12 @@ export interface ScrapingProgressEvent {
   currentJobTitle?: string;
   highFitCount?: number;
   mediumFitCount?: number;
+  classificationStatus?: 'QUEUED' | 'COMPLETED' | 'FAILED';
+  classificationQueued?: number;
+  classificationCompleted?: number;
+  classificationFailed?: number;
+  radarRebuildStatus?: 'QUEUED' | 'COMPLETED' | 'FAILED';
+  radarSnapshotUpdated?: boolean;
   error?: string;
   timestamp: string;
 }

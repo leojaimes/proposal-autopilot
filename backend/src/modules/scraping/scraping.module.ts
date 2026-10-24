@@ -13,6 +13,9 @@ import { MarketTaxonomyAssignmentService } from './services/market-taxonomy-assi
 import { MarketSnapshotService } from './services/market-snapshot.service';
 import { MarketRadarOperationsService } from './services/market-radar-operations.service';
 import { MarketRadarDecisionService } from './services/market-radar-decision.service';
+import { TaxonomyClassificationEventsService } from './services/taxonomy-classification-events.service';
+import { MarketRadarRebuildQueueService } from './services/market-radar-rebuild-queue.service';
+import { TaxonomyClassificationWorkService } from './services/taxonomy-classification-work.service';
 
 @Module({
   imports: [ScoringModule, ProposalsModule],
@@ -26,6 +29,9 @@ import { MarketRadarDecisionService } from './services/market-radar-decision.ser
     MarketSnapshotService,
     MarketRadarOperationsService,
     MarketRadarDecisionService,
+    MarketRadarRebuildQueueService,
+    TaxonomyClassificationWorkService,
+    TaxonomyClassificationEventsService,
     PrismaService, 
     TenantContextService
   ],

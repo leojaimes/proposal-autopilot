@@ -78,6 +78,21 @@ enum JobCategoryAssignmentSource {
   MANUAL
 }
 
+enum TaxonomyClassificationState {
+  PENDING
+  CLASSIFIED
+  FALLBACK
+  FAILED
+}
+
+enum TaxonomyClassificationWorkStatus {
+  PENDING
+  PROCESSING
+  RETRYING
+  COMPLETED
+  FAILED
+}
+
 enum MarketRadarDecisionStatus {
   PRIORITIZED
   WATCHED
@@ -101,6 +116,7 @@ model Tenant {
   scrapeConfigs               ScrapeConfig[]
   batchRuns                   BatchRun[]
   jobPosts                    JobPost[]
+  taxonomyClassificationWork  TaxonomyClassificationWork[]
   profileCategoryPolicies     ProfileCategoryPolicy[]
   jobCategoryAssignments      JobCategoryAssignment[]
   marketCategorySnapshots     MarketCategorySnapshot[]
@@ -297,6 +313,11 @@ model JobPost {
   postedAtKnown     Boolean    @default(false) @map("posted_at_known")
   status            JobStatus  @default(NEEDS_REVIEW)
   rawApifyPayload   Json?      @map("raw_apify_payload")
+  taxonomyClassificationState TaxonomyClassificationState @default(PENDING) @map("taxonomy_classification_state")
+  taxonomyClassifierVersion  String? @map("taxonomy_classifier_version") @db.VarChar(50)
+  taxonomyFallbackReason     String? @map("taxonomy_fallback_reason") @db.VarChar(100)
+  taxonomyClassificationError String? @map("taxonomy_classification_error") @db.Text
+  taxonomyClassifiedAt       DateTime? @map("taxonomy_classified_at")
   createdAt         DateTime   @default(now()) @map("created_at")
 
   tenant              Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -304,6 +325,7 @@ model JobPost {
   fitEvaluations      FitEvaluation[]
   proposals           Proposal[]
   categoryAssignments JobCategoryAssignment[]
+  taxonomyClassificationWork TaxonomyClassificationWork[]
   snapshotEvidence    MarketSnapshotEvidenceJob[]
   decisionOutcomes    MarketRadarDecisionOutcome[]
 
@@ -321,6 +343,7 @@ model JobCategoryAssignment {
   confidence        Decimal?                    @db.Decimal(5, 4)
   isPrimary         Boolean                     @default(false) @map("is_primary")
   classifierVersion String                      @default("v1") @map("classifier_version") @db.VarChar(50)
+  taxonomyVersion   Int                         @default(1) @map("taxonomy_version")
   evidence          Json?                       @map("evidence")
   classifiedAt      DateTime                    @default(now()) @map("classified_at")
 
@@ -333,11 +356,47 @@ model JobCategoryAssignment {
   @@map("job_category_assignments")
 }
 
+/// Durable, tenant-scoped taxonomy work.  The unique key prevents duplicate
+/// delivery from creating concurrent work for the same taxonomy revision.
+model TaxonomyClassificationWork {
+  id              String                           @id @default(uuid()) @db.Uuid
+  tenantId        String                           @map("tenant_id") @db.Uuid
+  jobPostId       String                           @map("job_post_id") @db.Uuid
+  taxonomyVersion Int                              @default(1) @map("taxonomy_version")
+  classifierVersion String                         @default("taxonomy-rules-v1") @map("classifier_version") @db.VarChar(50)
+  batchId         String?                          @map("batch_id") @db.VarChar(100)
+  inputPayload    Json                             @default("{}") @map("input_payload")
+  status          TaxonomyClassificationWorkStatus @default(PENDING)
+  attempts        Int                              @default(0)
+  maxAttempts     Int                              @default(3) @map("max_attempts")
+  availableAt     DateTime                         @default(now()) @map("available_at")
+  lockedAt        DateTime?                        @map("locked_at")
+  lockedBy        String?                          @map("locked_by") @db.VarChar(100)
+  lastError       String?                          @map("last_error") @db.Text
+  completedAt     DateTime?                        @map("completed_at")
+  failedAt        DateTime?                        @map("failed_at")
+  createdAt       DateTime                         @default(now()) @map("created_at")
+  updatedAt       DateTime                         @updatedAt @map("updated_at")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  jobPost JobPost @relation(fields: [jobPostId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, jobPostId, taxonomyVersion], name: "uq_tenant_job_taxonomy_work")
+  @@index([tenantId, status, availableAt])
+  @@index([batchId, status, availableAt])
+  @@map("taxonomy_classification_work")
+}
+
 model MarketCategorySnapshot {
   id                 String   @id @default(uuid()) @db.Uuid
   tenantId           String   @map("tenant_id") @db.Uuid
   taxonomyNodeId     String   @map("taxonomy_node_id") @db.Uuid
   asOf               DateTime @map("as_of") @db.Date
+  revision           Int      @default(1)
+  isCurrent          Boolean  @default(true) @map("is_current")
+  taxonomyVersion    Int      @default(1) @map("taxonomy_version")
+  sourceLineage      Json     @default("{}") @map("source_lineage")
+  contentHash        String   @default("") @map("content_hash") @db.VarChar(64)
   demand7d           Int      @default(0) @map("demand_7d")
   demand30d          Int      @default(0) @map("demand_30d")
   medianProposals    Decimal? @map("median_proposals") @db.Decimal(10, 2)
@@ -358,8 +417,8 @@ model MarketCategorySnapshot {
   profileOpportunities ProfileOpportunitySnapshot[]
   decisions            MarketRadarDecision[]
 
-  @@unique([tenantId, taxonomyNodeId, asOf, calculationVersion], name: "uq_market_snapshot_version")
-  @@index([tenantId, asOf(sort: Desc)])
+  @@unique([tenantId, taxonomyNodeId, asOf, calculationVersion, revision], name: "uq_market_snapshot_revision")
+  @@index([tenantId, isCurrent, asOf(sort: Desc)])
   @@map("market_category_snapshots")
 }
 

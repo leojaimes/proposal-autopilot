@@ -1,5 +1,6 @@
 import { BadRequestException, Controller, Post, Get, Patch, Body, Param, Query, Logger, NotFoundException, Res, Sse, MessageEvent } from '@nestjs/common';
 import { Observable } from 'rxjs';
+import { randomUUID } from 'node:crypto';
 import { Response } from 'express';
 import { ApifyService } from './apify.service';
 import { ScrapingProgressService } from './scraping-progress.service';
@@ -11,6 +12,8 @@ import { MarketTaxonomyAssignmentService } from './services/market-taxonomy-assi
 import { MarketRadarOperationsService } from './services/market-radar-operations.service';
 import { MarketRadarDecisionService } from './services/market-radar-decision.service';
 import { MarketTrendCalculator } from './services/market-trend-calculator.service';
+import { TaxonomyClassificationEventsService } from './services/taxonomy-classification-events.service';
+import { TaxonomyClassificationWorkService } from './services/taxonomy-classification-work.service';
 import { PrismaService } from '../../core/database/prisma.service';
 import { TenantContextService } from '../../core/context/tenant-context.service';
 import { BudgetType, JobStatus, MarketRadarDecisionStatus, StrategicLane, FitTier } from '@prisma/client';
@@ -47,6 +50,14 @@ export interface UpdateMarketRadarDecisionOutcomeDto {
   realizedValue?: number;
 }
 
+const TAXONOMY_CLASSIFIER_VERSION = 'taxonomy-rules-v1';
+
+export function needsTaxonomyReprocessing(
+  primaryAssignment: { classifierVersion: string } | undefined,
+): boolean {
+  return primaryAssignment?.classifierVersion !== TAXONOMY_CLASSIFIER_VERSION;
+}
+
 @Controller('api/scraping')
 export class ScrapingController {
   private readonly logger = new Logger(ScrapingController.name);
@@ -62,6 +73,8 @@ export class ScrapingController {
     private readonly marketTaxonomyAssignments: MarketTaxonomyAssignmentService,
     private readonly marketRadarOperations: MarketRadarOperationsService,
     private readonly marketRadarDecisions: MarketRadarDecisionService,
+    private readonly taxonomyClassificationEvents: TaxonomyClassificationEventsService,
+    private readonly taxonomyClassificationWork: TaxonomyClassificationWorkService,
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
   ) {}
@@ -298,6 +311,7 @@ isActive: true,
     });
     const scoredCandidates: Array<{ jobPost: any; evaluation: any }> = [];
     const taxonomyRules = await this.marketTaxonomyAssignments.loadActiveRules();
+    const taxonomyVersion = Math.max(1, ...taxonomyRules.map((rule) => rule.taxonomyVersion || 1));
 
     // FASE 2: Normalización & Scoring 0-100 para todas las vacantes
     for (let idx = 0; idx < rawJobs.length; idx++) {
@@ -306,7 +320,8 @@ isActive: true,
       if (!normalized.externalId) continue;
 
       // Upsert JobPost
-      const jobPost = await this.prisma.jobPost.upsert({
+      const jobPost = await this.prisma.$transaction(async (tx) => {
+        const persistedJob = await tx.jobPost.upsert({
         where: {
           uq_tenant_external_job: {
             tenantId,
@@ -355,18 +370,27 @@ isActive: true,
           postedAtKnown: normalized.postedAtKnown,
           rawApifyPayload: normalized.rawPayload as any,
         },
+        });
+        await this.taxonomyClassificationWork.queue(tx, {
+          tenantId,
+          jobPostId: persistedJob.id,
+          taxonomyVersion,
+          batchId: batchRunId,
+          input: {
+            title: persistedJob.title,
+            description: persistedJob.description,
+            skills: normalized.skills || [],
+          },
+        });
+        return persistedJob;
       });
 
-      await this.marketTaxonomyAssignments.classifyAndPersist(
+      this.taxonomyClassificationEvents.enqueue({
+        batchId: batchRunId,
         tenantId,
-        jobPost.id,
-        {
-          title: jobPost.title,
-          description: jobPost.description,
-          skills: normalized.skills || [],
-        },
-        taxonomyRules,
-      );
+        jobPostId: jobPost.id,
+        totalJobs: rawJobs.length,
+      });
 
       // Cálculo Matemático del FitScore Deductivo
       const evaluation = this.fitCalculator.calculate({
@@ -528,6 +552,8 @@ isActive: true,
       }
     }
 
+    // The Radar snapshot must only include jobs whose taxonomy assignment has settled.
+    await this.taxonomyClassificationEvents.drain(batchRunId);
     const snapshotResult = await this.marketRadarOperations.rebuildAfterSuccessfulBatch(tenantId);
 
     // Actualizar BatchRun como COMPLETED únicamente cuando el radar persistió su snapshot.
@@ -621,7 +647,7 @@ isActive: true,
     const profile = await this.resolveActiveProfile(personaNameQuery);
     const [snapshots, operationalHealth, decisions] = await Promise.all([
       this.prisma.marketCategorySnapshot.findMany({
-      where: { tenantId },
+      where: { tenantId, isCurrent: true },
       orderBy: { asOf: 'desc' },
       include: {
         taxonomyNode: { select: { name: true, slug: true } },
@@ -1644,8 +1670,32 @@ isActive: true,
 
     const scrapeConfig = await this.prisma.scrapeConfig.findFirst({ where: { tenantId } });
     const activeProfile = await this.resolveActiveProfile(personaNameQuery);
+    const taxonomyRules = await this.marketTaxonomyAssignments.loadActiveRules();
+    const taxonomyVersion = Math.max(1, ...taxonomyRules.map((rule) => rule.taxonomyVersion || 1));
+    const reprocessBatchId = `reprocess-${randomUUID()}`;
+    const primaryAssignments = await this.prisma.jobCategoryAssignment.findMany({
+      where: {
+        tenantId,
+        jobPostId: { in: existingJobs.map((job) => job.id) },
+        isPrimary: true,
+      },
+      select: { jobPostId: true, classifierVersion: true },
+    });
+    const primaryAssignmentByJobId = new Map(
+      primaryAssignments.map((assignment) => [assignment.jobPostId, assignment]),
+    );
+
+    this.progressService.emitProgress({
+      batchId: reprocessBatchId,
+      tenantId,
+      step: 'SCORING',
+      message: `Reprocesando ${existingJobs.length} empleos y preparando la clasificación de taxonomía...`,
+      percentage: 40,
+      totalJobs: existingJobs.length,
+    });
 
     let updatedCount = 0;
+    let classificationQueued = 0;
     const chunkSize = 25;
     for (let i = 0; i < existingJobs.length; i += chunkSize) {
       const chunk = existingJobs.slice(i, i + chunkSize);
@@ -1653,6 +1703,32 @@ isActive: true,
         if (!job.rawApifyPayload) return;
 
         const normalized = this.apifyAdapter.normalizeRaw(job.rawApifyPayload as Record<string, any>);
+
+        if (
+          needsTaxonomyReprocessing(primaryAssignmentByJobId.get(job.id))
+          || job.taxonomyClassificationState === 'PENDING'
+          || job.taxonomyClassificationState === 'FAILED'
+        ) {
+          await this.taxonomyClassificationWork.queueForJob({
+            tenantId,
+            jobPostId: job.id,
+            taxonomyVersion,
+            batchId: reprocessBatchId,
+            input: {
+              title: normalized.title,
+              description: normalized.description,
+              skills: normalized.skills || [],
+            },
+            force: true,
+          });
+          this.taxonomyClassificationEvents.enqueue({
+            batchId: reprocessBatchId,
+            tenantId,
+            jobPostId: job.id,
+            totalJobs: existingJobs.length,
+          });
+          classificationQueued++;
+        }
 
         // Re-calcular Fit con datos reales y preferencias geográficas
         const evaluation = this.fitCalculator.calculate({
@@ -1801,10 +1877,74 @@ isActive: true,
       }
     }
 
+    this.progressService.emitProgress({
+      batchId: reprocessBatchId,
+      tenantId,
+      step: 'SCORING',
+      message: `Clasificación de taxonomía: ${classificationQueued} empleos requieren backfill; esperando resultados...`,
+      percentage: 85,
+      totalJobs: existingJobs.length,
+      classificationStatus: classificationQueued > 0 ? 'QUEUED' : 'COMPLETED',
+      classificationQueued,
+      classificationCompleted: 0,
+      classificationFailed: 0,
+    });
+
+    try {
+      await this.taxonomyClassificationEvents.drain(reprocessBatchId);
+    } catch (error: any) {
+      const classificationFailureEvent = this.progressService.getLatestEvent(reprocessBatchId);
+      this.progressService.emitProgress({
+        batchId: reprocessBatchId,
+        tenantId,
+        step: 'ERROR',
+        message: `Falló el backfill de clasificación de taxonomía: ${error.message || 'error desconocido'}`,
+        percentage: 100,
+        totalJobs: existingJobs.length,
+        classificationQueued,
+        classificationCompleted: classificationFailureEvent?.classificationCompleted,
+        classificationFailed: classificationFailureEvent?.classificationFailed ?? classificationQueued,
+        error: error.message,
+      });
+      throw error;
+    }
+
+    const classificationEvent = this.progressService.getLatestEvent(reprocessBatchId);
+    this.progressService.emitProgress({
+      batchId: reprocessBatchId,
+      tenantId,
+      step: 'SCORING',
+      message: `Clasificación de taxonomía completada (${classificationQueued} empleos). Reconstruyendo Market Radar...`,
+      percentage: 90,
+      totalJobs: existingJobs.length,
+      classificationStatus: 'COMPLETED',
+      classificationQueued,
+      classificationCompleted: classificationQueued,
+      classificationFailed: classificationEvent?.classificationFailed ?? 0,
+    });
+
+    const snapshotResult = await this.marketRadarOperations.rebuildAfterSuccessfulBatch(tenantId);
+
+    this.progressService.emitProgress({
+      batchId: reprocessBatchId,
+      tenantId,
+      step: 'COMPLETED',
+      message: `Reprocesamiento completado: ${updatedCount} empleos, ${classificationQueued} clasificaciones y ${snapshotResult.categories} categorías de Radar actualizadas.`,
+      percentage: 100,
+      totalJobs: existingJobs.length,
+      classificationStatus: 'COMPLETED',
+      classificationQueued,
+      classificationCompleted: classificationQueued,
+      classificationFailed: classificationEvent?.classificationFailed ?? 0,
+    });
+
     return {
       success: true,
+      batchId: reprocessBatchId,
       reprocessedCount: updatedCount,
       top3GoldGenerated: top3Generated,
+      taxonomyClassificationsQueued: classificationQueued,
+      radarSnapshot: snapshotResult,
       message: `Se re-evaluaron ${updatedCount} empleos ($0 tokens) para ${activeProfile?.personaName || 'perfil activo'} y la IA redactó el Top ${top3Generated} Gold.`,
     };
   }
