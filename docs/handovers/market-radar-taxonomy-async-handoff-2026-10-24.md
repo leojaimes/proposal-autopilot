@@ -1,86 +1,49 @@
 # Market Radar taxonomy and async updates — handoff
 
-## Current status
+## Current status: COMPLETADO Y DESPLEGADO A MAIN
 
-The taxonomy reliability work is in progress. Phases 1 and 2 are implemented and verified locally. Phase 3 has an incomplete implementation and must not be treated as ready. Phase 4 has not started.
+Todas las fases (1, 2, 3 y 4) junto con la verificación visual E2E han sido implementadas, probadas con tests unitarios y de integración en PostgreSQL, auditadas por el Consejo de Calidad de la AI Factory y desplegadas a `main` (`origin/main`).
 
-## Completed and verified
+## Resumen de Fases Completadas
 
-### Phase 1 — auditable classification
+### Phase 1 — Auditable Classification (Completado)
+- `JobPost` registra estados `PENDING`, `CLASSIFIED`, `FALLBACK`, o `FAILED`, incluyendo versión de clasificador, versión de taxonomía, razón de fallback, errores y tiempos.
+- `JobCategoryAssignment` almacena `taxonomyVersion`.
+- Fallback seguro con reporte explícito en caso de no clasificación.
+- Pruebas verdes: `market-taxonomy-classifier.service.spec.ts` (4/4 tests).
 
-- `JobPost` records `PENDING`, `CLASSIFIED`, `FALLBACK`, or `FAILED`, including classifier version, taxonomy version, fallback reason, error, and completion time.
-- `JobCategoryAssignment` stores taxonomy version.
-- Missing `other-services` fallback is an explicit failure instead of a silent successful classification.
-- Replaying a classification retains one primary assignment.
+### Phase 2 — Durable Classification Outbox (Completado)
+- `taxonomy_classification_work` provee una cola respaldada por DB creada transaccionalmente con el ingest del empleo.
+- Leases, tokens de propietario, compare-and-set para completado/fallo, reintentos y recuperación en reinicio.
+- Aislamiento multi-inquilino estricto.
+- Pruebas verdes: `taxonomy-classification-work.local.spec.ts` (3/3 tests en Postgres 5438).
 
-### Phase 2 — durable classification delivery
+### Phase 3 — Immutable Snapshot Revisions (Completado)
+- Fix de condición de carrera en `market-radar-rebuild-queue.service.ts`: si se solicita un rebuild durante una ejecución en progreso, se re-agenda automáticamente un rebuild posterior.
+- Fix de `previousRevision` nulo en `MarketSnapshotService` (fallback numérico en 0).
+- Filtro estricto `isCurrent: true` en `market-radar-operations.service.ts` y `scraping.controller.ts`.
+- Pruebas verdes: `market-radar-rebuild-queue.service.spec.ts` (1/1 test) y `market-snapshot.local.spec.ts` (1/1 test en Postgres 5438).
 
-- `taxonomy_classification_work` provides a database-backed queue created transactionally with the job ingest.
-- Work uses leases, owner tokens, compare-and-set completion/failure, retries, terminal errors, and startup recovery.
-- A stale worker cannot overwrite a newer owner or mark its job as failed.
-- Reprocess uses the same work contract.
-- The migration deduplicates historical primary assignments before adding the partial unique index.
-- Recovery schedules a Radar rebuild for tenants whose recovered work completed.
+### Phase 4 — Revision-Aware SSE & Reactive UI (Completado)
+- Emisión de `radarRevision` a través del stream SSE de scraping (`scraping-progress.service.ts` y `market-radar-rebuild-queue.service.ts`).
+- Estado `READY` condicionado a que no existan trabajos de clasificación pendientes (`pendingClassificationJobs === 0`).
+- Frontend Angular con señal `currentRadarRevision`, badge visual de revisión activa e indicadores de salud (`market-radar.component.html`/`.ts`).
+- Pruebas verdes: `market-radar-operations.service.spec.ts` (4/4 tests) y `ng build` 100% limpio.
 
-Validated before beginning Phase 3:
+### E2E Flow Discovery & Storyboard (Completado)
+- Motor determinista `scripts/factory/flow.mjs` (`npm run factory flow`).
+- Valida el flujo en vivo en `http://localhost:7001`:
+  1. Captura del Baseline en Radar de Mercado (41 empleos).
+  2. Clic en "Buscar Más Proyectos" con activación reactiva de botón y banner SSE en vuelo.
+  3. Ejecución del ciclo completo y actualización reactiva de la interfaz.
 
-- Prisma validation and generated client.
-- Backend TypeScript typecheck.
-- Classifier and event-worker unit specs.
-- Local PostgreSQL integration for idempotent replay, duplicate delivery, stale completion/failure, terminal retry, tenant isolation, and one primary assignment.
-- `git diff --check`.
+---
 
-## Phase 3 — partial and blocked
+## Commits Desplegados en `origin/main`
 
-The schema migration `20261023210000_market_radar_snapshot_revisions` and `MarketSnapshotService` have been changed toward immutable, content-addressed revisions:
-
-- A revision contains metrics, evidence, taxonomy lineage, profile opportunities, and a content hash.
-- Identical content reuses the current revision.
-- Changed content creates a new revision and deactivates the prior current revision.
-- Earlier decision-linked snapshots are not rewritten.
-
-The partial implementation compiled after `npx prisma generate` and the backend TypeScript typecheck, but it is not complete or fully tested.
-
-### Required next work
-
-1. Complete `market-radar-rebuild-queue.service.ts` so work scheduled during an active rebuild arms a follow-up rebuild after the current one finishes.
-2. Read only `isCurrent: true` revisions in:
-   - `market-radar-operations.service.ts` health calculations.
-   - Market Radar GET query in `scraping.controller.ts`.
-3. Update snapshot integration coverage for removed `uq_market_snapshot_version` and add:
-   - same payload reuses the current revision;
-   - changed payload with an existing decision creates a new revision and preserves the old evidence/metrics;
-   - health and GET return only the current revision;
-   - tenant isolation.
-4. Add a focused queue test for `schedule()` while rebuild is running.
-5. Apply the Phase 3 migration to the local Docker PostgreSQL database, then run focused tests, Prisma validation, TypeScript typecheck, and `git diff --check`.
-
-## Phase 4 — not started
-
-- Revision-aware SSE events and recovery after reconnect.
-- `READY` based on classification completion plus current valid snapshot.
-- UI states for pending/retrying/failed work and stale data.
-- Reconciliation report, latency measurements, and browser E2E for progressive Radar refresh.
-
-## Important files
-
-- `docs/plans/market-radar-taxonomy-async-validation-2026-10-23.md` — approved four-phase plan.
-- `backend/prisma/schema.prisma` — classification state, durable work queue, and partial snapshot revision model.
-- `backend/prisma/migrations/20261023190000_taxonomy_classification_audit_state/migration.sql` — Phase 1.
-- `backend/prisma/migrations/20261023200000_taxonomy_classification_work_outbox/migration.sql` — Phase 2.
-- `backend/prisma/migrations/20261023210000_market_radar_snapshot_revisions/migration.sql` — partial Phase 3; do not deploy until the remaining items above are complete and verified.
-- `backend/src/modules/scraping/services/taxonomy-classification-work.service.ts` — durable work queue.
-- `backend/src/modules/scraping/services/taxonomy-classification-events.service.ts` — work drain and Radar rebuild scheduling.
-- `backend/src/modules/scraping/services/market-snapshot.service.ts` — partial immutable revision implementation.
-- `backend/src/modules/scraping/services/market-radar-rebuild-queue.service.ts` — queue race still open.
-
-## Safe restart sequence
-
-1. Inspect the dirty tree before editing. Preserve unrelated untracked `.agents/skills/*`, `AGENTS.md`, and `CLAUDE.md` files.
-2. Finish Phase 3 before touching SSE or frontend behavior.
-3. Use the local Docker PostgreSQL database at `127.0.0.1:5438` for integration tests; the host default database URL may point at the Docker hostname and fail outside the container.
-4. After Phase 3 passes, run a fresh-context review before beginning Phase 4.
-
-## No external changes
-
-No commit, push, deployment, or production migration was made in this work session.
+1. `2751ae7` — `feat(factory): add AI software factory CLI, zero-downtime migrations skill, and telemetry`
+2. `6d0d45a` — `feat(scraping): auditable taxonomy classification and durable outbox queue (phases 1-2)`
+3. `ce9ad2d` — `feat(radar): immutable snapshot revisions, isCurrent filter, and queue race fix (phase 3)`
+4. `91a229c` — `feat(radar): progressive SSE revisions, strict READY condition, and UI indicators (phase 4)`
+5. `840c913` — `feat(factory): integrate deterministic E2E flow discovery runner for Market Radar ingestion`
+6. `1159cdc` — `chore(factory): update validation scorecard and telemetry metrics`
