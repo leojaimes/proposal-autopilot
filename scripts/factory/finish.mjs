@@ -101,13 +101,48 @@ export async function finishTask(taskSlug, autoConfirm = false) {
     runGit('push origin main');
     console.log('✅ Push completado. GitHub Actions compilará las imágenes en GHCR.');
 
-    // Post-Deploy Smoke Check & Canary Guardian
-    console.log('\n📡 POST-DEPLOY PIPELINE: Monitoreando compilación y salud...');
+    // Post-Deploy Smoke Check: GHCR Compilation Verification & Canary Guardian
+    console.log('\n📡 POST-DEPLOY VERIFICATION: Verificando CI/CD y publicación en GHCR...');
+    const currentSha = runGit('rev-parse HEAD');
+    let ghcrVerified = false;
+
     try {
-      const ghOut = execSync('gh run list -L 1', { encoding: 'utf8' }).trim();
-      console.log(`  CI/CD Activo:\n  ${ghOut.split('\n')[0]}`);
-    } catch {
-      // gh CLI not available, continue
+      let runId = null;
+      process.stdout.write('   Localizando workflow de GitHub Actions');
+      for (let attempt = 1; attempt <= 10; attempt++) {
+        try {
+          const runsJson = execSync('gh run list --branch main --limit 5 --json databaseId,headSha,status,conclusion', {
+            encoding: 'utf8',
+            stdio: ['pipe', 'pipe', 'pipe']
+          }).trim();
+          const runs = JSON.parse(runsJson);
+          const match = runs.find(r => r.headSha === currentSha || (currentSha && currentSha.startsWith(r.headSha)));
+          if (match) {
+            runId = match.databaseId;
+            break;
+          }
+        } catch {
+          // gh command retry
+        }
+        process.stdout.write('.');
+        await new Promise(res => setTimeout(res, 3000));
+      }
+      console.log('');
+
+      if (runId) {
+        console.log(`   Vigilando run #${runId} en GitHub Actions hasta su publicación en GHCR...`);
+        execSync(`gh run watch ${runId} --exit-status --compact`, { stdio: 'inherit' });
+        console.log('✅ Imágenes Docker compiladas y publicadas exitosamente en GHCR.');
+        ghcrVerified = true;
+      } else {
+        console.warn('⚠️ No se detectó un run específico en GitHub Actions dentro del tiempo esperado.');
+      }
+    } catch (err) {
+      console.error(`❌ Falló la compilación/publicación en GHCR: ${err.message}`);
+      if (!process.argv.includes('--force')) {
+        console.error('🛑 Despliegue detenido por fallo en la verificación de GHCR.');
+        process.exit(1);
+      }
     }
 
     try {

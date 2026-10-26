@@ -32,17 +32,17 @@
       <!-- Quick Telemetry Counters -->
       <div class="flex items-center gap-4 bg-surface-elevated/80 border border-border-subtle/80 rounded-xl p-3 px-4 backdrop-blur-sm">
         <div class="text-center px-2">
-          <div class="text-[10px] font-mono uppercase tracking-wider text-content-muted">Perfiles ICP</div>
+          <div class="text-[10px] font-mono uppercase tracking-wider text-content-muted">{{ 'profile.counters_icp' | translate }}</div>
           <div class="text-lg font-bold font-mono text-content-primary">{{ pipeline.profiles().length || 1 }}</div>
         </div>
         <div class="w-px h-8 bg-border-subtle"></div>
         <div class="text-center px-2">
-          <div class="text-[10px] font-mono uppercase tracking-wider text-content-muted">Proof Stories</div>
+          <div class="text-[10px] font-mono uppercase tracking-wider text-content-muted">{{ 'profile.counters_proof' | translate }}</div>
           <div class="text-lg font-bold font-mono text-sky-400">{{ pipeline.proofStories().length }}</div>
         </div>
         <div class="w-px h-8 bg-border-subtle"></div>
         <div class="text-center px-2">
-          <div class="text-[10px] font-mono uppercase tracking-wider text-content-muted">Idioma Activo</div>
+          <div class="text-[10px] font-mono uppercase tracking-wider text-content-muted">{{ 'profile.counters_lang' | translate }}</div>
           <div class="text-lg font-bold font-mono text-emerald-400 uppercase">{{ i18n.currentLang() }}</div>
         </div>
       </div>
@@ -70,7 +70,7 @@
             </div>
             <div>
               <h2 class="text-base font-bold text-content-primary">{{ 'profile.language_settings' | translate }}</h2>
-              <p class="text-xs text-content-secondary">Ajuste de idioma del explorador e interfaz</p>
+              <p class="text-xs text-content-secondary">{{ 'profile.language_subtitle' | translate }}</p>
             </div>
           </div>
           <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-surface-elevated text-content-muted border border-border-subtle">
@@ -90,14 +90,14 @@
             </span>
           </div>
           <p class="text-[11px] text-content-secondary leading-relaxed">
-            La cabina detecta el idioma configurado en tu sistema operativo y navegador web para auto-calibrar la interfaz sin fricción.
+            {{ 'profile.detection_explainer' | translate }}
           </p>
         </div>
 
         <!-- Language Mode Selection Options -->
         <div class="space-y-3 pt-1">
           <label class="text-xs font-semibold uppercase tracking-wider text-content-muted block">
-            Preferencia de Visualización
+            {{ 'profile.preference_label' | translate }}
           </label>
 
           <!-- Option 1: Auto -->
@@ -123,7 +123,7 @@
                   {{ 'profile.mode_auto' | translate }}
                 </span>
                 <span class="text-[10px] text-content-muted">
-                  Auto-resuelve a: <strong class="text-content-secondary uppercase font-mono">{{ i18n.detectSystemLanguage() }}</strong>
+                  {{ 'profile.auto_resolves_to' | translate }} <strong class="text-content-secondary uppercase font-mono">{{ i18n.detectSystemLanguage() }}</strong>
                 </span>
               </div>
             </div>
@@ -154,7 +154,7 @@
                 <span class="text-xs font-medium block text-content-primary">
                   {{ 'profile.mode_manual_es' | translate }}
                 </span>
-                <span class="text-[10px] text-content-muted">Español nativo para toda la cabina y herramientas</span>
+                <span class="text-[10px] text-content-muted">{{ 'profile.mode_manual_es_desc' | translate }}</span>
               </div>
             </div>
             <span class="text-xs">🇲🇽 🇪🇸</span>
@@ -182,7 +182,7 @@
                 <span class="text-xs font-medium block text-content-primary">
                   {{ 'profile.mode_manual_en' | translate }}
                 </span>
-                <span class="text-[10px] text-content-muted">English interface for global operations</span>
+                <span class="text-[10px] text-content-muted">{{ 'profile.mode_manual_en_desc' | translate }}</span>
               </div>
             </div>
             <span class="text-xs">🇺🇸 🇬🇧</span>
@@ -191,7 +191,7 @@
 
         <!-- Live Reactive Verification Box -->
         <div class="p-3.5 rounded-xl bg-surface-elevated/50 border border-dashed border-border-subtle flex items-center justify-between">
-          <span class="text-[11px] text-content-muted">Vista previa inmediata de etiquetas:</span>
+          <span class="text-[11px] text-content-muted">{{ 'profile.live_preview_label' | translate }}</span>
           <span class="text-xs font-mono font-semibold text-brand-primary bg-brand-primary/10 px-2 py-0.5 rounded">
             {{ 'nav.terminal' | translate }} • {{ 'nav.radar' | translate }}
           </span>
@@ -210,22 +210,22 @@
             </div>
             <div>
               <h2 class="text-base font-bold text-content-primary">{{ 'profile.offer_headline' | translate }}</h2>
-              <p class="text-xs text-content-secondary">Propuesta de valor inyectada en propuestas Upwork</p>
+              <p class="text-xs text-content-secondary">{{ 'profile.offer_subtitle' | translate }}</p>
             </div>
           </div>
         </div>
 
         <div class="p-4 rounded-xl bg-surface-elevated border border-border-subtle text-xs text-content-primary leading-relaxed">
-          {{ pipeline.offerText() || 'Sin oferta configurada. Abre el cajón de calibración para definir tu oferta específica.' }}
+          {{ pipeline.offerText() || ('profile.no_offer' | translate) }}
         </div>
 
         <div class="grid grid-cols-2 gap-3 pt-1">
           <div class="p-3 rounded-xl bg-surface-elevated border border-border-subtle">
-            <span class="text-[10px] font-mono uppercase tracking-wider text-content-muted block mb-1">Tarifa Mínima</span>
+            <span class="text-[10px] font-mono uppercase tracking-wider text-content-muted block mb-1">{{ 'profile.min_rate' | translate }}</span>
             <span class="text-base font-bold font-mono text-emerald-400">${{ pipeline.minHourlyRate() }}/hr</span>
           </div>
           <div class="p-3 rounded-xl bg-surface-elevated border border-border-subtle">
-            <span class="text-[10px] font-mono uppercase tracking-wider text-content-muted block mb-1">Presupuesto Fijo</span>
+            <span class="text-[10px] font-mono uppercase tracking-wider text-content-muted block mb-1">{{ 'profile.min_budget' | translate }}</span>
             <span class="text-base font-bold font-mono text-emerald-400">${{ pipeline.minBudgetFixed() }} min</span>
           </div>
         </div>
@@ -240,11 +240,11 @@
             </div>
             <div>
               <h2 class="text-base font-bold text-content-primary">{{ 'profile.proof_stories' | translate }}</h2>
-              <p class="text-xs text-content-secondary">Casos de éxito verificados para scoring de autoridad</p>
+              <p class="text-xs text-content-secondary">{{ 'profile.proof_subtitle' | translate }}</p>
             </div>
           </div>
           <span class="text-[11px] font-mono font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-            {{ pipeline.proofStories().length }} activas
+            {{ pipeline.proofStories().length }} {{ 'profile.proof_active' | translate }}
           </span>
         </div>
 
