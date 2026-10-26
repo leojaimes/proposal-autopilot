@@ -5,13 +5,13 @@
         <svg lucideCompass class="h-5 w-5"></svg>
       </div>
       <div>
-        <h1 class="text-lg font-bold text-content-primary">Market Radar</h1>
-        <p class="text-xs text-content-muted">Evidence-backed demand, observed competition, and profile fit.</p>
+        <h1 class="text-lg font-bold text-content-primary">{{ 'radar.title' | translate }}</h1>
+        <p class="text-xs text-content-muted">{{ 'radar.subtitle' | translate }}</p>
       </div>
     </div>
     <button (click)="fetchRadarData()" [disabled]="isLoading()" class="inline-flex items-center gap-2 rounded-xl border border-border-subtle bg-surface-elevated px-3.5 py-2 text-sm text-content-primary disabled:opacity-50">
       <svg lucideRefreshCw class="h-4 w-4" [class.animate-spin]="isLoading()"></svg>
-      Refresh analysis
+      {{ 'radar.refresh' | translate }}
     </button>
   </header>
 

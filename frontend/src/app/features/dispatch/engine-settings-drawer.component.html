@@ -13,7 +13,7 @@
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2.5">
         <svg lucideSettings class="w-5 h-5 text-brand-primary"></svg>
-        <h2 class="text-base font-bold text-content-primary">Calibrador del Motor</h2>
+        <h2 class="text-base font-bold text-content-primary">{{ 'drawer.title' | translate }}</h2>
       </div>
       <button (click)="close()" class="p-1.5 rounded-lg hover:bg-surface-elevated text-content-secondary hover:text-content-primary">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -39,10 +39,10 @@
         <!-- Input to create a brand new profile from scratch -->
         <div class="flex items-center gap-2 pt-1">
           <input type="text"
-                 [ngModel]="newProfileName()"
-                 (ngModelChange)="newProfileName.set($event)"
-                 placeholder="Nombre del nuevo perfil (ej: Fullstack Dev, UX Auditor...)"
-                 class="flex-1 bg-surface-elevated border border-border-subtle rounded-lg px-3 py-1.5 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
+                  [ngModel]="newProfileName()"
+                  (ngModelChange)="newProfileName.set($event)"
+                  placeholder="Nombre del nuevo perfil (ej: Fullstack Dev, UX Auditor...)"
+                  class="flex-1 bg-surface-elevated border border-border-subtle rounded-lg px-3 py-1.5 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
           <button (click)="createNewProfile()"
                   class="px-3 py-1.5 rounded-lg bg-brand-primary text-white text-xs font-bold shadow-sm">
             Crear
@@ -65,35 +65,35 @@
   </div>
 
   <!-- Navigation Tabs -->
-  <div class="flex border-b border-border-subtle px-5 bg-surface text-xs font-semibold">
+  <div class="flex border-b border-border-subtle px-5 bg-surface text-xs font-semibold overflow-x-auto">
     <button (click)="activeTab.set('POSITIONING')"
-            class="py-3 px-3 border-b-2 transition-all"
+            class="py-3 px-3 border-b-2 transition-all whitespace-nowrap"
             [ngClass]="activeTab() === 'POSITIONING' ? 'border-brand-primary text-brand-primary' : 'border-transparent text-content-secondary hover:text-content-primary'">
-      1. Oferta & Historias ({{ pipeline.proofStories().length }})
+      {{ 'drawer.tab_positioning' | translate }} ({{ pipeline.proofStories().length }})
     </button>
     <button (click)="activeTab.set('ROLES')"
-            class="py-3 px-3 border-b-2 transition-all flex items-center gap-1.5"
+            class="py-3 px-3 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap"
             [ngClass]="activeTab() === 'ROLES' ? 'border-brand-primary text-brand-primary' : 'border-transparent text-content-secondary hover:text-content-primary'">
       <span>🎯</span>
-      <span>2. Afinidad de Roles</span>
+      <span>{{ 'drawer.tab_roles' | translate }}</span>
       <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded-full font-mono font-bold">{{ pipeline.coreRoles().length + pipeline.hybridRoles().length }}</span>
     </button>
     <button (click)="activeTab.set('SCRAPING')"
-            class="py-3 px-3 border-b-2 transition-all"
+            class="py-3 px-3 border-b-2 transition-all whitespace-nowrap"
             [ngClass]="activeTab() === 'SCRAPING' ? 'border-brand-primary text-brand-primary' : 'border-transparent text-content-secondary hover:text-content-primary'">
-      3. Keywords & Filtros
+      {{ 'drawer.tab_scraping' | translate }}
     </button>
     <button (click)="activeTab.set('GEO')"
-            class="py-3 px-3 border-b-2 transition-all flex items-center gap-1"
+            class="py-3 px-3 border-b-2 transition-all flex items-center gap-1 whitespace-nowrap"
             [ngClass]="activeTab() === 'GEO' ? 'border-brand-primary text-brand-primary' : 'border-transparent text-content-secondary hover:text-content-primary'">
       <span>🌍</span>
-      <span>3. Mercados & Países</span>
+      <span>{{ 'drawer.tab_geo' | translate }}</span>
       <span class="text-[10px] bg-indigo-500/10 text-indigo-400 px-1.5 py-0.5 rounded-full font-mono font-bold">{{ pipeline.targetCountries().length }}</span>
     </button>
     <button (click)="activeTab.set('WEIGHTS')"
-            class="py-3 px-3 border-b-2 transition-all"
+            class="py-3 px-3 border-b-2 transition-all whitespace-nowrap"
             [ngClass]="activeTab() === 'WEIGHTS' ? 'border-brand-primary text-brand-primary' : 'border-transparent text-content-secondary hover:text-content-primary'">
-      4. Pesos
+      {{ 'drawer.tab_weights' | translate }}
     </button>
   </div>
 

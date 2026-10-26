@@ -1,0 +1,47 @@
+{
+  "journey": "journey-user-profile",
+  "title": "Recorrido E2E: Pantalla de Perfil & Preferencias de Idioma i18n",
+  "description": "Navega a la pantalla de Perfil, valida la tarjeta de identidad (estilo Publications), la auto-detección del explorador/SO y la conmutación reactiva de idioma.",
+  "baseUrl": "http://localhost:7001",
+  "steps": [
+    {
+      "id": "01-load-app",
+      "description": "Cargar cabina principal en localhost:7001",
+      "action": "wait",
+      "durationMs": 2000,
+      "capture": true
+    },
+    {
+      "id": "02-open-profile-menu",
+      "description": "Abrir el menú de preferencias y usuario desde el avatar superior derecho",
+      "action": "click",
+      "target": "header button[title*='Menú de Usuario']",
+      "waitFor": ".user-menu-container",
+      "capture": true
+    },
+    {
+      "id": "03-open-profile-view",
+      "description": "Hacer clic en la opción de Perfil e Identidad Profesional",
+      "action": "click",
+      "target": ".user-menu-container button:has-text('Identidad')",
+      "waitFor": "text=Detectado",
+      "capture": true
+    },
+    {
+      "id": "04-switch-to-english",
+      "description": "Cambiar idioma manualmente a English",
+      "action": "click",
+      "target": "button:has-text('English')",
+      "waitFor": "text=Language",
+      "capture": true
+    },
+    {
+      "id": "05-switch-back-to-auto",
+      "description": "Restablecer a modo Automático (SO/Browser)",
+      "action": "click",
+      "target": "button:has-text('Automatic')",
+      "waitFor": "text=Language",
+      "capture": true
+    }
+  ]
+}

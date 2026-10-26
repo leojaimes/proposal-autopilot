@@ -7,6 +7,7 @@ import { EngineSettingsDrawerComponent } from './features/dispatch/engine-settin
 import { ZeroStateOnboardingComponent } from './features/onboarding/zero-state-onboarding.component';
 import { LiveScrapeProgressComponent } from './features/dispatch/live-scrape-progress.component';
 import { MarketRadarComponent } from './features/radar/market-radar.component';
+import { UserProfileComponent } from './features/profile/user-profile.component';
 import { ReportService } from './core/services/report.service';
 
 @Component({
@@ -21,6 +22,7 @@ import { ReportService } from './core/services/report.service';
     ZeroStateOnboardingComponent,
     LiveScrapeProgressComponent,
     MarketRadarComponent,
+    UserProfileComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -50,9 +52,13 @@ import { ReportService } from './core/services/report.service';
             <main class="flex-1 overflow-y-auto bg-app">
               <app-job-explorer></app-job-explorer>
             </main>
-          } @else {
+          } @else if (currentView() === 'RADAR') {
             <main class="flex-1 overflow-y-auto bg-app">
               <app-market-radar></app-market-radar>
+            </main>
+          } @else {
+            <main class="flex-1 overflow-y-auto bg-app">
+              <app-user-profile></app-user-profile>
             </main>
           }
         }

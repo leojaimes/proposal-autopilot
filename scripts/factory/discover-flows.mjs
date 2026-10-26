@@ -47,9 +47,10 @@ export async function discoverUiFlows(baseUrl = 'http://localhost:7001') {
     // 2. Discover Top-Level Navigation Tabs in dispatch-header
     console.log('\n🔍 Rastreador de Vistas Principales (View Switcher)...');
     const viewButtons = [
-      { id: 'VIEW_TERMINAL', label: 'Cabina de Despacho', selector: "button:has-text('Cabina de Despacho')", viewId: 'TERMINAL' },
-      { id: 'VIEW_EXPLORER', label: 'Motor de Búsqueda', selector: "button:has-text('Motor de Búsqueda')", viewId: 'EXPLORER' },
-      { id: 'VIEW_RADAR', label: 'Radar de Mercado', selector: "button:has-text('Radar de Mercado')", viewId: 'RADAR' }
+      { id: 'VIEW_TERMINAL', label: 'Cabina de Despacho', selector: "button:has-text('Cabina de Despacho'), button:has-text('Dispatch Terminal')", viewId: 'TERMINAL' },
+      { id: 'VIEW_EXPLORER', label: 'Motor de Búsqueda', selector: "button:has-text('Motor de Búsqueda'), button:has-text('Job Explorer')", viewId: 'EXPLORER' },
+      { id: 'VIEW_RADAR', label: 'Radar de Mercado', selector: "button:has-text('Radar de Mercado'), button:has-text('Market Radar')", viewId: 'RADAR' },
+      { id: 'VIEW_PROFILE', label: 'Perfil Profesional & Preferencias', selector: "button:has-text('Perfil'), button:has-text('Profile')", viewId: 'PROFILE' }
     ];
 
     for (const v of viewButtons) {
@@ -199,6 +200,7 @@ export async function discoverUiFlows(baseUrl = 'http://localhost:7001') {
     HEADER -->|"Tab 'Cabina de Despacho'"| TERMINAL["Cabina de Despacho (DispatchTerminal)"]:::primary
     HEADER -->|"Tab 'Motor de Búsqueda'"| EXPLORER["Motor de Búsqueda (JobExplorer)"]:::primary
     HEADER -->|"Tab 'Radar de Mercado'"| RADAR["Radar de Mercado (MarketRadar)"]:::primary
+    HEADER -->|"Tab 'Perfil & Ajustes'"| PROFILE["Perfil Profesional & Preferencias i18n (UserProfile)"]:::primary
 
     HEADER -->|"Botón 'Calibrar'"| DRAWER["Cajón de Calibración (EngineSettingsDrawer)"]:::drawer
     HEADER -->|"Botón 'Buscar Más Proyectos'"| SSE["Ingestión SSE en Vivo (LiveScrapeProgress)"]:::action
@@ -206,6 +208,7 @@ export async function discoverUiFlows(baseUrl = 'http://localhost:7001') {
 
     RADAR -->|"SSE radarRevision"| RADAR_REFRESH["Refresco Reactivo de Snapshots"]:::action
     TERMINAL -->|"Atajo J/K / D"| LEAD_DISPATCH["Despacho / Descarte de Lead"]:::action
+    PROFILE -->|"Conmutar Idioma"| I18N_SWITCH["Actualización Reactiva de Idioma"]:::action
 `;
 
     const mapDocContent = `# 🗺️ Mapa de Navegación y Arquitectura UI de Proposal Autopilot
@@ -230,6 +233,7 @@ ${mermaidMap}
 | \`TERMINAL\` | Vista | Cabina de Despacho | \`tests/journeys/journey-dispatch-terminal.json\` | 🟢 100% |
 | \`EXPLORER\` | Vista | Motor de Búsqueda | \`tests/journeys/journey-job-explorer.json\` | 🟢 100% |
 | \`RADAR\` | Vista | Radar de Mercado | \`tests/journeys/radar-discovery-flow.json\` | 🟢 100% |
+| \`PROFILE\` | Vista | Perfil & Preferencias i18n | \`tests/journeys/journey-user-profile.json\` | 🟢 100% |
 | \`DRAWER_CALIBRATION\` | Cajón | Ajustes de Motor | \`tests/journeys/journey-calibration-drawer.json\` | 🟢 100% |
 | \`ACTION_SCRAPING\` | Pipeline | Búsqueda en Upwork (SSE) | \`tests/journeys/radar-discovery-flow.json\` | 🟢 100% |
 | \`ACTION_REPROCESS\` | Pipeline | Re-evaluación (\$0) | *(Listo para ampliación)* | 🟡 Parcial |

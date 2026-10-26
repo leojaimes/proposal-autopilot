@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed, input, output } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, input, output, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -23,9 +23,13 @@ import {
   LucideBriefcase,
   LucideX,
   LucideCompass,
+  LucideGlobe,
 } from '@lucide/angular';
 
-export type AppViewMode = 'TERMINAL' | 'EXPLORER' | 'RADAR';
+import { I18nPipe } from '../../core/pipes/i18n.pipe';
+import { I18nService } from '../../core/services/i18n.service';
+
+export type AppViewMode = 'TERMINAL' | 'EXPLORER' | 'RADAR' | 'PROFILE';
 
 @Component({
   selector: 'app-dispatch-header',
@@ -33,6 +37,7 @@ export type AppViewMode = 'TERMINAL' | 'EXPLORER' | 'RADAR';
   imports: [
     CommonModule,
     FormsModule,
+    I18nPipe,
     LucideUser,
     LucidePlus,
     LucideZap,
@@ -50,6 +55,7 @@ export type AppViewMode = 'TERMINAL' | 'EXPLORER' | 'RADAR';
     LucideBriefcase,
     LucideX,
     LucideCompass,
+    LucideGlobe,
   ],
   templateUrl: './dispatch-header.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -57,6 +63,7 @@ export type AppViewMode = 'TERMINAL' | 'EXPLORER' | 'RADAR';
 export class DispatchHeaderComponent {
   public readonly pipeline = inject(PipelineStateService);
   public readonly report = inject(ReportService);
+  public readonly i18n = inject(I18nService);
   private readonly http = inject(HttpClient);
 
   public readonly activeView = input.required<AppViewMode>();
@@ -73,6 +80,7 @@ export class DispatchHeaderComponent {
 
   // Profile Switcher Dropdown & Modal State
   public readonly isProfileDropdownOpen = signal<boolean>(false);
+  public readonly isUserMenuOpen = signal<boolean>(false);
   public readonly isCreateProfileModalOpen = signal<boolean>(false);
   public readonly modalTab = signal<'AI' | 'MANUAL'>('AI');
   public readonly newPersonName = signal<string>('');
@@ -96,8 +104,40 @@ export class DispatchHeaderComponent {
     this.viewModeChange.emit(mode);
   }
 
-  public toggleProfileDropdown(): void {
+  @HostListener('document:click', ['$event'])
+  public onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (!target?.closest?.('.user-menu-container')) {
+      this.isUserMenuOpen.set(false);
+    }
+    if (!target?.closest?.('.profile-dropdown-container')) {
+      this.isProfileDropdownOpen.set(false);
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  public onEscape(): void {
+    this.isUserMenuOpen.set(false);
+    this.isProfileDropdownOpen.set(false);
+  }
+
+  public toggleProfileDropdown(event?: MouseEvent): void {
+    if (event) event.stopPropagation();
+    this.isUserMenuOpen.set(false);
     this.isProfileDropdownOpen.update(v => !v);
+  }
+
+  public toggleUserMenu(event?: MouseEvent): void {
+    if (event) event.stopPropagation();
+    this.isProfileDropdownOpen.set(false);
+    this.isUserMenuOpen.update(v => !v);
+  }
+
+  public getInitials(name?: string): string {
+    if (!name) return 'PA';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
 
   public selectProfile(id: string): void {

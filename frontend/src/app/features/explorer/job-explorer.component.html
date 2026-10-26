@@ -7,21 +7,21 @@
         <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
       </svg>
       <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2 font-headline">
-        Motor de Búsqueda & Explorador Completo
+        {{ 'explorer.title' | translate }}
       </h1>
     </div>
     <p class="text-xs sm:text-sm text-slate-400 font-sans">
-      Cuadrícula analítica interactiva estilo Excel con ordenamiento, multi-selección de valores y reglas numéricas por columna.
+      {{ 'explorer.subtitle' | translate }}
     </p>
   </div>
 
   <!-- REUSABLE EXCEL DATA TABLE -->
   <app-excel-table
     [data]="report.jobs()"
-    [columns]="jobColumns"
+    [columns]="jobColumns()"
     [enableGlobalSearch]="true"
     [enableExportCsv]="true"
-    [emptyMessage]="'No se encontraron empleos que coincidan con la combinación de filtros de Excel aplicada.'">
+    [emptyMessage]="'explorer.empty' | translate">
     
     <!-- Custom Cell Rendering Template -->
     <ng-template #cellTemplate let-row="row" let-col="column">

@@ -29,6 +29,7 @@ import {
 } from '@lucide/angular';
 import { MermaidViewerComponent } from '../../shared/components/mermaid-viewer/mermaid-viewer.component';
 import { JobCardSkeletonComponent } from './job-card-skeleton.component';
+import { I18nPipe } from '../../core/pipes/i18n.pipe';
 
 @Component({
   selector: 'app-dispatch-terminal',
@@ -36,6 +37,7 @@ import { JobCardSkeletonComponent } from './job-card-skeleton.component';
   imports: [
     CommonModule,
     FormsModule,
+    I18nPipe,
     MermaidViewerComponent,
     JobCardSkeletonComponent,
     LucideZap,
