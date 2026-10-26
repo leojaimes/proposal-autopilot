@@ -90,6 +90,11 @@ export async function finishTask(taskSlug, autoConfirm = false) {
   // 3. Merge to main and push
   console.log(`\n⏳ Integrando rama ${branchName} a 'main'...`);
   try {
+    try {
+      runGit('checkout -- scripts/factory/.factory_telemetry.jsonl');
+    } catch {
+      // ignore
+    }
     runGit('checkout main');
     runGit(`merge "${branchName}" --no-ff -m "feat(factory): completar tarea ${sanitizedId}"`);
     console.log('🚀 Ejecutando git push origin main hacia GHCR...');
