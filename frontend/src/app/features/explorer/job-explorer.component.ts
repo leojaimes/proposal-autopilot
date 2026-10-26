@@ -1,7 +1,9 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReportService } from '../../core/services/report.service';
+import { I18nService } from '../../core/services/i18n.service';
+import { I18nPipe } from '../../core/pipes/i18n.pipe';
 import { JobReportItem } from '../../core/models/pipeline.model';
 import { ExcelDataTableComponent } from '../../shared/components/excel-table/excel-table.component';
 import { ExcelColumnDef } from '../../shared/components/excel-table/excel-table.models';
@@ -21,6 +23,7 @@ import {
   imports: [
     CommonModule,
     FormsModule,
+    I18nPipe,
     ExcelDataTableComponent,
     LucideSearch,
     LucideExternalLink,
@@ -34,13 +37,14 @@ import {
 })
 export class JobExplorerComponent {
   public readonly report = inject(ReportService);
+  public readonly i18n = inject(I18nService);
   public readonly copiedId = signal<string | null>(null);
 
-  // Definición de Columnas de Excel para Empleos (Stitch Grid Layout)
-  public readonly jobColumns: ExcelColumnDef<JobReportItem>[] = [
+  // Definición de Columnas de Excel para Empleos reactivas al idioma
+  public readonly jobColumns = computed<ExcelColumnDef<JobReportItem>[]>(() => [
     {
       key: 'fitScore',
-      header: 'Score',
+      header: this.i18n.t('explorer.col.score'),
       type: 'number',
       sortable: true,
       filterable: true,
@@ -49,7 +53,7 @@ export class JobExplorerComponent {
     },
     {
       key: 'jobTitle',
-      header: 'Título & Rol Estratégico',
+      header: this.i18n.t('explorer.col.title'),
       type: 'string',
       sortable: true,
       filterable: true,
@@ -57,7 +61,7 @@ export class JobExplorerComponent {
     },
     {
       key: 'budget',
-      header: 'Presupuesto',
+      header: this.i18n.t('explorer.col.budget'),
       type: 'enum',
       sortable: true,
       filterable: true,
@@ -65,7 +69,7 @@ export class JobExplorerComponent {
     },
     {
       key: 'clientCountry',
-      header: 'País del Cliente',
+      header: this.i18n.t('explorer.col.country'),
       type: 'enum',
       sortable: true,
       filterable: true,
@@ -73,7 +77,7 @@ export class JobExplorerComponent {
     },
     {
       key: 'clientRating',
-      header: 'Rating Cliente',
+      header: this.i18n.t('explorer.col.rating'),
       type: 'number',
       sortable: true,
       filterable: true,
@@ -82,7 +86,7 @@ export class JobExplorerComponent {
     },
     {
       key: 'clientTotalSpent',
-      header: 'Gasto Total',
+      header: this.i18n.t('explorer.col.spent'),
       type: 'number',
       sortable: true,
       filterable: true,
@@ -92,7 +96,7 @@ export class JobExplorerComponent {
     },
     {
       key: 'proposalsAlreadyIn',
-      header: 'Bids',
+      header: this.i18n.t('explorer.col.bids'),
       type: 'number',
       sortable: true,
       filterable: true,
@@ -101,7 +105,7 @@ export class JobExplorerComponent {
     },
     {
       key: 'suggestedProofStory',
-      header: 'Historia Inyectada',
+      header: this.i18n.t('explorer.col.story'),
       type: 'enum',
       sortable: true,
       filterable: true,
@@ -110,7 +114,7 @@ export class JobExplorerComponent {
     },
     {
       key: 'status',
-      header: 'Estado',
+      header: this.i18n.t('explorer.col.status'),
       type: 'enum',
       sortable: true,
       filterable: true,
@@ -118,14 +122,14 @@ export class JobExplorerComponent {
     },
     {
       key: 'actions',
-      header: 'Acciones',
+      header: this.i18n.t('explorer.col.actions'),
       type: 'custom',
       sortable: false,
       filterable: false,
       width: '120px',
       align: 'center',
     },
-  ];
+  ]);
 
   public copyLetter(job: JobReportItem): void {
     if (!job.coverLetter) return;

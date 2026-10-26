@@ -18,12 +18,15 @@ import {
   LucideRotateCcw,
 } from '@lucide/angular';
 
+import { I18nPipe } from '../../core/pipes/i18n.pipe';
+
 @Component({
   selector: 'app-engine-settings-drawer',
   standalone: true,
   imports: [
     CommonModule,
     FormsModule,
+    I18nPipe,
     LucideSettings,
     LucidePlus,
     LucideZap,

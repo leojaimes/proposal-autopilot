@@ -25,8 +25,8 @@
     <div class="h-5 w-[1px] bg-border-subtle hidden md:block"></div>
 
     <!-- PROFILE SWITCHER (Multi-Persona Selector) -->
-    <div class="relative">
-      <button (click)="toggleProfileDropdown()"
+    <div class="relative profile-dropdown-container">
+      <button (click)="toggleProfileDropdown($event)"
               class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#1c1f2a] hover:bg-[#262a35] border border-border-subtle/80 transition-all text-left">
         <svg lucideUser class="w-4 h-4 text-cyan-400"></svg>
         <div class="flex flex-col">
@@ -44,7 +44,6 @@
 
       <!-- DROPDOWN MENU -->
       @if (isProfileDropdownOpen()) {
-        <div class="fixed inset-0 z-20" (click)="isProfileDropdownOpen.set(false)"></div>
         <div class="absolute left-0 mt-2 w-80 rounded-2xl bg-[#171b26] border border-border-subtle shadow-2xl p-2 z-30 space-y-1">
           <div class="px-3 py-1.5 text-[10px] font-bold text-content-muted uppercase tracking-wider">
             Perfiles de Calibración (Personas)
@@ -74,8 +73,13 @@
             </div>
           }
 
-          <!-- BOTÓN CREAR NUEVO PERFIL DE CERO -->
-          <div class="pt-1 border-t border-border-subtle">
+          <!-- BOTÓN CONFIGURACIÓN DE PERFIL E IDIOMA -->
+          <div class="pt-1 border-t border-border-subtle space-y-1">
+            <button (click)="switchView('PROFILE'); isProfileDropdownOpen.set(false)"
+                    class="w-full p-2 rounded-xl hover:bg-[#262a35] text-content-secondary hover:text-content-primary text-xs flex items-center gap-2 transition-colors">
+              <svg lucideSettings class="w-3.5 h-3.5 text-cyan-400"></svg>
+              <span>{{ 'nav.profile' | translate }}</span>
+            </button>
             <button (click)="openCreateModal()"
                     class="w-full p-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors">
               <svg lucidePlus class="w-3.5 h-3.5"></svg>
@@ -93,13 +97,13 @@
             [ngClass]="activeView() === 'TERMINAL' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
             class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
       <svg lucideZap class="w-3.5 h-3.5"></svg>
-      <span>Cabina de Despacho</span>
+      <span>{{ 'nav.terminal' | translate }}</span>
     </button>
     <button (click)="switchView('EXPLORER')"
             [ngClass]="activeView() === 'EXPLORER' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
             class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
       <svg lucideSearch class="w-3.5 h-3.5"></svg>
-      <span>Motor de Búsqueda</span>
+      <span>{{ 'nav.explorer' | translate }}</span>
       <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono"
             [ngClass]="activeView() === 'EXPLORER' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-surface text-content-muted'">
         {{ report.jobs().length }}
@@ -109,15 +113,15 @@
             [ngClass]="activeView() === 'RADAR' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
             class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
       <svg lucideCompass class="w-3.5 h-3.5"></svg>
-      <span>Radar de Mercado</span>
+      <span>{{ 'nav.radar' | translate }}</span>
       <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-300">
         Live
       </span>
     </button>
   </div>
 
-  <!-- Right: Telemetry, Shortcuts & CTAs -->
-  <div class="flex items-center gap-3">
+  <!-- Right: Telemetry, Shortcuts, CTAs & User Avatar Menu -->
+  <div class="flex items-center gap-2.5 shrink-0">
     <!-- Connects Telemetry Pill (Stitch) -->
     <div class="hidden lg:flex items-center gap-2 px-3 py-1 rounded-xl bg-[#1c1f2a] border border-border-subtle/80 shadow-inner">
       <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
@@ -143,10 +147,10 @@
             title="Re-evalúa todas las vacantes guardadas con tus reglas actuales ($0 tokens) y la IA redacta el Top 3 Gold">
       @if (report.isReprocessing()) {
         <svg lucideRefreshCw class="w-3.5 h-3.5 animate-spin text-emerald-400"></svg>
-        <span>Re-evaluando...</span>
+        <span>{{ 'nav.reprocessing_active' | translate }}</span>
       } @else {
         <svg lucideZap class="w-3.5 h-3.5 text-emerald-400"></svg>
-        <span>Re-evaluar Leads ($0)</span>
+        <span>{{ 'nav.reprocess' | translate }}</span>
       }
     </button>
 
@@ -163,10 +167,10 @@
             class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed">
       @if (report.isScrapingInProgress()) {
         <svg lucideRefreshCw class="w-3.5 h-3.5 animate-spin"></svg>
-        <span>Buscando en Upwork...</span>
+        <span>{{ 'nav.scraping_active' | translate }}</span>
       } @else {
         <svg lucideSearch class="w-3.5 h-3.5"></svg>
-        <span>Buscar Más Proyectos</span>
+        <span>{{ 'nav.scrape' | translate }}</span>
       }
     </button>
 
@@ -174,8 +178,105 @@
     <button (click)="openSettings.emit()"
             class="px-3 py-1.5 rounded-xl bg-[#1c1f2a] hover:bg-[#262a35] text-content-primary border border-border-subtle/80 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm">
       <svg lucideSettings class="w-3.5 h-3.5 text-content-muted"></svg>
-      <span>Calibrar</span>
+      <span>{{ 'nav.calibrate' | translate }}</span>
     </button>
+
+    <!-- DIVIDER -->
+    <div class="h-5 w-[1px] bg-border-subtle"></div>
+
+    <!-- RIGHT USER AVATAR & PREFERENCES MENU -->
+    <div class="relative user-menu-container">
+      <button (click)="toggleUserMenu($event)"
+              class="flex items-center gap-2 p-1 pl-1.5 pr-2 rounded-xl bg-[#1c1f2a] hover:bg-[#262a35] border border-border-subtle/80 hover:border-cyan-400/40 transition-all select-none group"
+              title="Menú de Usuario y Preferencias">
+        <!-- Initials Avatar with Gradient Ring -->
+        <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 via-cyan-500 to-sky-400 p-0.5 shadow-sm">
+          <div class="w-full h-full bg-[#171b26] rounded-[6px] flex items-center justify-center font-bold font-headline text-[10px] text-white">
+            {{ getInitials(pipeline.activeProfile()?.name) }}
+          </div>
+        </div>
+        <svg lucideChevronDown class="w-3.5 h-3.5 text-content-muted group-hover:text-content-primary transition-transform" [class.rotate-180]="isUserMenuOpen()"></svg>
+      </button>
+
+      <!-- DROPDOWN MENU -->
+      @if (isUserMenuOpen()) {
+        <div class="absolute right-0 mt-2 w-72 rounded-2xl bg-[#171b26] border border-border-subtle shadow-2xl p-2.5 z-50 space-y-2 animate-in fade-in zoom-in-95 duration-150">
+          
+          <!-- Identity Summary Card -->
+          <div class="p-3 rounded-xl bg-surface-elevated/70 border border-border-subtle space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-content-primary truncate">
+                {{ pipeline.activeProfile()?.name || 'Operator' }}
+              </span>
+              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase font-semibold">
+                {{ i18n.currentLang() }}
+              </span>
+            </div>
+            <p class="text-[10px] text-content-muted truncate">
+              {{ pipeline.activeProfile()?.roleTitle || 'Fullstack & AI Architect' }}
+            </p>
+          </div>
+
+          <!-- Menu Options -->
+          <div class="space-y-0.5">
+            <!-- Profile Option -->
+            <button (click)="switchView('PROFILE'); isUserMenuOpen.set(false)"
+                    class="w-full p-2.5 rounded-xl hover:bg-[#262a35] text-content-primary text-xs flex items-center gap-2.5 transition-colors text-left group">
+              <svg lucideUser class="w-4 h-4 text-cyan-400"></svg>
+              <div class="flex-1">
+                <span class="font-medium block">{{ 'profile.identity' | translate }}</span>
+                <span class="text-[10px] text-content-muted">Ver posicionamiento y oferta</span>
+              </div>
+            </button>
+
+            <!-- Language Preferences Option -->
+            <button (click)="switchView('PROFILE'); isUserMenuOpen.set(false)"
+                    class="w-full p-2.5 rounded-xl hover:bg-[#262a35] text-content-primary text-xs flex items-center gap-2.5 transition-colors text-left group">
+              <svg lucideGlobe class="w-4 h-4 text-indigo-400"></svg>
+              <div class="flex-1">
+                <span class="font-medium block">{{ 'profile.language_settings' | translate }}</span>
+                <span class="text-[10px] text-content-muted">
+                  {{ i18n.isAuto() ? ('profile.mode_auto' | translate) : (i18n.currentLang() === 'es' ? 'Español' : 'English') }}
+                </span>
+              </div>
+            </button>
+
+            <!-- Calibration Drawer Trigger -->
+            <button (click)="openSettings.emit(); isUserMenuOpen.set(false)"
+                    class="w-full p-2.5 rounded-xl hover:bg-[#262a35] text-content-primary text-xs flex items-center gap-2.5 transition-colors text-left group">
+              <svg lucideSettings class="w-4 h-4 text-amber-400"></svg>
+              <div class="flex-1">
+                <span class="font-medium block">{{ 'drawer.title' | translate }}</span>
+                <span class="text-[10px] text-content-muted">Reglas y pesos matemáticos</span>
+              </div>
+            </button>
+          </div>
+
+          <!-- Quick Language Switcher Bar at the bottom of dropdown -->
+          <div class="pt-2 border-t border-border-subtle flex items-center justify-between px-1">
+            <span class="text-[10px] font-mono text-content-muted">Idioma:</span>
+            <div class="flex items-center gap-1">
+              <button (click)="i18n.setLanguage('es')"
+                      [ngClass]="i18n.currentLang() === 'es' && !i18n.isAuto() ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold' : 'text-content-muted hover:bg-surface-elevated'"
+                      class="px-2 py-0.5 rounded text-[10px] font-mono transition-colors">
+                ES
+              </button>
+              <button (click)="i18n.setLanguage('en')"
+                      [ngClass]="i18n.currentLang() === 'en' && !i18n.isAuto() ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold' : 'text-content-muted hover:bg-surface-elevated'"
+                      class="px-2 py-0.5 rounded text-[10px] font-mono transition-colors">
+                EN
+              </button>
+              <button (click)="i18n.setAutoDetect()"
+                      [ngClass]="i18n.isAuto() ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold' : 'text-content-muted hover:bg-surface-elevated'"
+                      class="px-2 py-0.5 rounded text-[10px] font-mono transition-colors">
+                AUTO
+              </button>
+            </div>
+          </div>
+
+        </div>
+      }
+    </div>
   </div>
 </header>
 

@@ -1,0 +1,38 @@
+{
+  "journey": "journey-reprocess-leads",
+  "title": "Recorrido E2E: Re-evaluación Cuantitativa de Leads ($0)",
+  "description": "Ejecuta el re-scoring en lote sin costo de tokens, verificando la activación del motor algorítmico, feedback visual y actualización reactiva de la cola de despacho.",
+  "baseUrl": "http://localhost:7001",
+  "steps": [
+    {
+      "id": "01-load-cockpit",
+      "description": "Cargar cabina de mando en localhost:7001",
+      "action": "wait",
+      "durationMs": 2000,
+      "waitFor": "text=Proposal Autopilot",
+      "capture": true
+    },
+    {
+      "id": "02-locate-reprocess-button",
+      "description": "Verificar presencia del disparador de re-evaluación en el header",
+      "action": "wait",
+      "durationMs": 500,
+      "waitFor": "header button:has-text('Re-evaluar')",
+      "capture": true
+    },
+    {
+      "id": "03-trigger-reprocess",
+      "description": "Disparar re-evaluación masiva de leads ($0)",
+      "action": "click",
+      "target": "header button:has-text('Re-evaluar')",
+      "capture": true
+    },
+    {
+      "id": "04-verify-reprocess-completion",
+      "description": "Confirmar actualización y estado estable de la cola de despacho",
+      "action": "wait",
+      "durationMs": 3000,
+      "capture": true
+    }
+  ]
+}

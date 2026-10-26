@@ -15,7 +15,7 @@
                  id="cockpit-search-input"
                  [ngModel]="searchTerm()"
                  (ngModelChange)="searchTerm.set($event)"
-                 placeholder="Buscar por título, país, skill o rol..."
+                 [placeholder]="'terminal.search_placeholder' | translate"
                  class="w-full bg-[#0a0e18] border border-border-subtle/80 rounded-xl pl-9 pr-8 py-2 text-xs text-content-primary placeholder:text-content-muted focus:outline-none focus:border-cyan-400 transition-colors">
           <kbd class="kbd-shortcut absolute right-2.5 top-1/2 -translate-y-1/2 bg-[#262a35] text-content-muted text-[10px] px-1.5 py-0.2 rounded border border-white/10 pointer-events-none">
             /
@@ -28,26 +28,26 @@
                   class="flex-1 py-1.5 text-center rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5"
                   [ngClass]="selectedTier() === 'High' ? 'bg-emerald-500/20 text-emerald-300 shadow-sm border border-emerald-500/30' : 'text-content-muted hover:text-content-primary'">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            <span>High ({{ highFitCount() }})</span>
+            <span>{{ 'terminal.tier_high' | translate }} ({{ highFitCount() }})</span>
           </button>
           <button (click)="selectedTier.set('ALL')"
                   class="flex-1 py-1.5 text-center rounded-lg text-xs font-semibold transition-all"
                   [ngClass]="selectedTier() === 'ALL' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-muted hover:text-content-primary'">
-            Todos ({{ report.jobs().length }})
+            {{ 'terminal.tier_all' | translate }} ({{ report.jobs().length }})
           </button>
           <button (click)="selectedTier.set('Low')"
                   class="flex-1 py-1.5 text-center rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
                   [ngClass]="selectedTier() === 'Low' ? 'bg-rose-500/20 text-rose-300 shadow-sm border border-rose-500/30' : 'text-content-muted hover:text-rose-400'">
             <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-            <span>Capped ({{ lowFitCount() }})</span>
+            <span>{{ 'terminal.tier_capped' | translate }} ({{ lowFitCount() }})</span>
           </button>
         </div>
 
         <!-- Feed Navigation Micro-bar (Stitch) -->
         <div class="flex items-center justify-between px-1 text-[11px] text-content-muted font-mono">
-          <span>Cola de Despacho ({{ filteredJobs().length }} leads)</span>
+          <span>{{ 'terminal.queue_title' | translate }} ({{ filteredJobs().length }} leads)</span>
           <div class="flex items-center gap-1 text-[10px]">
-            <span>Atajos:</span>
+            <span>{{ 'terminal.shortcuts' | translate }}</span>
             <kbd class="kbd-shortcut bg-[#262a35] px-1 py-0.2 rounded text-white">J</kbd>
             <kbd class="kbd-shortcut bg-[#262a35] px-1 py-0.2 rounded text-white">K</kbd>
           </div>
@@ -60,14 +60,14 @@
           <!-- GHOST SKELETONS SHIMMER -->
           <div class="p-2 text-center text-[11px] font-mono font-bold text-cyan-400 bg-cyan-500/10 rounded-xl border border-cyan-500/20 mb-2 animate-pulse flex items-center justify-center gap-1.5">
             <svg lucideZap class="w-3.5 h-3.5 text-cyan-400"></svg>
-            <span>Buscando vacantes en Upwork...</span>
+            <span>{{ 'terminal.scraping_leads' | translate }}</span>
           </div>
           <app-job-card-skeleton></app-job-card-skeleton>
         } @else {
           @if (report.isScrapingInProgress()) {
             <div class="p-2 text-center text-[10px] font-mono font-bold text-cyan-400 bg-cyan-500/10 rounded-lg border border-cyan-500/20 mb-2 animate-pulse flex items-center justify-center gap-1.5">
               <svg lucideRefreshCw class="w-3.5 h-3.5 animate-spin text-cyan-400"></svg>
-              <span>Actualizando lote en segundo plano...</span>
+              <span>{{ 'terminal.updating_leads' | translate }}</span>
             </div>
           }
           @for (job of filteredJobs(); track job.id) {
@@ -93,11 +93,11 @@
 
                 @if (job.status === 'Approved') {
                   <span class="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 px-1.5 py-0.2 rounded font-semibold">
-                    Aprobado
+                    {{ 'terminal.status_approved' | translate }}
                   </span>
                 } @else if (job.status === 'Skipped') {
                   <span class="inline-flex items-center gap-1 text-[10px] font-mono text-rose-300 bg-rose-500/10 border border-rose-500/25 px-1.5 py-0.2 rounded font-semibold">
-                    Descartado
+                    {{ 'terminal.status_skipped' | translate }}
                   </span>
                 }
               </div>
@@ -140,8 +140,8 @@
             <div class="w-10 h-10 rounded-2xl bg-white/[0.03] border border-border-subtle flex items-center justify-center mx-auto text-content-muted mb-2">
               <svg lucideSearch class="w-5 h-5"></svg>
             </div>
-            <p class="font-medium text-content-secondary">No se encontraron leads</p>
-            <p class="text-[11px]">Prueba ajustando los filtros o el término de búsqueda.</p>
+            <p class="font-medium text-content-secondary">{{ 'terminal.empty_title' | translate }}</p>
+            <p class="text-[11px]">{{ 'terminal.empty_desc' | translate }}</p>
           </div>
         }
       }
@@ -151,7 +151,7 @@
       <div class="p-3 border-t border-border-subtle/70 bg-[#171b26] flex items-center justify-between text-xs text-content-muted">
         <div class="flex items-center gap-1.5">
           <span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(78,222,163,0.8)]"></span>
-          <span class="text-white font-medium">Ahorro Motor: <strong class="font-mono text-emerald-400">{{ lowFitCount() * 16 }} Connects</strong></span>
+          <span class="text-white font-medium">{{ 'terminal.engine_savings' | translate }} <strong class="font-mono text-emerald-400">{{ lowFitCount() * 16 }} Connects</strong></span>
         </div>
         <span class="font-mono text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
           ~${{ (lowFitCount() * 16 * 0.15).toFixed(2) }} USD
@@ -182,7 +182,7 @@
                       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                       </svg>
-                      Pago Verificado
+                      {{ 'terminal.verified_payment' | translate }}
                     </span>
                   }
                   <span class="text-amber-400 text-xs font-semibold flex items-center gap-1 bg-[#2b1f09] border border-[#543b0c] px-2 py-1 rounded-md font-mono">
@@ -202,7 +202,7 @@
                     <a [href]="current.applyLink" target="_blank"
                        class="px-3.5 py-1 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-mono text-xs font-extrabold shadow-md transition flex items-center gap-1.5 group transform active:scale-95"
                        title="Abrir vacante en Upwork">
-                      <span>Ver en Upwork</span>
+                      <span>{{ 'terminal.view_upwork' | translate }}</span>
                       <svg class="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                       </svg>
@@ -239,9 +239,9 @@
                   </div>
                   <span class="text-white/20">•</span>
                   <div class="text-emerald-400 font-semibold">
-                    <span>{{ current.proposalsAlreadyIn != null ? current.proposalsAlreadyIn : 0 }} propuestas activas</span>
+                    <span>{{ current.proposalsAlreadyIn != null ? current.proposalsAlreadyIn : 0 }} {{ 'terminal.proposals_active' | translate }}</span>
                     @if ((current.proposalsAlreadyIn || 0) <= 5) {
-                      <span class="text-[10px] text-emerald-300 bg-emerald-500/10 px-1 rounded ml-1">Primer Postor</span>
+                      <span class="text-[10px] text-emerald-300 bg-emerald-500/10 px-1 rounded ml-1">{{ 'terminal.first_bidder' | translate }}</span>
                     }
                   </div>
                   <span class="text-white/20">•</span>
@@ -307,7 +307,7 @@
                 <a [href]="current.applyLink" target="_blank"
                    class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-mono text-xs font-black shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center gap-1.5 group transform active:scale-95"
                    title="Abrir vacante original directamente en Upwork">
-                  <span>Ver en Upwork</span>
+                  <span>{{ 'terminal.view_upwork' | translate }}</span>
                   <svg class="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                   </svg>
@@ -319,7 +319,7 @@
             <div class="p-4 rounded-xl bg-[#0a0e18] border border-border-subtle/70 text-xs space-y-2.5">
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <div class="flex items-center gap-2">
-                  <span class="font-bold text-white">Diagnóstico Algorítmico Cuantitativo:</span>
+                  <span class="font-bold text-white">{{ 'terminal.diagnostic_title' | translate }}</span>
                   <div class="flex items-center gap-1.5 font-mono text-xs bg-[#171b26] px-2.5 py-0.5 rounded border border-white/[0.08]">
                     <span class="text-content-muted">Skill:</span>
                     <span class="font-bold text-cyan-400">{{ current.skillScore ?? 0 }}%</span>
@@ -336,7 +336,7 @@
                 </div>
                 @if (current.suggestedProofStory && current.suggestedProofStory !== 'NONE') {
                   <div class="flex items-center gap-1.5 font-mono text-[11px]">
-                    <span class="text-content-muted">Caso Autoridad:</span>
+                    <span class="text-content-muted">{{ 'terminal.authority_case' | translate }}</span>
                     <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                       {{ current.suggestedProofStory }}
                     </span>
@@ -365,10 +365,10 @@
                 <div class="flex flex-col gap-1">
                   <div class="flex items-center gap-2">
                     <h3 class="text-sm md:text-base font-bold text-white font-headline">
-                      Oportunidad Golden Match — Despacho Inmediato Recomendado
+                      {{ 'terminal.golden_match_title' | translate }}
                     </h3>
                     <span class="bg-[#34d399] text-black px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase shadow-sm">
-                      Prioridad Alta
+                      {{ 'terminal.high_priority' | translate }}
                     </span>
                   </div>
                   <p class="text-xs md:text-sm text-slate-300 max-w-3xl leading-relaxed font-sans">
@@ -380,7 +380,7 @@
                 <button (click)="focusProposal()"
                         class="flex-1 md:flex-initial px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-900/30 transition transform active:scale-95">
                   <svg lucideZap class="w-4 h-4"></svg>
-                  <span>Redactar Propuesta Ahora [G]</span>
+                  <span>{{ 'terminal.draft_proposal_now' | translate }}</span>
                 </button>
               </div>
             </div>
@@ -394,7 +394,7 @@
                 <div class="flex flex-col gap-1">
                   <div class="flex items-center gap-2">
                     <h3 class="text-sm md:text-base font-bold text-white font-headline">
-                      Oportunidad Calificada — Revisión Recomendada
+                      {{ 'terminal.qualified_title' | translate }}
                     </h3>
                     <span class="bg-amber-400 text-black px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase shadow-sm">
                       Fit Medio ({{ current.fitScore }}/100)
@@ -408,7 +408,7 @@
               <div class="flex items-center gap-2.5 shrink-0 w-full md:w-auto">
                 <button (click)="regenerateProposal()"
                         class="flex-1 md:flex-initial px-4 py-2.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.15] text-white text-xs font-semibold border border-white/[0.1] transition-colors flex items-center justify-center gap-2">
-                  <span>Forzar con IA [G]</span>
+                  <span>{{ 'terminal.force_ai' | translate }} [G]</span>
                 </button>
               </div>
             </div>
@@ -422,10 +422,10 @@
                 <div class="flex flex-col gap-0.5">
                   <div class="flex items-center gap-2">
                     <h4 class="text-xs md:text-sm font-bold text-white font-headline">
-                      ⚠️ Lead de Riesgo o Fuera de Nicho — Gasto de Connects No Recomendado
+                      {{ 'terminal.safety_ceiling_title' | translate }}
                     </h4>
                     <span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 uppercase">
-                      Techo de Seguridad
+                      {{ 'terminal.safety_ceiling_badge' | translate }}
                     </span>
                   </div>
                   <p class="text-xs text-content-secondary max-w-2xl leading-relaxed">
@@ -438,12 +438,12 @@
               <div class="flex items-center gap-2 shrink-0 self-end md:self-center">
                 <button (click)="discardCurrentJob()"
                         class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-xl shadow transition-colors">
-                  <span>Descartar Lead</span>
+                  <span>{{ 'terminal.discard_lead' | translate }}</span>
                   <kbd class="kbd-shortcut bg-black/40 px-1 rounded text-[10px]">D</kbd>
                 </button>
                 <button (click)="regenerateProposal()"
                         class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.08] hover:bg-white/[0.15] text-white text-xs font-semibold rounded-xl border border-white/[0.1] transition-colors">
-                  <span>Forzar con IA</span>
+                  <span>{{ 'terminal.force_ai' | translate }}</span>
                   <kbd class="kbd-shortcut bg-black/40 px-1 rounded text-[10px]">G</kbd>
                 </button>
               </div>
@@ -456,18 +456,18 @@
               <div class="flex items-center gap-2">
                 <svg lucideScale class="w-4 h-4 text-cyan-400"></svg>
                 <h2 class="text-xs font-bold uppercase tracking-wider text-content-primary font-headline">
-                  Auditoría Decisional del Algoritmo (Fit Score {{ current.fitScore }}/100)
+                  {{ 'terminal.decision_audit_title' | translate }} (Fit Score {{ current.fitScore }}/100)
                 </h2>
               </div>
               @if (current.isCapped) {
                 <span class="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded bg-rose-500/15 text-rose-400 border border-rose-500/30 inline-flex items-center gap-1.5">
                   <svg lucideShieldAlert class="w-3.5 h-3.5"></svg>
-                  <span>Techo de Seguridad Activado</span>
+                  <span>{{ 'terminal.safety_activated' | translate }}</span>
                 </span>
               } @else {
                 <span class="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-semibold inline-flex items-center gap-1.5">
                   <svg lucideCircleCheck class="w-3.5 h-3.5"></svg>
-                  <span>Puntuación Sin Restricciones</span>
+                  <span>{{ 'terminal.unrestricted_score' | translate }}</span>
                 </span>
               }
             </div>
@@ -592,12 +592,12 @@
                       </svg>
                     </span>
                     <h3 class="text-xs md:text-sm font-bold text-white tracking-wide font-headline">
-                      Ventajas Competitivas (Drivers)
+                      {{ 'terminal.drivers_title' | translate }}
                     </h3>
                   </div>
                   <!-- Pill Badge: e.g. 4 IDENTIFICADOS -->
                   <span class="font-mono text-[10px] md:text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-0.5 rounded tracking-wider">
-                    {{ current.drivers?.length || 0 }} IDENTIFICADOS
+                    {{ current.drivers?.length || 0 }} {{ 'terminal.drivers_identified' | translate }}
                   </span>
                 </div>
 
@@ -625,7 +625,7 @@
                     </div>
                   } @empty {
                     <div class="p-4 rounded-xl bg-[#171b26]/50 border border-white/[0.04] text-xs text-content-muted italic text-center">
-                      Sin ventajas competitivas diferenciales detectadas para este lead.
+                      {{ 'terminal.no_drivers' | translate }}
                     </div>
                   }
                 </div>
@@ -640,13 +640,13 @@
                       <svg lucideTriangleAlert class="w-3.5 h-3.5 text-rose-400"></svg>
                     </span>
                     <h3 class="text-xs md:text-sm font-bold text-white tracking-wide font-headline">
-                      Factores de Fricción (Drags - Riesgo)
+                      {{ 'terminal.drags_title' | translate }}
                     </h3>
                   </div>
                   <!-- Pill Badge: e.g. 2 DETECTADOS o 0 DETECTADOS -->
                   <span class="font-mono text-[10px] md:text-xs font-bold px-2.5 py-0.5 rounded tracking-wider"
                         [ngClass]="(current.drags?.length || 0) > 0 ? 'text-rose-400 bg-rose-500/10 border border-rose-500/25' : 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/25'">
-                    {{ current.drags?.length || 0 }} DETECTADOS
+                    {{ current.drags?.length || 0 }} {{ 'terminal.drags_detected' | translate }}
                   </span>
                 </div>
 
@@ -675,7 +675,7 @@
                   } @empty {
                     <div class="p-4 rounded-xl bg-[#171b26]/50 border border-emerald-500/20 text-xs text-emerald-400 font-medium flex items-center gap-2">
                       <svg lucideCheck class="w-4 h-4 text-emerald-400"></svg>
-                      <span>Ningún factor de fricción registrado: cliente solvente, rol compatible y pago verificado.</span>
+                      <span>{{ 'terminal.no_drags' | translate }}</span>
                     </div>
                   }
                 </div>
@@ -693,7 +693,7 @@
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2.5">
                   <span class="text-xs font-extrabold uppercase tracking-widest text-white font-headline">
-                    Propuesta Optimizada
+                    {{ 'terminal.proposal_optimized' | translate }}
                   </span>
                   <span class="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full border transition-all"
                         [ngClass]="getWordCount(current.coverLetter) >= 30 && getWordCount(current.coverLetter) <= 35 
@@ -722,10 +722,10 @@
                           : 'bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:scale-[1.01] active:scale-[0.99]'">
                   @if (copied()) {
                     <svg lucideCheck class="w-4 h-4"></svg>
-                    <span>¡Copiado al Portapapeles!</span>
+                    <span>{{ 'terminal.copied' | translate }}</span>
                   } @else {
                     <svg lucideCopy class="w-4 h-4"></svg>
-                    <span>Copiar Carta para Upwork</span>
+                    <span>{{ 'terminal.copy_letter' | translate }}</span>
                     <kbd class="kbd-shortcut bg-black/30 px-1 py-0.2 rounded text-[10px] ml-1">C</kbd>
                   }
                 </button>
@@ -739,10 +739,10 @@
                       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
                     </svg>
-                    <span>Sintetizando...</span>
+                    <span>{{ 'terminal.synthesizing' | translate }}</span>
                   } @else {
                     <svg lucideSparkles class="w-4 h-4 text-cyan-400"></svg>
-                    <span>Regenerar con IA</span>
+                    <span>{{ 'terminal.regenerate' | translate }}</span>
                     <kbd class="kbd-shortcut bg-white/10 px-1 py-0.2 rounded text-[10px] ml-0.5">G</kbd>
                   }
                 </button>
@@ -756,10 +756,10 @@
                       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
                     </svg>
-                    <span>Generando PDF...</span>
+                    <span>{{ 'terminal.generating_pdf' | translate }}</span>
                   } @else {
                     <svg lucideFileDown class="w-4 h-4 text-indigo-400"></svg>
-                    <span>Descargar PDF</span>
+                    <span>{{ 'terminal.download_pdf' | translate }}</span>
                   }
                 </button>
 
@@ -767,21 +767,21 @@
                 <button (click)="toggleTechnicalProposal()"
                         class="py-3 px-4 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] text-content-primary font-bold text-xs flex items-center gap-1.5 border border-white/[0.1] transition-all">
                   <svg lucideLayers class="w-4 h-4 text-content-muted"></svg>
-                  <span>{{ showTechnicalProposal() ? 'Ocultar Propuesta' : 'Ver Propuesta Técnica' }}</span>
+                  <span>{{ showTechnicalProposal() ? ('terminal.hide_proposal' | translate) : ('terminal.view_proposal' | translate) }}</span>
                 </button>
 
                 <!-- Apply Direct Link -->
                 <a [href]="current.applyLink" target="_blank"
                    class="py-3 px-5 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] text-white font-bold text-xs flex items-center gap-1.5 border border-white/[0.1] transition-all">
                   <svg lucideExternalLink class="w-4 h-4 text-cyan-400"></svg>
-                  <span>Abrir en Upwork</span>
+                  <span>{{ 'terminal.open_upwork' | translate }}</span>
                 </a>
 
                 <!-- Discard Quick Action (D) -->
                 <button (click)="discardCurrentJob()"
                         class="py-3 px-4 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-white font-bold text-xs flex items-center gap-1.5 border border-rose-500/20 transition-all"
                         title="Descartar este lead">
-                  <span>Descartar</span>
+                  <span>{{ 'terminal.discard' | translate }}</span>
                   <kbd class="kbd-shortcut bg-black/40 px-1 py-0.2 rounded text-[10px]">D</kbd>
                 </button>
               </div>
@@ -790,15 +790,15 @@
               <div class="flex flex-wrap items-center justify-between text-[11px] text-content-muted pt-3 border-t border-white/[0.06] font-mono">
                 <span class="flex items-center gap-1.5">
                   <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
-                  <span>Costo estimado: <strong class="text-white">~0.0024 Gemini Tokens</strong></span>
+                  <span>{{ 'terminal.estimated_cost' | translate }} <strong class="text-white">~0.0024 Gemini Tokens</strong></span>
                 </span>
                 <span class="flex items-center gap-1.5">
                   <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
-                  <span>Tiempo de síntesis: <strong class="text-white">~1.2s</strong></span>
+                  <span>{{ 'terminal.synthesis_time' | translate }} <strong class="text-white">~1.2s</strong></span>
                 </span>
                 <span class="flex items-center gap-1.5 text-emerald-400">
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  <span>Protección anti-desperdicio activa</span>
+                  <span>{{ 'terminal.waste_protection' | translate }}</span>
                 </span>
               </div>
 
@@ -817,9 +817,9 @@
               <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-400/30 flex items-center justify-center mx-auto text-cyan-400 mb-2 shadow-inner">
                 <svg lucideZap class="w-6 h-6"></svg>
               </div>
-              <h3 class="text-sm font-bold text-white tracking-wide font-headline">Propuesta Bajo Demanda Lista para Redacción</h3>
+              <h3 class="text-sm font-bold text-white tracking-wide font-headline">{{ 'terminal.ondemand_title' | translate }}</h3>
               <p class="text-xs text-content-muted max-w-lg mx-auto leading-relaxed">
-                Genera al instante la propuesta personalizada de 30-35 palabras, el roadmap ejecutivo y el diagrama Mermaid con Google Gemini para este cliente.
+                {{ 'terminal.ondemand_desc' | translate }}
               </p>
               <div class="flex items-center justify-center gap-3 pt-2">
                 <button (click)="regenerateProposal()"
@@ -830,16 +830,16 @@
                       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
                     </svg>
-                    <span>Redactando con Gemini (~1.5s)...</span>
+                    <span>{{ 'terminal.generating_with_gemini' | translate }}</span>
                   } @else {
                     <svg lucideSparkles class="w-4 h-4"></svg>
-                    <span>Generar Propuesta con Gemini</span>
+                    <span>{{ 'terminal.generate_proposal' | translate }}</span>
                     <kbd class="kbd-shortcut bg-white/20 px-1 py-0.2 rounded text-[10px]">G</kbd>
                   }
                 </button>
                 <button (click)="discardCurrentJob()"
                         class="py-3 px-4 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-bold text-xs inline-flex items-center gap-1.5 border border-rose-500/25 transition-all">
-                  <span>Descartar Lead</span>
+                  <span>{{ 'terminal.discard_lead' | translate }}</span>
                   <kbd class="kbd-shortcut bg-black/40 px-1 py-0.2 rounded text-[10px]">D</kbd>
                 </button>
               </div>
@@ -857,7 +857,7 @@
                   </h3>
                 </div>
                 <button (click)="toggleTechnicalProposal()" class="text-xs text-content-muted hover:text-white font-semibold transition-colors">
-                  Ocultar ✕
+                  {{ 'terminal.hide_proposal' | translate }} ✕
                 </button>
               </div>
 
@@ -881,9 +881,9 @@
           <div class="w-16 h-16 rounded-3xl bg-[#171b26] border border-border-subtle flex items-center justify-center mb-4 text-cyan-400 shadow-inner">
             <svg lucideZap class="w-8 h-8"></svg>
           </div>
-          <h3 class="text-base font-bold text-white font-headline">Selecciona un lead de la lista</h3>
+          <h3 class="text-base font-bold text-white font-headline">{{ 'terminal.select_lead_title' | translate }}</h3>
           <p class="text-xs mt-1 max-w-sm text-content-secondary">
-            Haz clic en cualquier vacante del panel izquierdo o navega con las teclas <kbd class="kbd-shortcut bg-[#262a35] px-1 py-0.2 rounded text-white">J</kbd> / <kbd class="kbd-shortcut bg-[#262a35] px-1 py-0.2 rounded text-white">K</kbd>.
+            {{ 'terminal.select_lead_desc' | translate }}
           </p>
         </div>
       }

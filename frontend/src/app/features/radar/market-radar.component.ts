@@ -115,11 +115,14 @@ export interface MarketRadarOperationalHealth {
   failedClassificationJobs?: number;
 }
 
+import { I18nPipe } from '../../core/pipes/i18n.pipe';
+
 @Component({
   selector: 'app-market-radar',
   standalone: true,
   imports: [
     CommonModule,
+    I18nPipe,
     LucideChevronDown,
     LucideChevronUp,
     LucideCompass,
