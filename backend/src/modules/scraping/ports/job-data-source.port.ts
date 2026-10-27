@@ -21,6 +21,8 @@ export interface NormalizedJob {
   proposalsCountKnown: boolean;
   isPaymentVerified: boolean;
   paymentVerificationKnown: boolean;
+  source?: 'UPWORK' | 'LINKEDIN';
+  companyName?: string | null;
   skills: string[];
   postedAt: Date | null;
   postedAtKnown: boolean;

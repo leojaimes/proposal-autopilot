@@ -24,10 +24,12 @@ import {
   LucideX,
   LucideCompass,
   LucideGlobe,
+  LucideLogOut,
 } from '@lucide/angular';
 
 import { I18nPipe } from '../../core/pipes/i18n.pipe';
 import { I18nService } from '../../core/services/i18n.service';
+import { AuthService } from '../../core/services/auth.service';
 
 export type AppViewMode = 'TERMINAL' | 'EXPLORER' | 'RADAR' | 'PROFILE';
 
@@ -56,11 +58,13 @@ export type AppViewMode = 'TERMINAL' | 'EXPLORER' | 'RADAR' | 'PROFILE';
     LucideX,
     LucideCompass,
     LucideGlobe,
+    LucideLogOut,
   ],
   templateUrl: './dispatch-header.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DispatchHeaderComponent {
+  public readonly auth = inject(AuthService);
   public readonly pipeline = inject(PipelineStateService);
   public readonly report = inject(ReportService);
   public readonly i18n = inject(I18nService);
@@ -81,6 +85,7 @@ export class DispatchHeaderComponent {
   // Profile Switcher Dropdown & Modal State
   public readonly isProfileDropdownOpen = signal<boolean>(false);
   public readonly isUserMenuOpen = signal<boolean>(false);
+  public readonly isScrapeMenuOpen = signal<boolean>(false);
   public readonly isCreateProfileModalOpen = signal<boolean>(false);
   public readonly modalTab = signal<'AI' | 'MANUAL'>('AI');
   public readonly newPersonName = signal<string>('');
@@ -113,24 +118,42 @@ export class DispatchHeaderComponent {
     if (!target?.closest?.('.profile-dropdown-container')) {
       this.isProfileDropdownOpen.set(false);
     }
+    if (!target?.closest?.('.scrape-menu-container')) {
+      this.isScrapeMenuOpen.set(false);
+    }
   }
 
   @HostListener('document:keydown.escape')
   public onEscape(): void {
     this.isUserMenuOpen.set(false);
     this.isProfileDropdownOpen.set(false);
+    this.isScrapeMenuOpen.set(false);
   }
 
   public toggleProfileDropdown(event?: MouseEvent): void {
     if (event) event.stopPropagation();
     this.isUserMenuOpen.set(false);
+    this.isScrapeMenuOpen.set(false);
     this.isProfileDropdownOpen.update(v => !v);
   }
 
   public toggleUserMenu(event?: MouseEvent): void {
     if (event) event.stopPropagation();
     this.isProfileDropdownOpen.set(false);
+    this.isScrapeMenuOpen.set(false);
     this.isUserMenuOpen.update(v => !v);
+  }
+
+  public toggleScrapeMenu(event?: MouseEvent): void {
+    if (event) event.stopPropagation();
+    this.isProfileDropdownOpen.set(false);
+    this.isUserMenuOpen.set(false);
+    this.isScrapeMenuOpen.update(v => !v);
+  }
+
+  public triggerPlatformScrape(platform: 'UPWORK' | 'LINKEDIN'): void {
+    this.isScrapeMenuOpen.set(false);
+    this.report.triggerLiveScrape(30, this.pipeline.activeQueriesList(), platform);
   }
 
   public getInitials(name?: string): string {

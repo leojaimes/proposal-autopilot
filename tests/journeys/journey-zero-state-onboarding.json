@@ -1,0 +1,80 @@
+{
+  "journey": "journey-zero-state-onboarding",
+  "title": "Recorrido E2E: Registro de Tenant, Aislamiento y Onboarding de CV con IA",
+  "description": "Registra una nueva cuenta aislada, valida la pantalla de estado cero, carga y sintetiza el CV con IA, y activa el perfil iniciando la extracción.",
+  "baseUrl": "http://localhost:7001",
+  "steps": [
+    {
+      "id": "01-login-screen-rendered",
+      "description": "Cargar app en estado no autenticado y verificar modal de inicio de sesión",
+      "action": "wait",
+      "durationMs": 1500,
+      "waitFor": "text=Iniciar Sesión",
+      "capture": true
+    },
+    {
+      "id": "02-toggle-to-register",
+      "description": "Hacer clic en 'Regístrate aquí' para conmutar a creación de organización",
+      "action": "click",
+      "target": "button:has-text('Regístrate aquí')",
+      "waitFor": "text=Crear Organización y Acceder",
+      "capture": true
+    },
+    {
+      "id": "03-fill-registration-form",
+      "description": "Llenar nombre de organización para Leonardo Jaimes",
+      "action": "type",
+      "target": "input[name='companyName']",
+      "value": "Spotlight AI Studio",
+      "capture": false
+    },
+    {
+      "id": "04-fill-email",
+      "description": "Ingresar correo corporativo",
+      "action": "type",
+      "target": "input[name='email']",
+      "value": "leo.jaimes.estevez@gmail.com",
+      "capture": false
+    },
+    {
+      "id": "05-fill-password",
+      "description": "Ingresar contraseña segura",
+      "action": "type",
+      "target": "input[name='password']",
+      "value": "Leonardo2026!",
+      "capture": true
+    },
+    {
+      "id": "06-submit-registration",
+      "description": "Enviar formulario para aprovisionar tenant limpio y autenticar",
+      "action": "click",
+      "target": "button:has-text('Crear Organización y Acceder')",
+      "waitFor": "text=Calibra tu Motor de Propuestas con IA",
+      "capture": true
+    },
+    {
+      "id": "07-load-example-cv",
+      "description": "Cargar perfil y CV de ejemplo (Leonardo Jaimes)",
+      "action": "click",
+      "target": "button:has-text('Cargar Ejemplo (Leonardo Jaimes)')",
+      "waitFor": "textarea",
+      "capture": true
+    },
+    {
+      "id": "08-trigger-synthesis",
+      "description": "Disparar síntesis semántica y calibración de perfil con IA",
+      "action": "click",
+      "target": "button:has-text('Sintetizar y Calibrar Perfil con IA')",
+      "waitFor": "text=Perfil Sintetizado Exitosamente",
+      "capture": true
+    },
+    {
+      "id": "09-review-synthesized-profile",
+      "description": "Revisar historias de autoridad, taxonomía y explicabilidad algorítmica",
+      "action": "wait",
+      "durationMs": 1500,
+      "waitFor": "text=Activar Perfil e Iniciar Extracción de Proyectos",
+      "capture": true
+    }
+  ]
+}

@@ -91,33 +91,71 @@
     </div>
   </div>
 
-  <!-- Center: View Mode Switcher -->
-  <div class="hidden md:flex items-center gap-1 p-1 bg-[#171b26] rounded-xl border border-border-subtle/80">
-    <button (click)="switchView('TERMINAL')"
-            [ngClass]="activeView() === 'TERMINAL' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
-            class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
-      <svg lucideZap class="w-3.5 h-3.5"></svg>
-      <span>{{ 'nav.terminal' | translate }}</span>
-    </button>
-    <button (click)="switchView('EXPLORER')"
-            [ngClass]="activeView() === 'EXPLORER' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
-            class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
-      <svg lucideSearch class="w-3.5 h-3.5"></svg>
-      <span>{{ 'nav.explorer' | translate }}</span>
-      <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono"
-            [ngClass]="activeView() === 'EXPLORER' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-surface text-content-muted'">
-        {{ report.jobs().length }}
-      </span>
-    </button>
-    <button (click)="switchView('RADAR')"
-            [ngClass]="activeView() === 'RADAR' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
-            class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
-      <svg lucideCompass class="w-3.5 h-3.5"></svg>
-      <span>{{ 'nav.radar' | translate }}</span>
-      <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-300">
-        Live
-      </span>
-    </button>
+  <!-- Center: View Mode Switcher & Platform Filter -->
+  <div class="hidden md:flex items-center gap-2">
+    <!-- View Switcher -->
+    <div class="flex items-center gap-1 p-1 bg-[#171b26] rounded-xl border border-border-subtle/80">
+      <button (click)="switchView('TERMINAL')"
+              [ngClass]="activeView() === 'TERMINAL' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
+              class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
+        <svg lucideZap class="w-3.5 h-3.5"></svg>
+        <span>{{ 'nav.terminal' | translate }}</span>
+      </button>
+      <button (click)="switchView('EXPLORER')"
+              [ngClass]="activeView() === 'EXPLORER' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
+              class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
+        <svg lucideSearch class="w-3.5 h-3.5"></svg>
+        <span>{{ 'nav.explorer' | translate }}</span>
+        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono"
+              [ngClass]="activeView() === 'EXPLORER' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-surface text-content-muted'">
+          {{ report.filteredJobs().length }}
+        </span>
+      </button>
+      <button (click)="switchView('RADAR')"
+              [ngClass]="activeView() === 'RADAR' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
+              class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
+        <svg lucideCompass class="w-3.5 h-3.5"></svg>
+        <span>{{ 'nav.radar' | translate }}</span>
+        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-300">
+          Live
+        </span>
+      </button>
+    </div>
+
+    <!-- PLATFORM FILTER SWITCHER (All vs Upwork vs LinkedIn) -->
+    <div class="flex items-center gap-1 p-1 bg-[#171b26] rounded-xl border border-border-subtle/80">
+      <button (click)="report.setPlatformFilter('ALL')"
+              [ngClass]="report.selectedPlatform() === 'ALL' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
+              class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+              title="Mostrar todas las vacantes">
+        <span>Todos</span>
+        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/[0.06] text-content-muted">
+          {{ report.jobs().length }}
+        </span>
+      </button>
+
+      <button (click)="report.setPlatformFilter('UPWORK')"
+              [ngClass]="report.selectedPlatform() === 'UPWORK' ? 'bg-emerald-500/20 text-emerald-300 shadow-sm border border-emerald-500/40' : 'text-content-secondary hover:text-content-primary'"
+              class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+              title="Filtrar sólo vacantes de Upwork">
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span>Upwork</span>
+        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400">
+          {{ report.upworkJobsCount() }}
+        </span>
+      </button>
+
+      <button (click)="report.setPlatformFilter('LINKEDIN')"
+              [ngClass]="report.selectedPlatform() === 'LINKEDIN' ? 'bg-sky-500/20 text-sky-300 shadow-sm border border-sky-500/40' : 'text-content-secondary hover:text-content-primary'"
+              class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+              title="Filtrar sólo vacantes de LinkedIn">
+        <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+        <span>LinkedIn</span>
+        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-sky-500/10 text-sky-300">
+          {{ report.linkedInJobsCount() }}
+        </span>
+      </button>
+    </div>
   </div>
 
   <!-- Right: Telemetry, Shortcuts, CTAs & User Avatar Menu -->
@@ -161,18 +199,61 @@
       </div>
     }
 
-    <!-- Look For More Projects Button (Apify Trigger) -->
-    <button (click)="report.triggerLiveScrape(30, pipeline.activeQueriesList())"
-            [disabled]="report.isScrapingInProgress() || report.isReprocessing()"
-            class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed">
-      @if (report.isScrapingInProgress()) {
-        <svg lucideRefreshCw class="w-3.5 h-3.5 animate-spin"></svg>
-        <span>{{ 'nav.scraping_active' | translate }}</span>
-      } @else {
-        <svg lucideSearch class="w-3.5 h-3.5"></svg>
-        <span>{{ 'nav.scrape' | translate }}</span>
+    <!-- Multi-Platform Scraping Button with Dropdown -->
+    <div class="relative scrape-menu-container">
+      <div class="flex items-center rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 shadow-md shadow-cyan-500/20 p-0.5">
+        <button (click)="triggerPlatformScrape(report.selectedPlatform() === 'LINKEDIN' ? 'LINKEDIN' : 'UPWORK')"
+                [disabled]="report.isScrapingInProgress() || report.isReprocessing()"
+                class="px-3 py-1.5 rounded-l-[10px] text-white text-xs font-bold flex items-center gap-1.5 hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          @if (report.isScrapingInProgress()) {
+            <svg lucideRefreshCw class="w-3.5 h-3.5 animate-spin"></svg>
+            <span>{{ 'nav.scraping_active' | translate }}</span>
+          } @else {
+            <svg lucideSearch class="w-3.5 h-3.5"></svg>
+            <span>{{ report.selectedPlatform() === 'LINKEDIN' ? 'Scrapear LinkedIn' : 'Scrapear Upwork' }}</span>
+          }
+        </button>
+
+        <button (click)="toggleScrapeMenu($event)"
+                [disabled]="report.isScrapingInProgress() || report.isReprocessing()"
+                class="px-1.5 py-1.5 rounded-r-[10px] text-white/80 hover:text-white hover:bg-white/10 transition-colors border-l border-white/20 disabled:opacity-50"
+                title="Seleccionar plataforma para extraer">
+          <svg lucideChevronDown class="w-3.5 h-3.5 transition-transform" [class.rotate-180]="isScrapeMenuOpen()"></svg>
+        </button>
+      </div>
+
+      <!-- Scrape Dropdown Menu -->
+      @if (isScrapeMenuOpen()) {
+        <div class="absolute right-0 mt-2 w-64 rounded-2xl bg-[#171b26] border border-border-subtle shadow-2xl p-2 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+          <div class="px-2.5 py-1 text-[10px] font-bold text-content-muted uppercase tracking-wider">
+            Fuente de Extracción
+          </div>
+          <button (click)="triggerPlatformScrape('UPWORK')"
+                  class="w-full p-2.5 rounded-xl hover:bg-[#262a35] text-left flex items-center justify-between group transition-colors">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+              <div>
+                <span class="text-xs font-bold text-content-primary block group-hover:text-emerald-300">Upwork</span>
+                <span class="text-[10px] text-content-muted">Proyectos freelance & contratos</span>
+              </div>
+            </div>
+            <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">30 leads</span>
+          </button>
+
+          <button (click)="triggerPlatformScrape('LINKEDIN')"
+                  class="w-full p-2.5 rounded-xl hover:bg-[#262a35] text-left flex items-center justify-between group transition-colors">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+              <div>
+                <span class="text-xs font-bold text-content-primary block group-hover:text-sky-300">LinkedIn Jobs</span>
+                <span class="text-[10px] text-content-muted">Empleos remotos & ATS directo</span>
+              </div>
+            </div>
+            <span class="text-[10px] font-mono text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20">30 leads</span>
+          </button>
+        </div>
       }
-    </button>
+    </div>
 
     <!-- Engine Settings Trigger Button -->
     <button (click)="openSettings.emit()"
@@ -206,14 +287,14 @@
           <div class="p-3 rounded-xl bg-surface-elevated/70 border border-border-subtle space-y-1">
             <div class="flex items-center justify-between">
               <span class="text-xs font-bold text-content-primary truncate">
-                {{ pipeline.activeProfile()?.name || 'Operator' }}
+                {{ auth.currentTenant()?.name || pipeline.activeProfile()?.name || 'Operator' }}
               </span>
               <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase font-semibold">
-                {{ i18n.currentLang() }}
+                {{ auth.currentUser()?.role || i18n.currentLang() }}
               </span>
             </div>
             <p class="text-[10px] text-content-muted truncate">
-              {{ pipeline.activeProfile()?.roleTitle || 'Fullstack & AI Architect' }}
+              {{ auth.currentUser()?.email || pipeline.activeProfile()?.roleTitle || 'Fullstack & AI Architect' }}
             </p>
           </div>
 
@@ -248,6 +329,16 @@
               <div class="flex-1">
                 <span class="font-medium block">{{ 'drawer.title' | translate }}</span>
                 <span class="text-[10px] text-content-muted">Reglas y pesos matemáticos</span>
+              </div>
+            </button>
+
+            <!-- Logout Option -->
+            <button (click)="auth.logout(); isUserMenuOpen.set(false)"
+                    class="w-full p-2.5 rounded-xl hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 text-xs flex items-center gap-2.5 transition-colors text-left group">
+              <svg lucideLogOut class="w-4 h-4 text-rose-400"></svg>
+              <div class="flex-1">
+                <span class="font-medium block">Cerrar Sesión</span>
+                <span class="text-[10px] text-zinc-500">Salir de la organización activa</span>
               </div>
             </button>
           </div>

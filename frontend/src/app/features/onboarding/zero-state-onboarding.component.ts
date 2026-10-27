@@ -202,11 +202,13 @@ Flutter mobile application built with Clean Architecture for high testability an
     if (!data) return;
 
     this.isActivating.set(true);
-    this.activationStatus.set('1/3 Sincronizando perfil y taxonomía en PostgreSQL...');
+    this.activationStatus.set('1/2 Sincronizando perfil y taxonomía en PostgreSQL...');
 
     const apiBase = this.getApiBase();
 
     const fullProfilePayload = {
+      personaName: data.personaName || 'Principal',
+      roleTitle: data.positioningTitle || 'Consultor / Especialista',
       offerHeadline: data.offerHeadline,
       targetAudience: data.targetAudience,
       voiceRules: data.voiceRules,
@@ -225,46 +227,17 @@ Flutter mobile application built with Clean Architecture for high testability an
       })),
     };
 
-    // 1. Guardar en PostgreSQL
+    // 1. Guardar perfil en PostgreSQL
     this.http.put(`${apiBase}/config/full-profile`, fullProfilePayload)
       .subscribe({
-        next: () => {
-          // Actualizar estado local en PipelineStateService
-          this.pipeline.offerText.set(data.offerHeadline);
-          this.pipeline.targetAudience.set(data.targetAudience);
-          this.pipeline.coreRoles.set(data.taxonomy.coreRoles);
-          this.pipeline.hybridRoles.set(data.taxonomy.hybridRoles);
-          this.pipeline.tangentialRoles.set(data.taxonomy.tangentialRoles);
-          this.pipeline.excludedRoles.set(data.taxonomy.excludedRoles);
-          this.pipeline.keywordsText.set(data.scrapingConfig.searchKeywords.join(', '));
-          this.pipeline.minHourlyRate.set(data.scrapingConfig.minHourlyRate);
-          this.pipeline.minBudgetFixed.set(data.scrapingConfig.minBudgetFixed);
-          this.pipeline.proofStories.set(data.proofStories.map((s: any) => ({
-            id: s.keyCode,
-            company: s.companyOrProduct,
-            metric: s.impactMetric,
-            detail: s.impactMetric,
-            tags: s.domainTags || [],
-          })));
-          this.pipeline.syncActiveProfile();
+        next: async () => {
+          this.activationStatus.set('2/2 Iniciando extracción en vivo con tus palabras clave...');
+          await this.pipeline.loadProfilesFromDatabase();
 
-          // 2. Re-evaluar en frío las 290 vacantes a costo $0 USD
-          this.activationStatus.set('2/3 Re-evaluando 290 vacantes con tu nueva taxonomía ($0 tokens)...');
-          this.http.post<{ success: boolean; message: string }>(`${apiBase}/scraping/reprocess`, {})
-            .subscribe({
-              next: () => {
-                this.activationStatus.set('3/3 Cargando Cabina de Despacho con tu Top 3 Gold...');
-                setTimeout(() => {
-                  this.report.refresh();
-                  this.isActivating.set(false);
-                }, 1000);
-              },
-              error: () => {
-                // Si falla reprocess, al menos refrescar la vista
-                this.report.refresh();
-                this.isActivating.set(false);
-              }
-            });
+          // 2. Disparar scraping en vivo con las palabras clave extraídas del CV
+          const keywords = data.scrapingConfig?.searchKeywords || this.pipeline.activeQueriesList();
+          this.report.triggerLiveScrape(30, keywords, 'UPWORK');
+          this.isActivating.set(false);
         },
         error: (err) => {
           this.isActivating.set(false);

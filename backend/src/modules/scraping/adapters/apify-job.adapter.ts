@@ -118,6 +118,7 @@ export class ApifyJobAdapter implements JobDataSourcePort {
       proposalsCountKnown: proposalsCount != null,
       isPaymentVerified,
       paymentVerificationKnown,
+      source: 'UPWORK',
       skills,
       postedAt,
       postedAtKnown: postedAt != null,

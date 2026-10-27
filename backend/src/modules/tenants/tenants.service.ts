@@ -110,38 +110,16 @@ export class TenantsService {
       },
     });
 
-    // Si el workspace aún no existe en DB, creamos su perfil base automáticamente
     if (!tenant) {
       tenant = await this.prisma.tenant.create({
         data: {
           id: tenantId,
-          name: 'Personal Workspace',
-          slug: 'personal-workspace',
-          baseHourlyRate: 65.00,
-          positioningProfiles: {
-            create: {
-              offerHeadline: 'AI-native UX for product teams: senior design-system, prototyping, and research.',
-              targetAudience: 'Seed-to-Series B SaaS founders and product leads.',
-              voiceRules: ['First person peer-to-peer', 'No em dashes anywhere', 'Sell result before tool'],
-            },
-          },
-          scrapeConfigs: {
-            create: {
-              searchKeywords: [
-                'UX research', 'design system', 'Figma design system', 
-                'AI product design', 'usability testing', 'AI prototyping', 
-                'vibe coding', 'agentic workflow design', 'N8N automation design', 'GenAI UX'
-              ],
-              minBudgetFixed: 1000.00,
-              minHourlyRate: 40.00,
-              recencyDays: 3,
-              verifiedPaymentOnly: true,
-            },
-          },
+          name: 'Workspace',
+          slug: `workspace-${tenantId.slice(0, 8)}`,
         },
         include: {
           positioningProfiles: {
-          include: { proofStories: true, categoryPolicies: { include: { taxonomyNode: true } } },
+            include: { proofStories: true, categoryPolicies: { include: { taxonomyNode: true } } },
           },
           scrapeConfigs: true,
           credentials: {

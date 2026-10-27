@@ -7,10 +7,12 @@ import { TenantsModule } from './modules/tenants/tenants.module';
 import { ScrapingModule } from './modules/scraping/scraping.module';
 import { ScoringModule } from './modules/scoring/scoring.module';
 import { ProposalsModule } from './modules/proposals/proposals.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    AuthModule,
     TenantsModule,
     ScrapingModule,
     ScoringModule,
