@@ -80,15 +80,15 @@ export class DispatchTerminalComponent {
   public readonly successBanner = signal<string>('');
 
   public readonly highFitCount = computed(() =>
-    this.report.jobs().filter(j => j.fitLabel === 'High').length
+    this.report.filteredJobs().filter(j => j.fitLabel === 'High').length
   );
 
   public readonly lowFitCount = computed(() =>
-    this.report.jobs().filter(j => j.fitLabel === 'Low').length
+    this.report.filteredJobs().filter(j => j.fitLabel === 'Low').length
   );
 
   public readonly filteredJobs = computed(() => {
-    let list = this.report.jobs();
+    let list = this.report.filteredJobs();
     const tier = this.selectedTier();
     if (tier !== 'ALL') {
       list = list.filter(j => j.fitLabel === tier);
@@ -98,7 +98,8 @@ export class DispatchTerminalComponent {
       list = list.filter(j =>
         j.jobTitle.toLowerCase().includes(q) ||
         j.clientCountry.toLowerCase().includes(q) ||
-        j.normalizedRole.toLowerCase().includes(q)
+        j.normalizedRole.toLowerCase().includes(q) ||
+        (j.companyName && j.companyName.toLowerCase().includes(q))
       );
     }
     return list;
@@ -108,7 +109,7 @@ export class DispatchTerminalComponent {
     // If no High fit jobs exist, fall back to 'ALL' so top leads are visible immediately
     effect(() => {
       const highCount = this.highFitCount();
-      const allCount = this.report.jobs().length;
+      const allCount = this.report.filteredJobs().length;
       if (highCount === 0 && allCount > 0 && this.selectedTier() === 'High') {
         this.selectedTier.set('ALL');
       }
@@ -472,6 +473,79 @@ export class DispatchTerminalComponent {
   }
 
   public readonly isDownloadingPdf = signal<boolean>(false);
+  public readonly isTailoringApplication = signal<boolean>(false);
+  public readonly isDownloadingCv = signal<boolean>(false);
+  public readonly isDownloadingCoverLetter = signal<boolean>(false);
+  public readonly tailoredApplicationLang = signal<'en' | 'es'>('en');
+  public readonly copiedTailoredLetter = signal<boolean>(false);
+
+  public setTailoredLang(lang: 'en' | 'es'): void {
+    this.tailoredApplicationLang.set(lang);
+  }
+
+  public tailorApplication(job: JobReportItem): void {
+    if (!job || !job.id || this.isTailoringApplication()) return;
+    this.isTailoringApplication.set(true);
+
+    this.report.tailorApplication(job.id, this.tailoredApplicationLang()).subscribe({
+      next: (res) => {
+        this.isTailoringApplication.set(false);
+        if (res.success) {
+          const letterText = res.coverLetter?.paragraphs?.join('\n\n') || '';
+          this.selectedJob.update(j => j ? {
+            ...j,
+            tailoredCoverLetter: letterText,
+            tailoredChanges: res.changesMade || [],
+            tailoredQuestions: res.interviewQuestions || [],
+            detectedCompany: res.detectedCompany || j.companyName || undefined,
+          } : null);
+
+          this.successBanner.set('✨ CV y Cover Letter adaptados exitosamente con IA (Protocolo Anti-Slop).');
+          setTimeout(() => this.successBanner.set(''), 4500);
+        }
+      },
+      error: (err) => {
+        console.error('Error al adaptar candidatura:', err);
+        this.isTailoringApplication.set(false);
+      }
+    });
+  }
+
+  public downloadCvPdf(job: JobReportItem): void {
+    if (!job || !job.id || this.isDownloadingCv()) return;
+    this.isDownloadingCv.set(true);
+    this.report.downloadCvPdf(job.id, job.detectedCompany || job.companyName || 'empresa', this.tailoredApplicationLang()).subscribe({
+      next: () => this.isDownloadingCv.set(false),
+      error: (err) => {
+        console.error('Error al descargar CV PDF:', err);
+        this.isDownloadingCv.set(false);
+      }
+    });
+  }
+
+  public downloadCoverLetterPdf(job: JobReportItem): void {
+    if (!job || !job.id || this.isDownloadingCoverLetter()) return;
+    this.isDownloadingCoverLetter.set(true);
+    this.report.downloadCoverLetterPdf(job.id, job.detectedCompany || job.companyName || 'empresa', this.tailoredApplicationLang()).subscribe({
+      next: () => this.isDownloadingCoverLetter.set(false),
+      error: (err) => {
+        console.error('Error al descargar Cover Letter PDF:', err);
+        this.isDownloadingCoverLetter.set(false);
+      }
+    });
+  }
+
+  public copyTailoredCoverLetter(text?: string): void {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      this.copiedTailoredLetter.set(true);
+      this.successBanner.set('📋 Cover Letter ATS copiada al portapapeles.');
+      setTimeout(() => {
+        this.copiedTailoredLetter.set(false);
+        this.successBanner.set('');
+      }, 3000);
+    });
+  }
 
   public downloadPdf(job: JobReportItem): void {
     if (!job || !job.id || this.isDownloadingPdf()) return;

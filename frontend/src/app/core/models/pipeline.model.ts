@@ -39,8 +39,15 @@ export interface JobReportItem {
   recencyScore?: number;
   isCapped?: boolean;
   capReason?: string | null;
+  platform?: 'UPWORK' | 'LINKEDIN';
+  companyName?: string | null;
+  directApplyUrl?: string | null;
   drivers?: (DecisionFactor | string)[];
   drags?: (DecisionFactor | string)[];
+  tailoredCoverLetter?: string;
+  tailoredChanges?: string[];
+  tailoredQuestions?: string[];
+  detectedCompany?: string | null;
 }
 
 export interface DecisionFactor {

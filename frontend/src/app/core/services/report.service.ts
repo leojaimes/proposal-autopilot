@@ -1,4 +1,4 @@
-import { Injectable, inject, signal, effect } from '@angular/core';
+import { Injectable, inject, signal, effect, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Subject, switchMap, catchError, of, tap } from 'rxjs';
 import { JobReportItem } from '../models/pipeline.model';
@@ -33,6 +33,21 @@ export class ReportService {
   // State Signals
   private readonly _jobs = signal<JobReportItem[]>([]);
   public readonly jobs = this._jobs.asReadonly();
+
+  // Platform Filter Signals (UPWORK vs LINKEDIN)
+  public readonly selectedPlatform = signal<'ALL' | 'UPWORK' | 'LINKEDIN'>('ALL');
+  public readonly upworkJobsCount = computed(() => this._jobs().filter(j => j.platform === 'UPWORK').length);
+  public readonly linkedInJobsCount = computed(() => this._jobs().filter(j => j.platform === 'LINKEDIN').length);
+
+  public readonly filteredJobs = computed(() => {
+    const filter = this.selectedPlatform();
+    if (filter === 'ALL') return this._jobs();
+    return this._jobs().filter(j => j.platform === filter);
+  });
+
+  public setPlatformFilter(platform: 'ALL' | 'UPWORK' | 'LINKEDIN'): void {
+    this.selectedPlatform.set(platform);
+  }
 
   private readonly _isLoading = signal<boolean>(false);
   public readonly isLoading = this._isLoading.asReadonly();
@@ -126,13 +141,13 @@ export class ReportService {
   /**
    * Dispara la extracción asíncrona y abre el canal de streaming SSE en vivo
    */
-  public triggerLiveScrape(limit = 30, keywords?: string[]): void {
+  public triggerLiveScrape(limit = 30, keywords?: string[], platform: 'UPWORK' | 'LINKEDIN' = 'UPWORK'): void {
     if (this._isScrapingInProgress()) return;
 
     this._isScrapingInProgress.set(true);
     this.progressPercentage.set(5);
     this.progressStep.set('STARTING');
-    this.progressMessage.set('Iniciando extracción con palabras clave del calibrador...');
+    this.progressMessage.set(`Iniciando extracción en ${platform} con palabras clave del calibrador...`);
     this.progressCurrentJob.set('');
     this.progressHighFitCount.set(0);
     this.elapsedTimeSeconds.set(0);
@@ -145,7 +160,10 @@ export class ReportService {
     }, 1000);
 
     // POST asíncrono con las palabras clave prioritarias del perfil
-    const payload: { maxResults: number; keywords?: string[] } = { maxResults: limit };
+    const payload: { maxResults: number; keywords?: string[]; platform: 'UPWORK' | 'LINKEDIN' } = {
+      maxResults: limit,
+      platform,
+    };
     if (keywords && keywords.length > 0) {
       payload.keywords = keywords;
     }
@@ -351,6 +369,74 @@ export class ReportService {
           .replace(/[^a-zA-Z0-9_-]/g, '_')
           .substring(0, 45);
         a.download = `Strategic_Proposal_${cleanTitle}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+      })
+    );
+  }
+
+  public tailorApplication(jobId: string, lang: 'en' | 'es' = 'en') {
+    const personaName = this.pipeline.activeProfile()?.name || '';
+    const url = personaName
+      ? `${this.baseUrl}/jobs/${jobId}/tailor-application?personaName=${encodeURIComponent(personaName)}`
+      : `${this.baseUrl}/jobs/${jobId}/tailor-application`;
+
+    return this.http.post<{
+      success: boolean;
+      jobId: string;
+      detectedCompany: string;
+      changesMade: string[];
+      interviewQuestions: string[];
+      coverLetter: {
+        recipient: string;
+        subject: string;
+        salutation: string;
+        valediction: string;
+        paragraphs: string[];
+        dateFormatted?: string;
+      };
+      adaptedCv: any;
+    }>(url, { lang });
+  }
+
+  public downloadCvPdf(jobId: string, companyName?: string, lang: 'en' | 'es' = 'en') {
+    const personaName = this.pipeline.activeProfile()?.name || '';
+    const url = personaName
+      ? `${this.baseUrl}/jobs/${jobId}/cv-pdf?lang=${lang}&personaName=${encodeURIComponent(personaName)}`
+      : `${this.baseUrl}/jobs/${jobId}/cv-pdf?lang=${lang}`;
+
+    return this.http.get(url, { responseType: 'blob' }).pipe(
+      tap((blob) => {
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        const cleanCompany = (companyName || 'empresa').toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const dateFormatted = new Date().toISOString().split('T')[0];
+        a.download = `leonardo_jaimes_cv_${cleanCompany}_${dateFormatted}_${lang}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+      })
+    );
+  }
+
+  public downloadCoverLetterPdf(jobId: string, companyName?: string, lang: 'en' | 'es' = 'en') {
+    const personaName = this.pipeline.activeProfile()?.name || '';
+    const url = personaName
+      ? `${this.baseUrl}/jobs/${jobId}/cover-letter-pdf?lang=${lang}&personaName=${encodeURIComponent(personaName)}`
+      : `${this.baseUrl}/jobs/${jobId}/cover-letter-pdf?lang=${lang}`;
+
+    return this.http.get(url, { responseType: 'blob' }).pipe(
+      tap((blob) => {
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        const cleanCompany = (companyName || 'empresa').toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const dateFormatted = new Date().toISOString().split('T')[0];
+        a.download = `leonardo_jaimes_cover_letter_${cleanCompany}_${dateFormatted}_${lang}.pdf`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

@@ -11,6 +11,8 @@ export interface GenerateProposalInput {
   targetAudience?: string;
   voiceRules?: string[];
   normalizedRole?: string;
+  platform?: 'UPWORK' | 'LINKEDIN';
+  companyName?: string;
 }
 
 export interface ProposalOutput {
@@ -261,8 +263,20 @@ export class ClaudeProposalService {
     }
 
     // 2. Fallback Template calibrado si no hay API o si falló
+    const isLinkedIn = input.platform === 'LINKEDIN';
     const company = input.proofStoryCompany || input.proofStoryKey;
     const metric = input.proofStoryMetric || '17,000+ users and high availability';
+
+    if (isLinkedIn) {
+      const targetCompany = input.companyName || 'your team';
+      return {
+        contactName: '',
+        coverLetter35Words: `Hi there, having scaled ${company} (${metric}), I was drawn to what ${targetCompany} is building. I mapped out the exact technical architecture for this role. Free walkthrough here: [link].`,
+        technicalProposalBody: `# Strategic Proposal & Execution Roadmap for ${input.companyName ? `${input.companyName} (${input.jobTitle})` : input.jobTitle}\n\n## 1. Executive Summary & Problem Diagnosis\nStrategic diagnosis and execution roadmap tailored for ${input.jobTitle}${input.companyName ? ` at ${input.companyName}` : ''}. Focusing on direct transformation, architecture clarity, and rapid execution.\n\n## 2. Technical Architecture & Recommended Approach\nModular system design, token-based architecture, and developer-ready specifications.\n\n## 3. Agile 2-to-3 Week Execution Milestones\n- Phase 1 (Week 1): Requirements Audit & Interactive Prototype (Day 5)\n- Phase 2 (Week 2): Design System & Responsive Core UI\n- Phase 3 (Week 3): Usability Testing, Automation & Production Handover\n\n## 4. Deliverables & Acceptance Criteria\nComplete production source files, responsive components, documentation, and handover walk-through.`,
+        mermaidDiagramCode: `flowchart TD\n  A[Requirements Audit] --> B[Architecture Blueprint]\n  B --> C[Interactive Prototype]\n  C --> D[QA & Validation]\n  D --> E[Production Delivery]`
+      };
+    }
+
     return {
       contactName: '',
       coverLetter35Words: `Hey there, I work with product architecture daily. Having scaled ${company} (${metric}), I mapped the exact technical breakdown for your project. Free walkthrough here: [link].`,
@@ -272,14 +286,21 @@ export class ClaudeProposalService {
   }
 
   private async generateWithGemini(input: GenerateProposalInput): Promise<ProposalOutput> {
-    const prompt = `You are a world-class fractional technical operator, senior product specialist, and elite Upwork proposal strategist.
+    const isLinkedIn = input.platform === 'LINKEDIN';
+    const personaHeader = isLinkedIn
+      ? `You are an elite technical candidate and senior engineering leader crafting a high-impact direct application note and strategic roadmap for a job on LinkedIn / Direct ATS${input.companyName ? ` at ${input.companyName}` : ''}.`
+      : `You are a world-class fractional technical operator, senior product specialist, and elite Upwork proposal strategist.`;
+
+    const prompt = `${personaHeader}
 Analyze the following client job post and synthesize a hyper-personalized, high-converting proposal by crossing THREE strict inputs:
 1. CLIENT VACANCY (Real client need, pain points, technical context)
 2. AUTHORITY PROOF STORY (Real metric and audited accomplishment)
 3. SPECIFIC OFFER / TRANSFORMATION (Value proposition and role promise)
 
 [1. CLIENT VACANCY]
+Platform: ${isLinkedIn ? `LinkedIn / Direct ATS Application (${input.companyName ? `Company: ${input.companyName}` : 'Direct Company'})` : 'Upwork Freelance Marketplace'}
 Job Title: ${input.jobTitle}
+Company: ${input.companyName || 'Not specified'}
 Description: ${input.jobDescription}
 Client Country: ${input.clientCountry || 'International'}
 
@@ -294,9 +315,9 @@ Offer Headline: ${input.offerHeadline || 'AI-native UX & High-Scale Product Arch
 Target Audience: ${input.targetAudience || 'Seed-to-Series B SaaS founders and product leads'}
 Voice Guidelines: ${Array.isArray(input.voiceRules) ? input.voiceRules.join(', ') : (input.voiceRules || 'First person peer-to-peer, zero filler, no em dashes')}
 
-[CRITICAL PSYCHOLOGICAL INBOX DYNAMICS - THE 2-LINE SCREEN TRAP]
-- The client skims 30 to 50 proposals in their Upwork inbox. They only read the first 2 lines (~150 characters) before deciding whether to archive or click.
-- IF YOUR FIRST SENTENCE IS A STATIC DISCONNECTED FACT IN A VACUUM (e.g. "Contributed to Google Project Kennedy design system" for a non-UI job), THE CLIENT ASSUMES IT IS GENERIC BOT SPAM AND ARCHIVES IMMEDIATELY.
+[CRITICAL PSYCHOLOGICAL INBOX DYNAMICS]
+- ${isLinkedIn ? 'The hiring manager skims dozens of applicants. Your note must immediately prove that you understand their mission and have solved their exact scaling/product problem before.' : 'The client skims 30 to 50 proposals in their Upwork inbox. They only read the first 2 lines (~150 characters) before deciding whether to archive or click.'}
+- IF YOUR FIRST SENTENCE IS A STATIC DISCONNECTED FACT IN A VACUUM, THE RECIPIENT ASSUMES IT IS GENERIC BOT SPAM AND ARCHIVES IMMEDIATELY.
 - THEREFORE, YOU MUST CONSTRUCT A "TRANSFERABLE AUTHORITY BRIDGE":
   The very first sentence MUST bridge your proof story metric directly into the client's primary deliverable.
   Extract the transferable core (e.g., automation, user scale, conversion, latency reduction, high-volume workflows) and connect it immediately into an active compound statement.
@@ -329,17 +350,19 @@ Return a strictly valid JSON object without markdown formatting wrappers or conv
 
 [STRICT GUIDELINES FOR EACH FIELD]
 1. "contactName":
-   - Scan the full job description for a name, signature, or company mention (e.g. "thanks, Sara", "Best, John", "I'm Mike from Acme").
+   - Scan the full job description for a name, signature, or recruiter mention (e.g. "thanks, Sara", "Best, John", "I'm Mike from Acme").
    - If found, return that specific first name (e.g. "Sara").
-   - If NOT found, return "there" (so the letter opens naturally as "Hey there,"). NEVER return "Sir/Madam", "Hiring Manager", or "Hiring Team".
+   - If NOT found, return "there" (so the letter opens naturally as "Hey there," or "Hi there,"). NEVER return "Sir/Madam", "Hiring Manager", or "Hiring Team".
 
 2. "coverLetter35Words":
-   - STRICT CONSTRAINT: Word count MUST be between 30 and 35 words total (including the [link] token).
+   ${isLinkedIn ? `- STRICT CONSTRAINT: Word count MUST be between 35 and 45 words total (including the [link] token).
+   - Tailored specifically for LinkedIn / ATS application.
+   - Core shape: "Hi [Name], having [audited proof metric at Company], I was drawn to what ${input.companyName || 'your team'} is doing for ${input.jobTitle}. I mapped out how I would execute this architecture directly. Detailed walkthrough and roadmap: [link]."` : `- STRICT CONSTRAINT: Word count MUST be between 30 and 35 words total (including the [link] token).
    - Greeting:
      * If contact name found: "Hey [Name]," or "Hi [Name],".
      * If not found: "Hey there," or "Hi,". NEVER use formal greetings.
    - Core shape:
-     "Hey [Name], I work with [specific tool/technology from job] daily. Having [audited proof metric at Company], I just mapped the technical architecture for your project. Free walkthrough and roadmap here: [link]."
+     "Hey [Name], I work with [specific tool/technology from job] daily. Having [audited proof metric at Company], I just mapped the technical architecture for your project. Free walkthrough and roadmap here: [link]."`}
    - Punchy, confident, peer-to-peer practitioner. 0 em-dashes (—).
 
 3. "technicalProposalBody":

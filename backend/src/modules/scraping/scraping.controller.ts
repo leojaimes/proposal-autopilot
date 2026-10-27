@@ -5,9 +5,11 @@ import { Response } from 'express';
 import { ApifyService } from './apify.service';
 import { ScrapingProgressService } from './scraping-progress.service';
 import { ApifyJobAdapter } from './adapters/apify-job.adapter';
+import { LinkedInJobAdapter } from './adapters/linkedin-job.adapter';
 import { FitCalculatorService } from '../scoring/services/fit-calculator.service';
 import { ClaudeProposalService } from '../proposals/claude-proposal.service';
 import { TechnicalProposalPdfService } from '../proposals/technical-proposal-pdf.service';
+import { CvTailorService, BaseCvData, CoverLetterData } from '../proposals/cv-tailor.service';
 import { MarketTaxonomyAssignmentService } from './services/market-taxonomy-assignment.service';
 import { MarketRadarOperationsService } from './services/market-radar-operations.service';
 import { MarketRadarDecisionService } from './services/market-radar-decision.service';
@@ -22,6 +24,8 @@ export interface TriggerScrapeDto {
   keywords?: string[];
   maxResults?: number;
   limit?: number;
+  platform?: 'UPWORK' | 'LINKEDIN';
+  source?: 'UPWORK' | 'LINKEDIN';
 }
 
 export interface UpdateStatusDto {
@@ -58,6 +62,12 @@ export function needsTaxonomyReprocessing(
   return primaryAssignment?.classifierVersion !== TAXONOMY_CLASSIFIER_VERSION;
 }
 
+export function resolveJobPlatform(job: { externalUpworkId: string; rawApifyPayload?: any }): 'UPWORK' | 'LINKEDIN' {
+  if (job?.rawApifyPayload?._platform === 'LINKEDIN') return 'LINKEDIN';
+  if (job?.externalUpworkId?.startsWith('li:')) return 'LINKEDIN';
+  return 'UPWORK';
+}
+
 @Controller('api/scraping')
 export class ScrapingController {
   private readonly logger = new Logger(ScrapingController.name);
@@ -67,9 +77,11 @@ export class ScrapingController {
     private readonly apifyService: ApifyService,
     private readonly progressService: ScrapingProgressService,
     private readonly apifyAdapter: ApifyJobAdapter,
+    private readonly linkedInAdapter: LinkedInJobAdapter,
     private readonly fitCalculator: FitCalculatorService,
     private readonly claudeProposal: ClaudeProposalService,
     private readonly pdfService: TechnicalProposalPdfService,
+    private readonly cvTailor: CvTailorService,
     private readonly marketTaxonomyAssignments: MarketTaxonomyAssignmentService,
     private readonly marketRadarOperations: MarketRadarOperationsService,
     private readonly marketRadarDecisions: MarketRadarDecisionService,
@@ -178,6 +190,7 @@ isActive: true,
     }
 
     const maxResults = body.maxResults || body.limit || 30;
+    const platform: 'UPWORK' | 'LINKEDIN' = body.platform || body.source || 'UPWORK';
 
     // 2. Asegurar que exista un Tenant por defecto para pruebas
     let tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
@@ -200,20 +213,20 @@ isActive: true,
       },
     });
 
-    this.logger.log(`Iniciando batch asíncrono ${batchRun.id} para Tenant ${tenantId} con ${keywords.length} queries`);
+    this.logger.log(`Iniciando batch asíncrono ${batchRun.id} para Tenant ${tenantId} con ${keywords.length} queries (${platform})`);
 
     // 4. Emitir evento inicial en el canal SSE
     this.progressService.emitProgress({
       batchId: batchRun.id,
       tenantId,
       step: 'STARTING',
-      message: 'Conectando con el motor y preparando queries...',
+      message: `Conectando con el motor y preparando queries (${platform})...`,
       percentage: 5,
     });
 
     // 5. Lanzar el pipeline en segundo plano (Desacoplado, no bloqueante)
     setImmediate(() => {
-      this.executeBatchPipeline(batchRun.id, tenantId, keywords, maxResults).catch(async (err) => {
+      this.executeBatchPipeline(batchRun.id, tenantId, keywords, maxResults, platform).catch(async (err) => {
         this.logger.error(`Error no controlado en background batch ${batchRun.id}:`, err);
         await this.prisma.batchRun.update({
           where: { id: batchRun.id },
@@ -240,7 +253,8 @@ isActive: true,
       batchRunId: batchRun.id,
       batchId: batchRun.id,
       status: 'RUNNING',
-      message: 'Extracción iniciada en segundo plano con streaming SSE activo',
+      platform,
+      message: `Extracción iniciada en segundo plano (${platform}) con streaming SSE activo`,
       totalQueries: keywords.length,
       maxResults,
     };
@@ -255,18 +269,25 @@ isActive: true,
     tenantId: string,
     keywords: string[],
     maxResults: number,
+    platform: 'UPWORK' | 'LINKEDIN' = 'UPWORK',
   ): Promise<void> {
+    const isLinkedIn = platform === 'LINKEDIN';
+
     // FASE 1: Scraper de Apify
     this.progressService.emitProgress({
       batchId: batchRunId,
       tenantId,
       step: 'APIFY_RUNNING',
-      message: `🕷️ Apify buscando hasta ${maxResults} vacantes frescas en Upwork...`,
+      message: isLinkedIn
+        ? `🕷️ Apify buscando hasta ${maxResults} vacantes frescas en LinkedIn...`
+        : `🕷️ Apify buscando hasta ${maxResults} vacantes frescas en Upwork...`,
       percentage: 15,
     });
 
-    const rawJobs = await this.apifyService.runUpworkScraper(keywords, maxResults);
-    this.logger.log(`[Batch ${batchRunId}] Se recibieron ${rawJobs.length} empleos desde Apify`);
+    const rawJobs = isLinkedIn
+      ? await this.apifyService.runLinkedInScraper(keywords, maxResults)
+      : await this.apifyService.runUpworkScraper(keywords, maxResults);
+    this.logger.log(`[Batch ${batchRunId}] Se recibieron ${rawJobs.length} empleos desde Apify (${platform})`);
 
     if (!rawJobs || rawJobs.length === 0) {
       await this.prisma.batchRun.update({
@@ -316,8 +337,21 @@ isActive: true,
     // FASE 2: Normalización & Scoring 0-100 para todas las vacantes
     for (let idx = 0; idx < rawJobs.length; idx++) {
       const raw = rawJobs[idx];
-      const normalized = this.apifyAdapter.normalizeRaw(raw);
+      const normalized = isLinkedIn
+        ? this.linkedInAdapter.normalizeRaw(raw)
+        : this.apifyAdapter.normalizeRaw(raw);
       if (!normalized.externalId) continue;
+
+      const externalUpworkId = isLinkedIn
+        ? (normalized.externalId.startsWith('li:') ? normalized.externalId : `li:${normalized.externalId}`)
+        : normalized.externalId;
+
+      const payloadWithMeta = {
+        ...(normalized.rawPayload as any),
+        _platform: platform,
+        companyName: normalized.companyName,
+        applyUrl: normalized.jobUrl,
+      };
 
       // Upsert JobPost
       const jobPost = await this.prisma.$transaction(async (tx) => {
@@ -325,13 +359,13 @@ isActive: true,
         where: {
           uq_tenant_external_job: {
             tenantId,
-            externalUpworkId: normalized.externalId,
+            externalUpworkId,
           },
         },
         create: {
           tenant: { connect: { id: tenantId } },
           batchRun: batchRunId ? { connect: { id: batchRunId } } : undefined,
-          externalUpworkId: normalized.externalId,
+          externalUpworkId,
           title: normalized.title,
           description: normalized.description,
           budgetType: normalized.budgetType,
@@ -349,7 +383,7 @@ isActive: true,
           postedAt: normalized.postedAt || new Date(),
           postedAtKnown: normalized.postedAtKnown,
           status: JobStatus.NEEDS_REVIEW,
-          rawApifyPayload: normalized.rawPayload as any,
+          rawApifyPayload: payloadWithMeta,
         },
         update: {
           title: normalized.title,
@@ -368,7 +402,7 @@ isActive: true,
           jobUrl: normalized.jobUrl,
           postedAt: normalized.postedAt || new Date(),
           postedAtKnown: normalized.postedAtKnown,
-          rawApifyPayload: normalized.rawPayload as any,
+          rawApifyPayload: payloadWithMeta,
         },
         });
         await this.taxonomyClassificationWork.queue(tx, {
@@ -513,6 +547,7 @@ isActive: true,
         const proposalResult = await this.claudeProposal.generate({
           jobTitle: jobPost.title,
           jobDescription: jobPost.description,
+          clientCountry: jobPost.clientCountry || undefined,
           proofStoryKey: matchingStory?.keyCode || evaluation.suggestedProofStory || 'SPOTLIGHT_AI',
           proofStoryCompany: matchingStory?.companyOrProduct,
           proofStoryMetric: matchingStory?.impactMetric,
@@ -520,6 +555,8 @@ isActive: true,
           targetAudience: activeProfile?.targetAudience,
           voiceRules: (activeProfile?.voiceRules as string[]) || undefined,
           normalizedRole: evaluation.normalizedRole,
+          platform: resolveJobPlatform(jobPost),
+          companyName: (jobPost.rawApifyPayload as any)?.companyName || undefined,
         });
 
         if (activeProfile) {
@@ -1090,6 +1127,8 @@ isActive: true,
       targetAudience: activeProfile?.targetAudience || 'Seed-to-Series B SaaS founders and product leads',
       voiceRules: (activeProfile?.voiceRules as string[]) || [],
       normalizedRole: fitEval?.normalizedRole || 'Senior Product Specialist',
+      platform: resolveJobPlatform(job),
+      companyName: (job.rawApifyPayload as any)?.companyName || undefined,
     });
 
     if (!activeProfile) {
@@ -1144,6 +1183,133 @@ isActive: true,
       suggestedProofStory: selectedStory?.keyCode,
       proposalDocLink: `http://localhost:7001/walkthrough/${proposal.publicWalkthroughSlug}`,
     };
+  }
+
+  /**
+   * POST /api/scraping/jobs/:id/tailor-application
+   * Adapta el CV ATS y genera la Cover Letter gemela empalmada con la vacante (Paridad con Publications).
+   */
+  @Post('jobs/:id/tailor-application')
+  async tailorApplication(
+    @Param('id') jobId: string,
+    @Body() body: { lang?: 'en' | 'es'; personaName?: string; customCvData?: BaseCvData },
+    @Query('personaName') personaNameQuery?: string,
+  ) {
+    const tenantId = this.tenantContext.getTenantId();
+    await this.resolveActiveProfile(body?.personaName || personaNameQuery);
+
+    const job = await this.prisma.jobPost.findFirst({
+      where: { id: jobId, tenantId },
+    });
+    if (!job) {
+      throw new NotFoundException(`Job con ID ${jobId} no encontrado`);
+    }
+
+    const companyName = (job.rawApifyPayload as any)?.companyName || undefined;
+    const lang = body?.lang || 'en';
+
+    const result = await this.cvTailor.adaptCvAndCoverLetter({
+      jobDescription: job.description,
+      companyName,
+      lang,
+      baseCv: body?.customCvData,
+    });
+
+    return {
+      success: true,
+      jobId: job.id,
+      detectedCompany: result.detectedCompany,
+      changesMade: result.changesMade,
+      interviewQuestions: result.interviewQuestions,
+      coverLetter: result.coverLetter,
+      adaptedCv: result.adaptedCv,
+    };
+  }
+
+  /**
+   * GET /api/scraping/jobs/:id/cv-pdf
+   * Renderiza y descarga el PDF vectorial del CV ATS adaptado vía Gotenberg Chromium.
+   */
+  @Get('jobs/:id/cv-pdf')
+  async downloadCvPdf(
+    @Param('id') jobId: string,
+    @Query('lang') langQuery: string,
+    @Query('personaName') personaNameQuery: string,
+    @Res() res: Response,
+  ) {
+    const tenantId = this.tenantContext.getTenantId();
+    const job = await this.prisma.jobPost.findFirst({
+      where: { id: jobId, tenantId },
+    });
+    if (!job) {
+      throw new NotFoundException(`Job con ID ${jobId} no encontrado`);
+    }
+
+    const companyName = (job.rawApifyPayload as any)?.companyName || 'empresa';
+    const lang = (langQuery === 'es' ? 'es' : 'en') as 'en' | 'es';
+
+    const result = await this.cvTailor.adaptCvAndCoverLetter({
+      jobDescription: job.description,
+      companyName,
+      lang,
+    });
+
+    const pdfBuffer = await this.cvTailor.generateCvPdf(result.adaptedCv);
+    const dateFormatted = new Date().toISOString().split('T')[0];
+    const safeCompany = result.detectedCompany.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const filename = `leonardo_jaimes_cv_${safeCompany}_${dateFormatted}_${lang}.pdf`;
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': String(pdfBuffer.length),
+    });
+    res.end(pdfBuffer);
+  }
+
+  /**
+   * GET /api/scraping/jobs/:id/cover-letter-pdf
+   * Renderiza y descarga el PDF vectorial de la Cover Letter ATS gemela vía Gotenberg Chromium.
+   */
+  @Get('jobs/:id/cover-letter-pdf')
+  async downloadCoverLetterPdf(
+    @Param('id') jobId: string,
+    @Query('lang') langQuery: string,
+    @Query('personaName') personaNameQuery: string,
+    @Res() res: Response,
+  ) {
+    const tenantId = this.tenantContext.getTenantId();
+    const job = await this.prisma.jobPost.findFirst({
+      where: { id: jobId, tenantId },
+    });
+    if (!job) {
+      throw new NotFoundException(`Job con ID ${jobId} no encontrado`);
+    }
+
+    const companyName = (job.rawApifyPayload as any)?.companyName || 'empresa';
+    const lang = (langQuery === 'es' ? 'es' : 'en') as 'en' | 'es';
+
+    const result = await this.cvTailor.adaptCvAndCoverLetter({
+      jobDescription: job.description,
+      companyName,
+      lang,
+    });
+
+    const pdfBuffer = await this.cvTailor.generateCoverLetterPdf(
+      result.adaptedCv.profile,
+      result.coverLetter,
+      result.detectedCompany,
+    );
+    const dateFormatted = new Date().toISOString().split('T')[0];
+    const safeCompany = result.detectedCompany.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const filename = `leonardo_jaimes_cover_letter_${safeCompany}_${dateFormatted}_${lang}.pdf`;
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': String(pdfBuffer.length),
+    });
+    res.end(pdfBuffer);
   }
 
   /**
@@ -1213,6 +1379,8 @@ isActive: true,
           targetAudience: activeProfile?.targetAudience || 'Seed-to-Series B SaaS founders and product leads',
           voiceRules: (activeProfile?.voiceRules as string[]) || [],
           normalizedRole: fitEval?.normalizedRole || 'Senior Product Specialist',
+          platform: resolveJobPlatform(job),
+          companyName: (job.rawApifyPayload as any)?.companyName || undefined,
         });
 
         if (activeProfile) {
@@ -1353,7 +1521,10 @@ isActive: true,
    * Genera el informe plano exacto con las 17 columnas de la tabla diaria de Upwork
    */
   @Get('report')
-  async getDailyReport(@Query('personaName') personaNameQuery?: string) {
+  async getDailyReport(
+    @Query('personaName') personaNameQuery?: string,
+    @Query('platform') platformQuery?: string,
+  ) {
     const tenantId = this.tenantContext.getTenantId();
     const activeProfile = await this.resolveActiveProfile(personaNameQuery);
     const [jobs, scrapeConfig] = await Promise.all([
@@ -1601,10 +1772,17 @@ isActive: true,
         capReason: ev?.capReason ?? null,
         drivers,
         drags,
+        platform: resolveJobPlatform(job),
+        companyName: (job.rawApifyPayload as any)?.companyName || null,
+        directApplyUrl: (job.rawApifyPayload as any)?.applyUrl || job.jobUrl,
       };
     });
 
-    return mapped.sort((a, b) => (b.fitScore || 0) - (a.fitScore || 0));
+    let result = mapped.sort((a, b) => (b.fitScore || 0) - (a.fitScore || 0));
+    if (platformQuery && platformQuery !== 'ALL') {
+      result = result.filter((j) => j.platform === platformQuery);
+    }
+    return result;
   }
 
   /**
@@ -1837,6 +2015,7 @@ isActive: true,
         const proposalResult = await this.claudeProposal.generate({
           jobTitle: candidate.title,
           jobDescription: candidate.description,
+          clientCountry: candidate.clientCountry || undefined,
           proofStoryKey: matchingStory?.keyCode || fitEval.suggestedProofStory || 'SPOTLIGHT_AI',
           proofStoryCompany: matchingStory?.companyOrProduct,
           proofStoryMetric: matchingStory?.impactMetric,
@@ -1844,6 +2023,8 @@ isActive: true,
           targetAudience: activeProfile?.targetAudience,
           voiceRules: (activeProfile?.voiceRules as string[]) || undefined,
           normalizedRole: fitEval.normalizedRole,
+          platform: resolveJobPlatform(candidate),
+          companyName: (candidate.rawApifyPayload as any)?.companyName || undefined,
         });
 
         if (activeProfile) {

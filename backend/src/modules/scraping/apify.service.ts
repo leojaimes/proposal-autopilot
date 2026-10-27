@@ -51,7 +51,38 @@ export class ApifyService {
 
       return items as unknown as RawApifyUpworkJob[];
     } catch (error) {
-      this.logger.error('Error al ejecutar Apify Actor:', error);
+      this.logger.error('Error al ejecutar Apify Actor Upwork:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Ejecuta el actor de extracción de empleos de LinkedIn (curious_coder/linkedin-job-scraper)
+   */
+  async runLinkedInScraper(
+    keywords: string[],
+    maxResults: number = 20,
+    locations: string[] = ['Remote', 'United States']
+  ): Promise<Record<string, any>[]> {
+    try {
+      const sanitizedQueries = (keywords && keywords.length > 0)
+        ? keywords.slice(0, 5)
+        : ['UI/UX design', 'Full Stack Developer', 'AI Engineer'];
+
+      this.logger.log(`Iniciando LinkedIn Scrape en Apify: ${sanitizedQueries.join(' | ')} | Max: ${maxResults}`);
+
+      const run = await this.client.actor('curious_coder/linkedin-job-scraper').call({
+        queries: sanitizedQueries,
+        locations: locations && locations.length > 0 ? locations : ['Remote'],
+        maxItems: maxResults,
+      });
+
+      this.logger.log(`LinkedIn run finalizada con status: ${run.status}. Obteniendo dataset...`);
+      const { items } = await this.client.dataset(run.defaultDatasetId).listItems();
+
+      return items as Record<string, any>[];
+    } catch (error) {
+      this.logger.error('Error al ejecutar Apify Actor LinkedIn:', error);
       throw error;
     }
   }

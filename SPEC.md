@@ -73,24 +73,35 @@ npm run sandbox:run -- --requirement .sandbox/requirements/market-radar-trends-l
 ```
 
 ## Story
-As an operator, I want all profile subheadings, explanations, and metrics in UserProfileComponent to translate dynamically into English when English is selected, and have the AI Factory pipeline actively verify Docker compilation and deployment to GHCR, so that international users experience zero English/Spanish language mismatch and deployments are guaranteed in GHCR.
+As a user (e.g. leo.jaimes.estevez@gmail.com), I want my account to operate in a strictly isolated tenant with zero pre-existing data, synthesize my positioning profile from my CV using AI, and auto-trigger live scraping for Upwork/LinkedIn with multi-profile support, so that my workspace is clean and personalized without data cross-contamination.
 
 ## Acceptance criteria
-- [x] Given UserProfileComponent, when the user switches language to English, then all cards, labels, and explanations display in English without remaining hardcoded Spanish.
-- [x] Given `finishTask` in `scripts/factory/finish.mjs`, when executed, then it actively polls and watches the GitHub Actions workflow run until Docker images are published to GHCR.
-- [x] [Visual Verification] Given the browser at http://localhost:7001, when running `journey-user-profile`, then all steps pass and evidence screenshot `04-04-switch-to-english.png` shows 100% English text.
+- [x] Given a new user registration, when logging into the system, then the user has a unique isolated tenant with 0 jobs and 0 mock profiles, displaying the Zero-State Onboarding view.
+- [x] Given the Zero-State Onboarding view, when the user provides CV content and clicks "Sintetizar Perfil con IA" -> "Activar Perfil", then the profile is persisted in the tenant database, the active profile list is refreshed, and live scraping is triggered for the extracted keywords.
+- [x] Given the Dispatch Terminal and proposal generator, when dispatching a job from either Upwork or LinkedIn, then the platform and company information are correctly mapped and proposals are generated without platform mismatch or tenant bleed.
+- [x] Given a job in the Dispatch Terminal, when clicking "Adaptar CV y Carta ATS", then an anti-slop tailored cover letter and adapted CV are generated with truthful chronology, and both can be downloaded as PDFs (rendered via Gotenberg) in English or Spanish.
 
-## Allowed Files Whitelist (Max 3 files)
-- frontend/src/app/core/services/i18n.service.ts
-- frontend/src/app/features/profile/user-profile.component.html
-- scripts/factory/finish.mjs
-- scripts/factory/
+## Allowed Files Whitelist (Max 5 files operational)
+- backend/src/modules/auth/auth.service.ts
+- backend/src/modules/tenants/tenants.service.ts
+- backend/src/modules/proposals/claude-proposal.service.ts
+- backend/src/modules/proposals/cv-tailor.service.ts
+- backend/src/modules/scraping/scraping.controller.ts
+- frontend/src/app/features/onboarding/zero-state-onboarding.component.ts
+- frontend/src/app/features/onboarding/zero-state-onboarding.component.html
+- frontend/src/app/features/dispatch/dispatch-terminal.component.ts
+- frontend/src/app/features/dispatch/dispatch-terminal.component.html
 - SCORECARD.md
 
 ## Test Plan (TDD)
-- test: tests/journeys/journey-user-profile.json
-- test: frontend/src/app/core/services/i18n.service.spec.ts
+- test: backend/src/modules/auth/auth.service.spec.ts
+- test: backend/src/modules/scraping/adapters/linkedin-job.adapter.spec.ts
+- test: backend/src/modules/scoring/services/fit-calculator.spec.ts
+- test: backend/src/modules/proposals/cv-tailor.service.spec.ts
+- journey: tests/journeys/journey-zero-state-onboarding.json
 
 ## Out of scope
-- Database schema changes.
+- Cross-tenant data sharing.
+- Auto-billing or stripe integrations.
+
 

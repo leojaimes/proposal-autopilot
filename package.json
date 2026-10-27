@@ -5,7 +5,8 @@
   "scripts": {
     "sandbox:run": "node scripts/sandbox-qa.mjs run",
     "sandbox:verify": "node scripts/sandbox-qa.mjs verify",
-    "factory": "node scripts/factory/af.mjs"
+    "factory": "node scripts/factory/af.mjs",
+    "test": "npm --prefix backend test"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2"

@@ -17,7 +17,7 @@
 
   <!-- REUSABLE EXCEL DATA TABLE -->
   <app-excel-table
-    [data]="report.jobs()"
+    [data]="report.filteredJobs()"
     [columns]="jobColumns()"
     [enableGlobalSearch]="true"
     [enableExportCsv]="true"
@@ -42,7 +42,21 @@
         <!-- Job Title & Strategic Role Column -->
         @case ('jobTitle') {
           <div class="py-1">
-            <a [href]="row.applyLink" target="_blank"
+            <div class="flex items-center gap-1.5 mb-1">
+              @if (row.platform === 'LINKEDIN') {
+                <span class="px-1.5 py-0.2 rounded font-mono font-bold text-[9px] bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                  LinkedIn
+                </span>
+                @if (row.companyName) {
+                  <span class="text-[11px] font-mono text-sky-400 font-semibold">🏢 {{ row.companyName }}</span>
+                }
+              } @else {
+                <span class="px-1.5 py-0.2 rounded font-mono font-bold text-[9px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                  Upwork
+                </span>
+              }
+            </div>
+            <a [href]="row.directApplyUrl || row.applyLink" target="_blank"
                class="font-semibold text-white text-[13px] leading-snug hover:text-cyan-300 cursor-pointer font-headline line-clamp-2 transition-colors">
               {{ row.jobTitle }}
             </a>
