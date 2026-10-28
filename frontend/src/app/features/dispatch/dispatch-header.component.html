@@ -1,18 +1,19 @@
-<header class="h-16 border-b border-border-subtle/70 bg-[#0f131d]/95 backdrop-blur-xl px-5 flex items-center justify-between select-none relative z-30">
+<header class="h-14 border-b border-border-subtle/70 bg-[#0f131d]/95 backdrop-blur-xl px-5 flex items-center justify-between select-none relative z-30">
   
-  <!-- Left: Logo & PROFILE SWITCHER (Multi-Persona) -->
+  <!-- Left: View Breadcrumb & PROFILE SWITCHER (Multi-Persona) -->
   <div class="flex items-center gap-3 md:gap-4">
-    <div class="flex items-center gap-2.5">
-      <div class="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center font-bold text-cyan-400 text-xs shadow-[0_0_12px_rgba(76,215,246,0.25)]">
-        PA
-      </div>
-      <div class="flex flex-col">
-        <div class="flex items-center gap-1.5">
-          <span class="text-sm font-bold text-white tracking-tight font-headline">Proposal Autopilot</span>
-          <span class="text-[10px] text-cyan-400 bg-cyan-500/10 border border-cyan-400/25 px-1.5 py-0.2 rounded font-mono font-semibold">v1.2</span>
-        </div>
-        <span class="text-[10px] text-content-muted font-mono leading-none">Cockpit Intelligence</span>
-      </div>
+    <div class="flex items-center gap-2">
+      <span class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider">
+        @if (activeView() === 'TERMINAL') {
+          Cabina de Despacho
+        } @else if (activeView() === 'EXPLORER') {
+          Explorador de Leads
+        } @else if (activeView() === 'RADAR') {
+          Radar de Mercado
+        } @else if (activeView() === 'PROFILE') {
+          Perfil de Posicionamiento
+        }
+      </span>
     </div>
 
     <!-- Live Motor High-Fit Status Indicator -->
@@ -91,174 +92,47 @@
     </div>
   </div>
 
-  <!-- Center: View Mode Switcher & Platform Filter -->
-  <div class="hidden md:flex items-center gap-2">
-    <!-- View Switcher -->
-    <div class="flex items-center gap-1 p-1 bg-[#171b26] rounded-xl border border-border-subtle/80">
-      <button (click)="switchView('TERMINAL')"
-              [ngClass]="activeView() === 'TERMINAL' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
-              class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
-        <svg lucideZap class="w-3.5 h-3.5"></svg>
-        <span>{{ 'nav.terminal' | translate }}</span>
-      </button>
-      <button (click)="switchView('EXPLORER')"
-              [ngClass]="activeView() === 'EXPLORER' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
-              class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
-        <svg lucideSearch class="w-3.5 h-3.5"></svg>
-        <span>{{ 'nav.explorer' | translate }}</span>
-        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono"
-              [ngClass]="activeView() === 'EXPLORER' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-surface text-content-muted'">
-          {{ report.filteredJobs().length }}
-        </span>
-      </button>
-      <button (click)="switchView('RADAR')"
-              [ngClass]="activeView() === 'RADAR' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
-              class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5">
-        <svg lucideCompass class="w-3.5 h-3.5"></svg>
-        <span>{{ 'nav.radar' | translate }}</span>
-        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-300">
-          Live
-        </span>
-      </button>
-    </div>
-
-    <!-- PLATFORM FILTER SWITCHER (All vs Upwork vs LinkedIn) -->
-    <div class="flex items-center gap-1 p-1 bg-[#171b26] rounded-xl border border-border-subtle/80">
-      <button (click)="report.setPlatformFilter('ALL')"
-              [ngClass]="report.selectedPlatform() === 'ALL' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
-              class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
-              title="Mostrar todas las vacantes">
-        <span>Todos</span>
-        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/[0.06] text-content-muted">
-          {{ report.jobs().length }}
-        </span>
-      </button>
-
-      <button (click)="report.setPlatformFilter('UPWORK')"
-              [ngClass]="report.selectedPlatform() === 'UPWORK' ? 'bg-emerald-500/20 text-emerald-300 shadow-sm border border-emerald-500/40' : 'text-content-secondary hover:text-content-primary'"
-              class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
-              title="Filtrar sólo vacantes de Upwork">
-        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-        <span>Upwork</span>
-        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400">
-          {{ report.upworkJobsCount() }}
-        </span>
-      </button>
-
-      <button (click)="report.setPlatformFilter('LINKEDIN')"
-              [ngClass]="report.selectedPlatform() === 'LINKEDIN' ? 'bg-sky-500/20 text-sky-300 shadow-sm border border-sky-500/40' : 'text-content-secondary hover:text-content-primary'"
-              class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
-              title="Filtrar sólo vacantes de LinkedIn">
-        <span class="w-2 h-2 rounded-full bg-sky-400"></span>
-        <span>LinkedIn</span>
-        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-sky-500/10 text-sky-300">
-          {{ report.linkedInJobsCount() }}
-        </span>
-      </button>
-    </div>
-  </div>
-
-  <!-- Right: Telemetry, Shortcuts, CTAs & User Avatar Menu -->
-  <div class="flex items-center gap-2.5 shrink-0">
-    <!-- Connects Telemetry Pill (Stitch) -->
-    <div class="hidden lg:flex items-center gap-2 px-3 py-1 rounded-xl bg-[#1c1f2a] border border-border-subtle/80 shadow-inner">
-      <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-      <div class="flex items-baseline gap-1.5">
-        <span class="font-mono text-xs text-white font-bold tracking-tight">{{ lowFitCount() * 16 }} Connects</span>
-        <span class="font-mono text-[11px] text-emerald-400">(~${{ (lowFitCount() * 16 * 0.15).toFixed(2) }} USD)</span>
-      </div>
-    </div>
-
-    <!-- Cockpit Keyboard Shortcuts Chip -->
-    <div class="hidden xl:flex items-center gap-1 text-[11px] text-content-muted border border-border-subtle/80 rounded-xl px-2.5 py-1 bg-[#171b26]">
-      <span>Atajos:</span>
-      <kbd class="kbd-shortcut bg-[#262a35] px-1 py-0.2 rounded text-[10px] text-white">J/K</kbd>
-      <kbd class="kbd-shortcut bg-[#262a35] px-1 py-0.2 rounded text-[10px] text-white">D</kbd>
-      <kbd class="kbd-shortcut bg-[#262a35] px-1 py-0.2 rounded text-[10px] text-white">G</kbd>
-      <kbd class="kbd-shortcut bg-[#262a35] px-1 py-0.2 rounded text-[10px] text-white">/</kbd>
-    </div>
-
-    <!-- Re-evaluar Leads ($0 Cost + Top 3 Gold AI) -->
-    <button (click)="handleReprocess()"
-            [disabled]="report.isReprocessing() || report.isScrapingInProgress()"
-            class="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Re-evalúa todas las vacantes guardadas con tus reglas actuales ($0 tokens) y la IA redacta el Top 3 Gold">
-      @if (report.isReprocessing()) {
-        <svg lucideRefreshCw class="w-3.5 h-3.5 animate-spin text-emerald-400"></svg>
-        <span>{{ 'nav.reprocessing_active' | translate }}</span>
-      } @else {
-        <svg lucideZap class="w-3.5 h-3.5 text-emerald-400"></svg>
-        <span>{{ 'nav.reprocess' | translate }}</span>
-      }
+  <!-- Center: Platform Filter Switcher (Spacious & Focused) -->
+  <div class="hidden md:flex items-center gap-1 p-1 bg-[#171b26] rounded-xl border border-border-subtle/80 shadow-inner">
+    <button (click)="report.setPlatformFilter('ALL')"
+            [ngClass]="report.selectedPlatform() === 'ALL' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
+            class="px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+            title="Mostrar todas las vacantes">
+      <span>Todos</span>
+      <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/[0.06] text-content-muted">
+        {{ report.jobs().length }}
+      </span>
     </button>
 
-    @if (report.reprocessMessage()) {
-      <div class="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/15 border border-emerald-400/30 text-[11px] font-mono text-emerald-300 animate-in fade-in slide-in-from-top duration-200">
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-        <span>{{ report.reprocessMessage() }}</span>
-      </div>
-    }
+    <button (click)="report.setPlatformFilter('UPWORK')"
+            [ngClass]="report.selectedPlatform() === 'UPWORK' ? 'bg-emerald-500/20 text-emerald-300 shadow-sm border border-emerald-500/40' : 'text-content-secondary hover:text-content-primary'"
+            class="px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+            title="Filtrar sólo vacantes de Upwork">
+      <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+      <span>Upwork</span>
+      <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400">
+        {{ report.upworkJobsCount() }}
+      </span>
+    </button>
 
-    <!-- Multi-Platform Scraping Button with Dropdown -->
-    <div class="relative scrape-menu-container">
-      <div class="flex items-center rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 shadow-md shadow-cyan-500/20 p-0.5">
-        <button (click)="triggerPlatformScrape(report.selectedPlatform() === 'LINKEDIN' ? 'LINKEDIN' : 'UPWORK')"
-                [disabled]="report.isScrapingInProgress() || report.isReprocessing()"
-                class="px-3 py-1.5 rounded-l-[10px] text-white text-xs font-bold flex items-center gap-1.5 hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-          @if (report.isScrapingInProgress()) {
-            <svg lucideRefreshCw class="w-3.5 h-3.5 animate-spin"></svg>
-            <span>{{ 'nav.scraping_active' | translate }}</span>
-          } @else {
-            <svg lucideSearch class="w-3.5 h-3.5"></svg>
-            <span>{{ report.selectedPlatform() === 'LINKEDIN' ? 'Scrapear LinkedIn' : 'Scrapear Upwork' }}</span>
-          }
-        </button>
+    <button (click)="report.setPlatformFilter('LINKEDIN')"
+            [ngClass]="report.selectedPlatform() === 'LINKEDIN' ? 'bg-sky-500/20 text-sky-300 shadow-sm border border-sky-500/40' : 'text-content-secondary hover:text-content-primary'"
+            class="px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+            title="Filtrar sólo vacantes de LinkedIn">
+      <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+      <span>LinkedIn</span>
+      <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-sky-500/10 text-sky-300">
+        {{ report.linkedInJobsCount() }}
+      </span>
+    </button>
+  </div>
 
-        <button (click)="toggleScrapeMenu($event)"
-                [disabled]="report.isScrapingInProgress() || report.isReprocessing()"
-                class="px-1.5 py-1.5 rounded-r-[10px] text-white/80 hover:text-white hover:bg-white/10 transition-colors border-l border-white/20 disabled:opacity-50"
-                title="Seleccionar plataforma para extraer">
-          <svg lucideChevronDown class="w-3.5 h-3.5 transition-transform" [class.rotate-180]="isScrapeMenuOpen()"></svg>
-        </button>
-      </div>
-
-      <!-- Scrape Dropdown Menu -->
-      @if (isScrapeMenuOpen()) {
-        <div class="absolute right-0 mt-2 w-64 rounded-2xl bg-[#171b26] border border-border-subtle shadow-2xl p-2 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-150">
-          <div class="px-2.5 py-1 text-[10px] font-bold text-content-muted uppercase tracking-wider">
-            Fuente de Extracción
-          </div>
-          <button (click)="triggerPlatformScrape('UPWORK')"
-                  class="w-full p-2.5 rounded-xl hover:bg-[#262a35] text-left flex items-center justify-between group transition-colors">
-            <div class="flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-              <div>
-                <span class="text-xs font-bold text-content-primary block group-hover:text-emerald-300">Upwork</span>
-                <span class="text-[10px] text-content-muted">Proyectos freelance & contratos</span>
-              </div>
-            </div>
-            <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">30 leads</span>
-          </button>
-
-          <button (click)="triggerPlatformScrape('LINKEDIN')"
-                  class="w-full p-2.5 rounded-xl hover:bg-[#262a35] text-left flex items-center justify-between group transition-colors">
-            <div class="flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
-              <div>
-                <span class="text-xs font-bold text-content-primary block group-hover:text-sky-300">LinkedIn Jobs</span>
-                <span class="text-[10px] text-content-muted">Empleos remotos & ATS directo</span>
-              </div>
-            </div>
-            <span class="text-[10px] font-mono text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20">30 leads</span>
-          </button>
-        </div>
-      }
-    </div>
-
+  <!-- Right: Engine Settings & User Avatar Menu -->
+  <div class="flex items-center gap-3 shrink-0">
     <!-- Engine Settings Trigger Button -->
     <button (click)="openSettings.emit()"
             class="px-3 py-1.5 rounded-xl bg-[#1c1f2a] hover:bg-[#262a35] text-content-primary border border-border-subtle/80 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm">
-      <svg lucideSettings class="w-3.5 h-3.5 text-content-muted"></svg>
+      <svg lucideSettings class="w-3.5 h-3.5 text-cyan-400"></svg>
       <span>{{ 'nav.calibrate' | translate }}</span>
     </button>
 

@@ -1,5 +1,6 @@
 import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { AppSidebarComponent } from './features/navigation/app-sidebar.component';
 import { DispatchHeaderComponent, AppViewMode } from './features/dispatch/dispatch-header.component';
 import { DispatchTerminalComponent } from './features/dispatch/dispatch-terminal.component';
 import { JobExplorerComponent } from './features/explorer/job-explorer.component';
@@ -18,6 +19,7 @@ import { RegisterCardComponent } from './features/auth/register-card.component';
   imports: [
     CommonModule,
     RegisterCardComponent,
+    AppSidebarComponent,
     DispatchHeaderComponent,
     DispatchTerminalComponent,
     JobExplorerComponent,
@@ -32,19 +34,28 @@ import { RegisterCardComponent } from './features/auth/register-card.component';
     @if (!auth.isAuthenticated()) {
       <app-register-card></app-register-card>
     } @else {
-      <div class="flex flex-col h-screen w-screen overflow-hidden bg-app text-content-primary">
-        <!-- Top Bar with View Switcher -->
-        <app-dispatch-header
+      <div class="flex h-screen w-screen overflow-hidden bg-app text-content-primary">
+        <!-- Collapsible Rail Sidebar -->
+        <app-sidebar
           [activeView]="currentView()"
           (viewModeChange)="currentView.set($event)"
           (openSettings)="isSettingsOpen.set(true)">
-        </app-dispatch-header>
+        </app-sidebar>
 
-        <!-- Live SSE Scraping Activity Banner -->
-        <app-live-scrape-progress></app-live-scrape-progress>
+        <!-- Main Viewport (Header + Live Progress + Content) -->
+        <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <!-- Top Bar with Streamlined Controls -->
+          <app-dispatch-header
+            [activeView]="currentView()"
+            (viewModeChange)="currentView.set($event)"
+            (openSettings)="isSettingsOpen.set(true)">
+          </app-dispatch-header>
 
-        <!-- Main Body: Conditional on Empty State vs Active Data -->
-        <div class="flex-1 overflow-hidden flex">
+          <!-- Live SSE Scraping Activity Banner -->
+          <app-live-scrape-progress></app-live-scrape-progress>
+
+          <!-- Main Body: Conditional on Empty State vs Active Data -->
+          <div class="flex-1 overflow-hidden flex">
           @if (currentView() === 'PROFILE') {
             <main class="flex-1 overflow-y-auto bg-app">
               <app-user-profile></app-user-profile>
@@ -68,6 +79,7 @@ import { RegisterCardComponent } from './features/auth/register-card.component';
               </main>
             }
           }
+        </div>
         </div>
 
         <!-- Calibration Settings Drawer -->
