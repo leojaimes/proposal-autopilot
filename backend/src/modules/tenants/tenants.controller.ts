@@ -1,4 +1,5 @@
-import { Controller, Get, Put, Post, Delete, Body, Param, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Put, Post, Delete, Body, Param, UseInterceptors, UploadedFile, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { 
   TenantsService, 
@@ -10,12 +11,14 @@ import {
   CreateProfileDto,
 } from './tenants.service';
 import { TenantContextService } from '../../core/context/tenant-context.service';
+import { CvTailorService, PublicationsCvDocument, BaseCvData } from '../proposals/cv-tailor.service';
 
 @Controller('api/config')
 export class TenantsController {
   constructor(
     private readonly tenantsService: TenantsService,
     private readonly tenantContext: TenantContextService,
+    private readonly cvTailor: CvTailorService,
   ) {}
 
   /**
@@ -164,5 +167,64 @@ export class TenantsController {
   ) {
     const tenantId = this.tenantContext.getTenantId();
     return this.tenantsService.synthesizeProfileFromCv(tenantId, rawText, file);
+  }
+
+  /**
+   * GET /api/config/profiles/:id/cv
+   * Obtiene el CV maestro en formato Publications ATS del perfil especificado.
+   */
+  @Get('profiles/:id/cv')
+  async getProfileCv(@Param('id') id: string) {
+    const tenantId = this.tenantContext.getTenantId();
+    return this.tenantsService.getProfileCv(tenantId, id);
+  }
+
+  /**
+   * PUT /api/config/profiles/:id/cv
+   * Guarda o actualiza el CV maestro en formato Publications ATS en PostgreSQL.
+   */
+  @Put('profiles/:id/cv')
+  async updateProfileCv(
+    @Param('id') id: string,
+    @Body('baseCv') baseCv: PublicationsCvDocument,
+  ) {
+    const tenantId = this.tenantContext.getTenantId();
+    return this.tenantsService.updateProfileCv(tenantId, id, baseCv);
+  }
+
+  /**
+   * POST /api/config/cv/parse-and-save
+   * Recibe un CV (en PDF o texto plano), lo procesa con IA generando ambas versiones (ES/EN)
+   * y lo guarda en PostgreSQL bajo el esquema exacto de Publications (ats-cv).
+   */
+  @Post('cv/parse-and-save')
+  @UseInterceptors(FileInterceptor('file'))
+  async parseAndSaveCv(
+    @Body('profileId') profileId?: string,
+    @Body('rawText') rawText?: string,
+    @UploadedFile() file?: any,
+  ) {
+    const tenantId = this.tenantContext.getTenantId();
+    return this.tenantsService.parseAndSaveCv(tenantId, profileId, rawText, file);
+  }
+
+  /**
+   * POST /api/config/cv/preview-pdf
+   * Renderiza el CV en PDF con Gotenberg para previsualización inmediata.
+   */
+  @Post('cv/preview-pdf')
+  async previewPdf(
+    @Body() body: { baseCv: BaseCvData; customCss?: string },
+    @Res() res: Response,
+  ) {
+    const html = this.cvTailor.buildCvHtml(body.baseCv);
+    const pdfBuffer = await this.cvTailor.renderPdfViaGotenberg(html);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'inline; filename="cv_preview.pdf"',
+      'Content-Length': pdfBuffer.length,
+    });
+    return res.end(pdfBuffer);
   }
 }

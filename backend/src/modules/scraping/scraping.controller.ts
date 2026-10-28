@@ -180,17 +180,30 @@ isActive: true,
             data: { searchKeywords: keywords },
           });
         }
+      } else if (profile && (profile.coreRoles?.length || profile.roleTitle || profile.offerHeadline)) {
+        // Derivar dinámicamente de los roles y headline del perfil activo
+        const candidateQueries = [
+          ...(profile.coreRoles || []),
+          profile.roleTitle,
+          profile.offerHeadline,
+        ].filter(Boolean) as string[];
+        keywords = Array.from(new Set(candidateQueries)).slice(0, 5);
       } else {
-        keywords = [
-          '("Design System" OR "Figma Variables") AND ("SaaS" OR "Enterprise")',
-          '("AI Interaction" OR "Agentic UX" OR "Conversational AI")',
-          '("B2B SaaS" OR "Product Designer") AND ("Redesign" OR "Handoff")',
-        ];
+        throw new BadRequestException('No se encontraron términos de búsqueda ni perfil activo configurado. Calibre su perfil de posicionamiento antes de scrapear.');
       }
     }
 
     const maxResults = body.maxResults || body.limit || 30;
     const platform: 'UPWORK' | 'LINKEDIN' = body.platform || body.source || 'UPWORK';
+
+    const enabledProviders = (process.env.ENABLED_SCRAPING_PROVIDERS || 'UPWORK')
+      .split(',')
+      .map(p => p.trim().toUpperCase())
+      .filter(Boolean);
+
+    if (!enabledProviders.includes(platform)) {
+      throw new BadRequestException(`El proveedor de scraping ${platform} no está habilitado en este entorno.`);
+    }
 
     // 2. Asegurar que exista un Tenant por defecto para pruebas
     let tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
@@ -284,8 +297,21 @@ isActive: true,
       percentage: 15,
     });
 
+    // Obtener países objetivo dinámicamente del perfil activo o configuración de scrape
+    const activeProfileForScrape = await this.prisma.positioningProfile.findFirst({
+      where: { tenantId, isActive: true },
+    });
+    const scrapeConfigForScrape = await this.prisma.scrapeConfig.findFirst({
+      where: { tenantId },
+    });
+    const targetLocations = (
+      activeProfileForScrape?.targetCountries?.length ? activeProfileForScrape.targetCountries :
+      scrapeConfigForScrape?.targetCountries?.length ? scrapeConfigForScrape.targetCountries :
+      []
+    );
+
     const rawJobs = isLinkedIn
-      ? await this.apifyService.runLinkedInScraper(keywords, maxResults)
+      ? await this.apifyService.runLinkedInScraper(keywords, maxResults, targetLocations)
       : await this.apifyService.runUpworkScraper(keywords, maxResults);
     this.logger.log(`[Batch ${batchRunId}] Se recibieron ${rawJobs.length} empleos desde Apify (${platform})`);
 
@@ -1208,11 +1234,22 @@ isActive: true,
     const companyName = (job.rawApifyPayload as any)?.companyName || undefined;
     const lang = body?.lang || 'en';
 
+    let baseCvData = body?.customCvData;
+    if (!baseCvData) {
+      const activeProfile = await this.prisma.positioningProfile.findFirst({
+        where: { tenantId, isActive: true },
+      });
+      const storedCv = activeProfile?.baseCv as any;
+      if (storedCv?.translations?.[lang]) {
+        baseCvData = storedCv.translations[lang];
+      }
+    }
+
     const result = await this.cvTailor.adaptCvAndCoverLetter({
       jobDescription: job.description,
       companyName,
       lang,
-      baseCv: body?.customCvData,
+      baseCv: baseCvData,
     });
 
     return {
@@ -1248,10 +1285,17 @@ isActive: true,
     const companyName = (job.rawApifyPayload as any)?.companyName || 'empresa';
     const lang = (langQuery === 'es' ? 'es' : 'en') as 'en' | 'es';
 
+    const activeProfile = await this.prisma.positioningProfile.findFirst({
+      where: { tenantId, isActive: true },
+    });
+    const storedCv = activeProfile?.baseCv as any;
+    const baseCvData = storedCv?.translations?.[lang];
+
     const result = await this.cvTailor.adaptCvAndCoverLetter({
       jobDescription: job.description,
       companyName,
       lang,
+      baseCv: baseCvData,
     });
 
     const pdfBuffer = await this.cvTailor.generateCvPdf(result.adaptedCv);
@@ -1289,10 +1333,17 @@ isActive: true,
     const companyName = (job.rawApifyPayload as any)?.companyName || 'empresa';
     const lang = (langQuery === 'es' ? 'es' : 'en') as 'en' | 'es';
 
+    const activeProfile = await this.prisma.positioningProfile.findFirst({
+      where: { tenantId, isActive: true },
+    });
+    const storedCv = activeProfile?.baseCv as any;
+    const baseCvData = storedCv?.translations?.[lang];
+
     const result = await this.cvTailor.adaptCvAndCoverLetter({
       jobDescription: job.description,
       companyName,
       lang,
+      baseCv: baseCvData,
     });
 
     const pdfBuffer = await this.cvTailor.generateCoverLetterPdf(
@@ -1790,8 +1841,11 @@ isActive: true,
    * Descarga el reporte diario en formato CSV compatible con Excel / Google Sheets
    */
   @Get('report/csv')
-  async exportCsv(@Query('personaName') personaNameQuery?: string) {
-    const report = await this.getDailyReport(personaNameQuery);
+  async exportCsv(
+    @Query('personaName') personaNameQuery?: string,
+    @Query('platform') platformQuery?: string,
+  ) {
+    const report = await this.getDailyReport(personaNameQuery, platformQuery);
     if (report.length === 0) return 'No data available';
 
     const headers = [
@@ -1835,14 +1889,21 @@ isActive: true,
    * extrayendo sus descripciones reales y métricas completas desde el JSON guardado.
    */
   @Post('reprocess')
-  async reprocessExistingJobs(@Query('personaName') personaNameQuery?: string) {
+  async reprocessExistingJobs(
+    @Query('personaName') personaNameQuery?: string,
+    @Query('platform') platformQuery?: string,
+  ) {
     const tenantId = this.tenantContext.getTenantId();
-    const existingJobs = await this.prisma.jobPost.findMany({
+    let existingJobs = await this.prisma.jobPost.findMany({
       where: {
         tenantId,
         rawApifyPayload: { not: null as any },
       },
     });
+
+    if (platformQuery && platformQuery !== 'ALL') {
+      existingJobs = existingJobs.filter(job => resolveJobPlatform(job) === platformQuery);
+    }
 
     this.logger.log(`Iniciando re-procesamiento en frío para ${existingJobs.length} empleos de tenant ${tenantId}`);
 

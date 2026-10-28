@@ -26,7 +26,17 @@ export class LinkedInJobAdapter implements JobDataSourcePort {
     const directApplyUrl = raw.applyUrl || raw.applicationUrl || raw.easyApplyUrl;
     const jobUrl = directApplyUrl || raw.jobUrl || raw.link || raw.url || (externalId ? `https://www.linkedin.com/jobs/view/${externalId}` : 'https://www.linkedin.com');
 
-    const description = (raw.description || raw.jobDescription || raw.text || raw.snippet || '').trim();
+    const companyInfo = raw.companyDescription ? `About ${companyName || 'Company'}:\n${raw.companyDescription}\n\n` : '';
+    const jobBody = (
+      raw.descriptionText ||
+      raw.description ||
+      raw.jobDescription ||
+      raw.text ||
+      raw.snippet ||
+      (raw.descriptionHtml ? raw.descriptionHtml.replace(/<[^>]+>/g, ' ') : '')
+    ).trim();
+
+    const description = `${companyInfo}${jobBody}`.trim();
 
     // Parseo de Salario / Presupuesto
     let budgetType: BudgetType = BudgetType.NOT_SHOWN;
@@ -54,7 +64,11 @@ export class LinkedInJobAdapter implements JobDataSourcePort {
     let clientCountry: string | null = null;
     const rawLoc = String(raw.location || raw.place || raw.formattedLocation || '').trim();
     if (rawLoc) {
-      if (/united states|usa|\bus\b|ny|ca|sf|texas|california|new york/i.test(rawLoc)) {
+      if (/mexico|m[eé]xico|cdmx|guadalajara|monterrey/i.test(rawLoc)) {
+        clientCountry = 'Mexico';
+      } else if (/colombia|bogot[aá]|medell[ií]n|cali|barranquilla/i.test(rawLoc)) {
+        clientCountry = 'Colombia';
+      } else if (/united states|usa|\bus\b|ny|ca|sf|texas|california|new york/i.test(rawLoc)) {
         clientCountry = 'United States';
       } else if (/canada/i.test(rawLoc)) {
         clientCountry = 'Canada';

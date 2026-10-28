@@ -148,20 +148,23 @@ import {
 
         <!-- ACCIONES RÁPIDAS (SCRAPE & RE-EVALUAR) -->
         <div class="px-2 pt-2 pb-1 border-t border-white/[0.06] space-y-1">
-          <!-- SCRAPEAR UPWORK -->
+          <!-- SCRAPEAR SEGÚN PLATAFORMA ACTIVA (UPWORK / LINKEDIN) -->
           <button
-            (click)="triggerScrape('UPWORK')"
+            (click)="triggerCurrentPlatformScrape()"
             [disabled]="report.isScrapingInProgress()"
-            class="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-xs font-bold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 transition-all group disabled:opacity-50"
-            title="Scrapear Upwork">
+            [ngClass]="activeScrapePlatform() === 'LINKEDIN'
+              ? 'bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border-sky-400/30'
+              : 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border-cyan-400/30'"
+            class="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-xs font-bold border transition-all group disabled:opacity-50"
+            [title]="scrapeButtonLabel()">
             @if (report.isScrapingInProgress()) {
-              <svg lucideRefreshCw class="w-4 h-4 shrink-0 animate-spin text-cyan-400"></svg>
+              <svg lucideRefreshCw class="w-4 h-4 shrink-0 animate-spin" [ngClass]="activeScrapePlatform() === 'LINKEDIN' ? 'text-sky-400' : 'text-cyan-400'"></svg>
             } @else {
-              <svg lucideZap class="w-4 h-4 shrink-0 text-cyan-400 group-hover:scale-110 transition-transform"></svg>
+              <svg lucideZap class="w-4 h-4 shrink-0 group-hover:scale-110 transition-transform" [ngClass]="activeScrapePlatform() === 'LINKEDIN' ? 'text-sky-400' : 'text-cyan-400'"></svg>
             }
             @if (isExpandedView()) {
               <span class="truncate text-left flex-1">
-                {{ report.isScrapingInProgress() ? 'Scrapeando...' : 'Scrapear Upwork' }}
+                {{ report.isScrapingInProgress() ? 'Scrapeando...' : scrapeButtonLabel() }}
               </span>
             }
           </button>
@@ -259,6 +262,14 @@ export class AppSidebarComponent {
     return this.isPinned() || this.isHovered();
   });
 
+  public readonly activeScrapePlatform = computed<'UPWORK' | 'LINKEDIN'>(() => {
+    return this.report.selectedPlatform() === 'LINKEDIN' ? 'LINKEDIN' : 'UPWORK';
+  });
+
+  public readonly scrapeButtonLabel = computed<string>(() => {
+    return this.activeScrapePlatform() === 'LINKEDIN' ? 'Scrapear LinkedIn' : 'Scrapear Upwork';
+  });
+
   public readonly highFitCount = computed(() => {
     return this.report.jobs().filter(j => j.fitLabel === 'High' || j.fitScore >= 70).length;
   });
@@ -296,8 +307,14 @@ export class AppSidebarComponent {
     }
   }
 
+  public triggerCurrentPlatformScrape(): void {
+    const keywords = this.pipeline.activeQueriesList();
+    this.report.triggerLiveScrape(30, keywords.length > 0 ? keywords : undefined, this.activeScrapePlatform());
+  }
+
   public triggerScrape(platform: 'UPWORK' | 'LINKEDIN'): void {
-    this.report.triggerLiveScrape(30, undefined, platform);
+    const keywords = this.pipeline.activeQueriesList();
+    this.report.triggerLiveScrape(30, keywords.length > 0 ? keywords : undefined, platform);
   }
 
   public reprocessLeads(): void {

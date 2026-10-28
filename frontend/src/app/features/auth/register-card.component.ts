@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 import { PipelineStateService } from '../../core/services/pipeline-state.service';
 import { ReportService } from '../../core/services/report.service';
-import { LucideShieldCheck, LucideSparkles, LucideArrowRight, LucideAlertCircle, LucideLogIn, LucideUserPlus } from '@lucide/angular';
+import { LucideShieldCheck, LucideSparkles, LucideArrowRight, LucideAlertCircle, LucideLogIn, LucideUserPlus, LucideEye, LucideEyeOff } from '@lucide/angular';
 
 @Component({
   selector: 'app-register-card',
@@ -18,6 +18,8 @@ import { LucideShieldCheck, LucideSparkles, LucideArrowRight, LucideAlertCircle,
     LucideAlertCircle,
     LucideLogIn,
     LucideUserPlus,
+    LucideEye,
+    LucideEyeOff,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -93,15 +95,28 @@ import { LucideShieldCheck, LucideSparkles, LucideArrowRight, LucideAlertCircle,
           <!-- Password -->
           <div>
             <label class="block text-xs font-medium text-content-secondary mb-1.5">Contraseña (Mínimo 8 caracteres)</label>
-            <input
-              type="password"
-              name="password"
-              [(ngModel)]="password"
-              placeholder="••••••••"
-              minlength="8"
-              required
-              class="w-full px-3.5 py-2.5 bg-surface-elevated border border-border-subtle rounded-xl text-sm text-content-primary placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
-            />
+            <div class="relative">
+              <input
+                [type]="showPassword() ? 'text' : 'password'"
+                name="password"
+                [(ngModel)]="password"
+                placeholder="••••••••"
+                minlength="8"
+                required
+                class="w-full pl-3.5 pr-10 py-2.5 bg-surface-elevated border border-border-subtle rounded-xl text-sm text-content-primary placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
+              />
+              <button
+                type="button"
+                (click)="showPassword.set(!showPassword())"
+                [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                class="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-content-primary transition-colors cursor-pointer">
+                @if (showPassword()) {
+                  <svg lucideEyeOff class="w-4 h-4"></svg>
+                } @else {
+                  <svg lucideEye class="w-4 h-4"></svg>
+                }
+              </button>
+            </div>
           </div>
 
           <!-- Submit Button -->
@@ -165,6 +180,7 @@ export class RegisterCardComponent {
 
   public readonly isLoading = signal<boolean>(false);
   public readonly errorMessage = signal<string | null>(null);
+  public readonly showPassword = signal<boolean>(false);
 
   public toggleMode(target: 'LOGIN' | 'REGISTER'): void {
     this.mode.set(target);

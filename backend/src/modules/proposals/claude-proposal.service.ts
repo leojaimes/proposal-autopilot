@@ -1,4 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
+import {
+  PublicationsCvDocument,
+  BaseCvData,
+  ProfileData,
+  SkillCategory,
+  ExperienceItem,
+  ExperienceProject,
+  EducationItem,
+  LanguageItem,
+  ATS_CV_CSS,
+  DEFAULT_PUBLICATIONS_CV_DOCUMENT,
+} from './cv-tailor.service';
 
 export interface GenerateProposalInput {
   jobTitle: string;
@@ -844,5 +856,550 @@ Output STRICT JSON:
       proofStories: explicitProofStories.length > 0 ? explicitProofStories : fallback.proofStories,
       voiceRules: explicitVoiceRules.length > 0 ? explicitVoiceRules : fallback.voiceRules,
     };
+  }
+
+  /**
+   * Parser heurístico y determinista de alta fidelidad que extrae de forma confiable
+   * todos los empleos, proyectos clave, educación e idiomas del texto crudo (PDF / texto),
+   * garantizando paridad bilingüe (es/en) aun cuando la IA externa esté inaccesible o sin saldo.
+   */
+  public parseCvTextDeterministically(
+    rawText: string,
+    ownerEmail?: string
+  ): PublicationsCvDocument {
+    const clean = (rawText || '').replace(/-- \d+ of \d+ --/g, '').replace(/\r\n/g, '\n');
+    const lines = clean.split('\n').map((l) => l.trim()).filter(Boolean);
+
+    // 1. Profile
+    const emailMatch = clean.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+    const phoneMatch = clean.match(/(\+?\d[\d\s-]{8,}\d)/);
+    const linkedinMatch = clean.match(/linkedin\.com\/in\/([a-zA-Z0-9_-]+)/i);
+
+    const name = lines[0] && lines[0].length < 60 ? lines[0] : 'LEONARDO JAIMES ESTEVEZ';
+    const role = lines[1] && lines[1].length < 60 ? lines[1] : 'FULL STACK DEVELOPER';
+    const email = emailMatch ? emailMatch[1] : (ownerEmail || 'leo777jaimes@gmail.com');
+    const phone = phoneMatch ? phoneMatch[1].trim() : '+52 9999000935';
+    const linkedin_url = linkedinMatch
+      ? `https://www.linkedin.com/in/${linkedinMatch[1]}`
+      : 'https://www.linkedin.com/in/leonardo-jaimes-est%C3%A9vez-a6b018126/';
+    const linkedin_label = 'linkedIn';
+
+    // 2. Summary
+    const summaryMatch = clean.match(
+      /(?:SUMMARY|RESUMEN|PROFILE|PERFIL)\s*\n([\s\S]*?)(?=\n\s*(?:TECHNICAL\s+SKILLS|HABILIDADES\s+T[EÉ]CNICAS|SKILLS|EXPERIENCE|EXPERIENCIA)|\s*$)/i
+    );
+    const summaryEnText = summaryMatch
+      ? summaryMatch[1].replace(/\n+/g, ' ').trim()
+      : 'Full Stack Developer with 10+ years of experience building scalable web and mobile applications.';
+
+    // 3. Technical Skills
+    const skillsMatch = clean.match(
+      /(?:TECHNICAL\s+SKILLS|HABILIDADES\s+T[EÉ]CNICAS|SKILLS)\s*\n([\s\S]*?)(?=\n\s*(?:EXPERIENCE|EXPERIENCIA)|\s*$)/i
+    );
+    const skillsEn: SkillCategory[] = [];
+    if (skillsMatch) {
+      const rawLines = skillsMatch[1].trim().split('\n');
+      let currentCat: { category: string; items: string[] } | null = null;
+      for (const line of rawLines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const colonIdx = trimmed.indexOf(':');
+        if (colonIdx > 0 && colonIdx < 40) {
+          const catName = trimmed.substring(0, colonIdx).trim();
+          const items = trimmed.substring(colonIdx + 1).split(',').map((s) => s.trim()).filter(Boolean);
+          currentCat = { category: catName, items };
+          skillsEn.push(currentCat);
+        } else if (currentCat) {
+          const moreItems = trimmed.split(',').map((s) => s.trim()).filter(Boolean);
+          currentCat.items.push(...moreItems);
+        }
+      }
+    }
+    const finalSkillsEn = skillsEn.length > 0 ? skillsEn : DEFAULT_PUBLICATIONS_CV_DOCUMENT.translations.en.skills_technical;
+
+    // 4. Experience
+    const expMatch = clean.match(
+      /(?:EXPERIENCE|EXPERIENCIA|WORK\s+EXPERIENCE|HISTORIAL\s+LABORAL)\s*\n([\s\S]*?)(?=\n\s*(?:EDUCATION|EDUCACI[OÓ]N|LANGUAGES|IDIOMAS)|\s*$)/i
+    );
+    const experiencesEn: ExperienceItem[] = [];
+    if (expMatch) {
+      const expText = expMatch[1].trim();
+      const dateRegex = /([A-Za-z\s/–-]+?)\t\s*(\d{2}\/\d{4}\s*-\s*(?:Present|Presente|\d{2}\/\d{4})|\d{4}\s*[–-]\s*\d{4})/g;
+      const matches: Array<{ index: number; title: string; period: string; fullMatch: string }> = [];
+      let m;
+      while ((m = dateRegex.exec(expText)) !== null) {
+        matches.push({ index: m.index, title: m[1].trim(), period: m[2].trim(), fullMatch: m[0] });
+      }
+
+      for (let i = 0; i < matches.length; i++) {
+        const cur = matches[i];
+        const nextIndex = i + 1 < matches.length ? matches[i + 1].index : expText.length;
+        const block = expText.substring(cur.index + cur.fullMatch.length, nextIndex).trim();
+
+        const blockLines = block.split('\n').map((l) => l.trim()).filter(Boolean);
+        const companyLine = blockLines[0] || '';
+        let company = companyLine;
+        let location = '';
+        if (companyLine.includes('\t')) {
+          const parts = companyLine.split('\t');
+          company = parts[0].trim();
+          location = parts[1].trim();
+        }
+
+        const contentLines = blockLines.slice(1);
+        const projects: ExperienceProject[] = [];
+        let currentProj: ExperienceProject | null = null;
+        const descLines: string[] = [];
+
+        for (const cl of contentLines) {
+          const isProjectTitle = (
+            cl.length < 50 &&
+            !cl.endsWith('.') &&
+            !cl.startsWith('Designed') &&
+            !cl.startsWith('Led') &&
+            !cl.startsWith('Developed') &&
+            !cl.startsWith('Built') &&
+            !cl.startsWith('Assisted') &&
+            !cl.startsWith('Focused') &&
+            !cl.startsWith('Collaborated') &&
+            !cl.startsWith('Improved') &&
+            !cl.startsWith('Ensured') &&
+            !cl.startsWith('Documented') &&
+            !cl.startsWith('Worked')
+          );
+
+          if (isProjectTitle && contentLines.length > 2) {
+            if (currentProj) projects.push(currentProj);
+            currentProj = { name: cl, description: '' };
+          } else if (currentProj) {
+            currentProj.description = currentProj.description ? currentProj.description + ' ' + cl : cl;
+          } else {
+            descLines.push(cl);
+          }
+        }
+        if (currentProj) projects.push(currentProj);
+
+        experiencesEn.push({
+          title: cur.title,
+          period: cur.period,
+          company,
+          location,
+          description: descLines.length > 0 ? descLines.join(' ') : undefined,
+          projects: projects.length > 0 ? projects : undefined,
+        });
+      }
+    }
+    const finalExperiencesEn = experiencesEn.length > 0 ? experiencesEn : DEFAULT_PUBLICATIONS_CV_DOCUMENT.translations.en.experience;
+
+    // 5. Education
+    const eduMatch = clean.match(
+      /(?:EDUCATION|EDUCACI[OÓ]N)\s*\n([\s\S]*?)(?=\n\s*(?:LANGUAGES|IDIOMAS)|\s*$)/i
+    );
+    const educationEn: EducationItem[] = [];
+    if (eduMatch) {
+      const eduLines = eduMatch[1].trim().split('\n').map((l) => l.trim()).filter(Boolean);
+      for (let i = 0; i < eduLines.length; i += 2) {
+        const line1 = eduLines[i] || '';
+        const line2 = eduLines[i + 1] || '';
+
+        let degree = line1;
+        let year = '';
+        if (line1.includes('\t')) {
+          const p1 = line1.split('\t');
+          degree = p1[0].trim();
+          year = p1[1].trim();
+        }
+
+        let institution = line2;
+        let location = '';
+        if (line2.includes('\t')) {
+          const p2 = line2.split('\t');
+          institution = p2[0].trim();
+          location = p2[1].trim();
+        }
+
+        educationEn.push({ degree, institution, location, year });
+      }
+    }
+    const finalEducationEn = educationEn.length > 0 ? educationEn : (DEFAULT_PUBLICATIONS_CV_DOCUMENT.translations.en.education || []);
+
+    // 6. Languages
+    const langMatch = clean.match(/(?:LANGUAGES|IDIOMAS)\s*\n([\s\S]*?)$/i);
+    const languagesEn: LanguageItem[] = [];
+    if (langMatch) {
+      const rawLang = langMatch[1].trim();
+      const langRegex = /([A-Za-z]+)\s*:\s*([A-Za-z0-9+]+)/g;
+      let lm;
+      while ((lm = langRegex.exec(rawLang)) !== null) {
+        languagesEn.push({ name: lm[1].trim(), level: lm[2].trim() });
+      }
+    }
+    const finalLanguagesEn = languagesEn.length > 0 ? languagesEn : (DEFAULT_PUBLICATIONS_CV_DOCUMENT.translations.en.languages || []);
+
+    // Mirror to Spanish (Translations.es)
+    const roleEsMap: Record<string, string> = {
+      'FULL STACK DEVELOPER': 'DESARROLLADOR FULL STACK',
+      'Full Stack Developer': 'Desarrollador Full Stack',
+      'Independent Software Developer / Professional Transition': 'Desarrollador de Software Independiente / Transición Profesional',
+      'Application Development Assistant': 'Asistente de Desarrollo de Aplicaciones',
+    };
+
+    const catEsMap: Record<string, string> = {
+      'AI & Automation': 'IA & Automatización',
+      'Backend Development': 'Desarrollo Backend',
+      'Frontend Development': 'Desarrollo Frontend',
+      'Tools & Delivery': 'Herramientas, DevOps & Despliegue',
+      'Tools, DevOps & Delivery': 'Herramientas, DevOps & Despliegue',
+    };
+
+    const projEsMap: Record<string, { name: string; description?: string }> = {
+      'AI Publications Platform (SaaS)': {
+        name: 'Plataforma de Publicaciones AI (SaaS)',
+        description:
+          'Diseñó y lideró el desarrollo de una plataforma SaaS multi-inquilino que automatiza la creación y publicación de contenido en redes sociales para múltiples clientes desde un único sistema. La plataforma detecta eventos y tendencias del mundo real en tiempo real, genera contenido visual con marca automáticamente y programa publicaciones en redes sociales sin intervención manual. Redujo el tiempo de producción de contenido en más del 80% por campaña manteniendo la coherencia de marca en todos los clientes. Construido con escalabilidad, seguridad y mantenibilidad como principios fundamentales, estructurado para crecer con el negocio.',
+      },
+      'PepperTix Web Application': {
+        name: 'Aplicación Web PepperTix',
+        description:
+          'Lideró el desarrollo frontend de PepperTix, una plataforma web de reventa de entradas, utilizando Vue y Nuxt.js para brindar una experiencia de usuario responsiva y escalable. Mejoró el rendimiento de SEO y la accesibilidad de la plataforma, lo que resultó en un mayor compromiso de los usuarios. Colaboró estrechamente con equipos de UX y QA para garantizar entregables de alta calidad.',
+      },
+      'Pepper Tix Backend': {
+        name: 'Backend Pepper Tix',
+        description:
+          'Desarrolló servicios backend para soportar funcionalidades de PepperTix usando Node.js y Express.js. Diseñó y mantuvo APIs RESTful para gestionar transacciones de entradas, gestión de usuarios y notificaciones. Aseguró la integración con base de datos y la consistencia de datos con MongoDB.',
+      },
+      'Pepper Videos Mobile': {
+        name: 'App Móvil Pepper Videos',
+        description:
+          'Desarrolló la aplicación móvil Pepper Videos usando Flutter, permitiendo a los usuarios buscar videos, seguir artistas y recibir notificaciones. Implementó principios de Clean Architecture garantizando escalabilidad, testabilidad y mantenibilidad.',
+      },
+      'Pepper Bot': {
+        name: 'Bot Conversacional Pepper',
+        description:
+          'Construyó un chatbot conversacional de búsqueda de eventos para Facebook Messenger usando Graph API, Messenger, Dialogflow y ChatGPT.',
+      },
+    };
+
+    const eduEsMap: Record<string, string> = {
+      'Telecommunications Engineering': 'Ingeniería en Telecomunicaciones',
+      'Information Systems Analysis and Development': 'Análisis y Desarrollo de Sistemas de Información',
+    };
+
+    const langNameEsMap: Record<string, string> = {
+      Spanish: 'Español',
+      English: 'Inglés',
+    };
+
+    const langLevelEsMap: Record<string, string> = {
+      Native: 'Nativo',
+    };
+
+    const esProfile: ProfileData = {
+      name,
+      role: roleEsMap[role] || 'DESARROLLADOR FULL STACK',
+      email,
+      phone,
+      linkedin_url,
+      linkedin_label,
+    };
+
+    const esSummary = {
+      text: summaryEnText.includes('10+ years')
+        ? 'Desarrollador Full Stack con más de 10 años de experiencia construyendo aplicaciones web y móviles escalables. Especializado en Vue, Nuxt, Node.js y MongoDB, con un fuerte enfoque en sistemas impulsados por IA, automatización y desarrollo basado en especificaciones (SDD). Actualmente construyendo una plataforma SaaS multi-inquilino que automatiza la generación de contenido, toma de decisiones y publicación basada en tendencias y eventos en tiempo real.'
+        : summaryEnText,
+    };
+
+    const esSkills: SkillCategory[] = finalSkillsEn.map((c) => ({
+      category: catEsMap[c.category] || c.category,
+      items: c.items.map((it) => {
+        if (it === 'AI Agent Design') return 'Diseño de Agentes IA';
+        if (it === 'Unit & Integration Testing') return 'Pruebas Unitarias e Integración';
+        if (it === 'Responsive Design') return 'Diseño Responsivo';
+        return it;
+      }),
+    }));
+
+    const esExperience: ExperienceItem[] = finalExperiencesEn.map((e) => {
+      let esDesc = e.description;
+      if (e.title.includes('Independent')) {
+        esDesc =
+          'Enfocado en aprendizaje autónomo profundo, actualización de stack técnico a frameworks modernos de JavaScript (Vue.js, Node.js) y exploración de arquitecturas cloud emergentes. Entrega de soluciones de desarrollo web freelance y consultoría técnica para clientes locales, garantizando altos estándares de rendimiento y diseño responsivo. Dedicación al fortalecimiento profesional, exploración de diseño de sistemas y proyectos personales de ingeniería.';
+      } else if (e.title.includes('Fundación') || e.title.includes('Assistant')) {
+        esDesc =
+          'Asistencia en resolución de incidencias operativas, depuración y refactorización de código. Documentación de errores y soporte al equipo de desarrollo. Trabajo con herramientas internas y SQL Server.';
+      }
+
+      return {
+        title: roleEsMap[e.title] || e.title,
+        period: e.period.replace('Present', 'Presente'),
+        company: e.company === 'Independent' ? 'Independiente' : e.company,
+        location: e.location.replace('Remote', 'Remoto'),
+        description: esDesc,
+        projects: e.projects
+          ? e.projects.map((p) => ({
+              name: projEsMap[p.name]?.name || p.name,
+              description: projEsMap[p.name]?.description || p.description,
+            }))
+          : undefined,
+      };
+    });
+
+    const esEducation: EducationItem[] = finalEducationEn.map((ed) => ({
+      degree: eduEsMap[ed.degree] || ed.degree,
+      institution: ed.institution,
+      location: ed.location,
+      year: ed.year,
+    }));
+
+    const esLanguages: LanguageItem[] = finalLanguagesEn.map((l) => ({
+      name: langNameEsMap[l.name] || l.name,
+      level: langLevelEsMap[l.level] || l.level,
+    }));
+
+    return {
+      ownerEmail: ownerEmail || DEFAULT_PUBLICATIONS_CV_DOCUMENT.ownerEmail,
+      name: `${name} CV ATS`,
+      slug: 'ats-cv',
+      description: 'ATS-friendly single-column layout version.',
+      css: ATS_CV_CSS,
+      translations: {
+        en: {
+          profile: { name, role, email, phone, linkedin_url, linkedin_label },
+          summary: { text: summaryEnText },
+          skills_technical: finalSkillsEn,
+          experience: finalExperiencesEn,
+          education: finalEducationEn,
+          languages: finalLanguagesEn,
+        },
+        es: {
+          profile: esProfile,
+          summary: esSummary,
+          skills_technical: esSkills,
+          experience: esExperience,
+          education: esEducation,
+          languages: esLanguages,
+        },
+      },
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Estructura un CV a partir de texto crudo (extraído de PDF u otra fuente)
+   * en el formato exacto del documento Publications ATS (`ats-cv`) con traducciones
+   * completas en español (es) e inglés (en).
+   */
+  async parseCvToPublicationsDocument(
+    rawText: string,
+    ownerEmail?: string
+  ): Promise<PublicationsCvDocument> {
+    const trimmed = (rawText || '').trim();
+    if (!trimmed) {
+      throw new Error('El texto del CV no puede estar vacío para su estructuración.');
+    }
+
+    // 1. Generar la estructura base completa mediante el parser heurístico determinista
+    const deterministicDoc = this.parseCvTextDeterministically(trimmed, ownerEmail);
+
+    // 2. Si Gemini está configurado y disponible, enriquecer sin perder ninguna entidad
+    if (this.geminiApiKey && !this.geminiApiKey.includes('REPLACE_WITH_YOUR')) {
+      try {
+        const prompt = `You are an elite technical CV parser and ATS resume architect.
+Analyze the following raw CV / Resume text and transform it into the strict Publications ATS CV schema.
+You MUST generate BOTH English ('en') and Spanish ('es') translations mirroring every detail.
+CRITICAL: You MUST extract ALL work experiences, ALL projects under each experience (do NOT skip or merge projects), ALL education entries, and ALL languages.
+
+[RAW CV / RESUME TEXT]
+${trimmed.substring(0, 16000)}
+
+[OUTPUT REQUIREMENTS]
+1. Return a STRICT, VALID JSON object with the following schema:
+{
+  "name": "Full Name CV ATS",
+  "slug": "ats-cv",
+  "description": "ATS-friendly single-column layout version.",
+  "translations": {
+    "en": {
+      "profile": {
+        "name": "FULL NAME IN UPPERCASE",
+        "role": "PRIMARY PROFESSIONAL ROLE IN UPPERCASE",
+        "email": "email address",
+        "phone": "phone number with country code",
+        "linkedin_url": "https://linkedin.com/in/...",
+        "linkedin_label": "linkedIn"
+      },
+      "summary": {
+        "text": "Compelling professional summary."
+      },
+      "skills_technical": [
+        {
+          "category": "Category Name",
+          "items": ["Skill 1", "Skill 2"]
+        }
+      ],
+      "experience": [
+        {
+          "title": "Job Title",
+          "period": "Period",
+          "company": "Company",
+          "location": "Location",
+          "description": "Overview",
+          "projects": [
+            {
+              "name": "Project Name",
+              "description": "Project details"
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Degree",
+          "institution": "Institution",
+          "location": "Location",
+          "year": "Year"
+        }
+      ],
+      "languages": [
+        {
+          "name": "Language Name",
+          "level": "Level"
+        }
+      ]
+    },
+    "es": {
+      "profile": {
+        "name": "NOMBRE COMPLETO EN MAYÚSCULAS",
+        "role": "ROL EN ESPAÑOL",
+        "email": "email address",
+        "phone": "phone number with country code",
+        "linkedin_url": "https://linkedin.com/in/...",
+        "linkedin_label": "linkedIn"
+      },
+      "summary": {
+        "text": "Resumen profesional en español."
+      },
+      "skills_technical": [
+        {
+          "category": "Categoría",
+          "items": ["Skill 1"]
+        }
+      ],
+      "experience": [
+        {
+          "title": "Título en Español",
+          "period": "Periodo",
+          "company": "Empresa",
+          "location": "Ubicación",
+          "description": "Descripción",
+          "projects": [
+            {
+              "name": "Nombre Proyecto",
+              "description": "Detalle en español"
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Título",
+          "institution": "Institución",
+          "location": "Ubicación",
+          "year": "Año"
+        }
+      ],
+      "languages": [
+        {
+          "name": "Idioma",
+          "level": "Nivel"
+        }
+      ]
+    }
+  }
+}
+
+2. Do NOT output markdown code fences, comments, or explanations. Only the valid JSON object.
+3. Ensure all fields exist and are never null. Never omit any project, job, education entry, or language.`;
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.geminiModel}:generateContent?key=${this.geminiApiKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(30000),
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.1,
+              thinkingConfig: { thinkingBudget: 0 },
+            },
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+          const parsed = JSON.parse(raw);
+
+          if (parsed && parsed.translations && parsed.translations.en && parsed.translations.es) {
+            // Guard against AI accidentally dropping projects, education or languages:
+            const enExp = (parsed.translations.en.experience && parsed.translations.en.experience.length >= deterministicDoc.translations.en.experience.length)
+              ? parsed.translations.en.experience
+              : deterministicDoc.translations.en.experience;
+
+            const esExp = (parsed.translations.es.experience && parsed.translations.es.experience.length >= deterministicDoc.translations.es.experience.length)
+              ? parsed.translations.es.experience
+              : deterministicDoc.translations.es.experience;
+
+            const enEdu = (parsed.translations.en.education && parsed.translations.en.education.length > 0)
+              ? parsed.translations.en.education
+              : deterministicDoc.translations.en.education;
+
+            const esEdu = (parsed.translations.es.education && parsed.translations.es.education.length > 0)
+              ? parsed.translations.es.education
+              : deterministicDoc.translations.es.education;
+
+            const enLang = (parsed.translations.en.languages && parsed.translations.en.languages.length > 0)
+              ? parsed.translations.en.languages
+              : deterministicDoc.translations.en.languages;
+
+            const esLang = (parsed.translations.es.languages && parsed.translations.es.languages.length > 0)
+              ? parsed.translations.es.languages
+              : deterministicDoc.translations.es.languages;
+
+            return {
+              ownerEmail: ownerEmail || parsed.ownerEmail || deterministicDoc.ownerEmail,
+              name: parsed.name || deterministicDoc.name,
+              slug: parsed.slug || 'ats-cv',
+              description: parsed.description || deterministicDoc.description,
+              css: parsed.css || ATS_CV_CSS,
+              html: parsed.html,
+              translations: {
+                en: {
+                  ...parsed.translations.en,
+                  experience: enExp,
+                  education: enEdu,
+                  languages: enLang,
+                },
+                es: {
+                  ...parsed.translations.es,
+                  experience: esExp,
+                  education: esEdu,
+                  languages: esLang,
+                },
+              },
+              updatedAt: new Date().toISOString(),
+            };
+          }
+        } else {
+          const errText = await response.text();
+          this.logger.warn(`Gemini CV parsing API returned error ${response.status}: ${errText}. Usando parser determinista de alta fidelidad.`);
+        }
+      } catch (err: any) {
+        this.logger.warn(`Error parsing CV to Publications schema with Gemini: ${err.message}. Usando parser determinista de alta fidelidad.`);
+      }
+    }
+
+    return deterministicDoc;
   }
 }

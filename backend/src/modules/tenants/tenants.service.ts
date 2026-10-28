@@ -84,6 +84,10 @@ export interface SaveCredentialDto {
 }
 
 import { ClaudeProposalService } from '../proposals/claude-proposal.service';
+import {
+  PublicationsCvDocument,
+  DEFAULT_PUBLICATIONS_CV_DOCUMENT,
+} from '../proposals/cv-tailor.service';
 
 @Injectable()
 export class TenantsService {
@@ -129,7 +133,15 @@ export class TenantsService {
       });
     }
 
-    return tenant;
+    const enabledProviders = (process.env.ENABLED_SCRAPING_PROVIDERS || 'UPWORK')
+      .split(',')
+      .map(p => p.trim().toUpperCase())
+      .filter(Boolean);
+
+    return {
+      ...tenant,
+      enabledScrapingProviders: enabledProviders,
+    };
   }
 
   async getMarketTaxonomy() {
@@ -631,9 +643,20 @@ export class TenantsService {
       const ext = (file.originalname || '').toLowerCase();
       if (ext.endsWith('.pdf')) {
         try {
-          const pdfParse = require('pdf-parse');
-          const pdfData = await pdfParse(file.buffer);
-          textToProcess = pdfData.text || '';
+          const pdfModule = require('pdf-parse');
+          if (typeof pdfModule === 'function') {
+            const pdfData = await pdfModule(file.buffer);
+            textToProcess = pdfData?.text || '';
+          } else if (pdfModule.PDFParse) {
+            const parser = new pdfModule.PDFParse({ data: file.buffer });
+            const res = await parser.getText();
+            textToProcess = (res && typeof res === 'object' && res.text) ? res.text : (typeof res === 'string' ? res : '');
+          } else if (pdfModule.default && typeof pdfModule.default === 'function') {
+            const pdfData = await pdfModule.default(file.buffer);
+            textToProcess = pdfData?.text || '';
+          } else {
+            throw new Error('Módulo de parseo de PDF no expone un método compatible');
+          }
         } catch (err: any) {
           throw new BadRequestException(`Error procesando archivo PDF: ${err.message}`);
         }
@@ -651,6 +674,129 @@ export class TenantsService {
     return {
       success: true,
       data: synthesis,
+    };
+  }
+
+  /**
+   * Obtiene el CV maestro (Publications ATS) asociado a un perfil.
+   * Si no tiene baseCv guardado, retorna la plantilla por defecto.
+   */
+  async getProfileCv(tenantId: string, profileId: string): Promise<PublicationsCvDocument> {
+    const profile = await this.prisma.positioningProfile.findFirst({
+      where: { id: profileId, tenantId },
+    });
+
+    if (!profile) {
+      throw new NotFoundException(`Perfil no encontrado para el tenant ${tenantId}`);
+    }
+
+    if (profile.baseCv && typeof profile.baseCv === 'object') {
+      return profile.baseCv as unknown as PublicationsCvDocument;
+    }
+
+    const user = await this.prisma.tenantUser.findFirst({ where: { tenantId } });
+    return {
+      ...DEFAULT_PUBLICATIONS_CV_DOCUMENT,
+      ownerEmail: user?.email || DEFAULT_PUBLICATIONS_CV_DOCUMENT.ownerEmail,
+    };
+  }
+
+  /**
+   * Actualiza el CV maestro en formato Publications ATS en la base de datos para un perfil.
+   */
+  async updateProfileCv(tenantId: string, profileId: string, baseCv: PublicationsCvDocument) {
+    const profile = await this.prisma.positioningProfile.findFirst({
+      where: { id: profileId, tenantId },
+    });
+
+    if (!profile) {
+      throw new NotFoundException(`Perfil no encontrado para el tenant ${tenantId}`);
+    }
+
+    const updated = await this.prisma.positioningProfile.update({
+      where: { id: profileId },
+      data: {
+        baseCv: baseCv as unknown as Prisma.InputJsonValue,
+      },
+    });
+
+    return {
+      success: true,
+      profileId: updated.id,
+      baseCv: updated.baseCv,
+    };
+  }
+
+  /**
+   * Ingesta un CV (desde archivo PDF o texto), lo traduce y estructura con Gemini
+   * bajo el formato exacto de Publications (ats-cv) y lo guarda directamente en PostgreSQL.
+   */
+  async parseAndSaveCv(
+    tenantId: string,
+    profileId?: string,
+    rawText?: string,
+    file?: { buffer: Buffer; originalname: string },
+  ) {
+    let textToProcess = rawText || '';
+
+    if (file && file.buffer) {
+      const ext = (file.originalname || '').toLowerCase();
+      if (ext.endsWith('.pdf')) {
+        try {
+          const pdfModule = require('pdf-parse');
+          if (typeof pdfModule === 'function') {
+            const pdfData = await pdfModule(file.buffer);
+            textToProcess = pdfData?.text || '';
+          } else if (pdfModule.PDFParse) {
+            const parser = new pdfModule.PDFParse({ data: file.buffer });
+            const res = await parser.getText();
+            textToProcess = (res && typeof res === 'object' && res.text) ? res.text : (typeof res === 'string' ? res : '');
+          } else if (pdfModule.default && typeof pdfModule.default === 'function') {
+            const pdfData = await pdfModule.default(file.buffer);
+            textToProcess = pdfData?.text || '';
+          } else {
+            throw new Error('Módulo de parseo de PDF no expone un método compatible');
+          }
+        } catch (err: any) {
+          throw new BadRequestException(`Error procesando archivo PDF: ${err.message}`);
+        }
+      } else {
+        textToProcess = file.buffer.toString('utf-8');
+      }
+    }
+
+    if (!textToProcess.trim()) {
+      throw new BadRequestException('Se requiere texto de CV o un archivo (.pdf, .txt, .md) válido.');
+    }
+
+    let profile = profileId
+      ? await this.prisma.positioningProfile.findFirst({ where: { id: profileId, tenantId } })
+      : await this.prisma.positioningProfile.findFirst({ where: { tenantId, isActive: true } });
+
+    if (!profile) {
+      profile = await this.prisma.positioningProfile.findFirst({ where: { tenantId } });
+    }
+
+    if (!profile) {
+      throw new NotFoundException('No existe un perfil de posicionamiento para asociar el CV en este tenant.');
+    }
+
+    const tenantUser = await this.prisma.tenantUser.findFirst({ where: { tenantId } });
+    const ownerEmail = tenantUser?.email || 'leo.jaimes.estevez@gmail.com';
+
+    const structuredCv = await this.claudeProposal.parseCvToPublicationsDocument(textToProcess, ownerEmail);
+
+    const updated = await this.prisma.positioningProfile.update({
+      where: { id: profile.id },
+      data: {
+        baseCv: structuredCv as unknown as Prisma.InputJsonValue,
+      },
+    });
+
+    return {
+      success: true,
+      profileId: updated.id,
+      baseCv: structuredCv,
     };
   }
 }

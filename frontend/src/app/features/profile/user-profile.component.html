@@ -265,4 +265,491 @@
 
     </div>
   </div>
+
+  <!-- ========================================== -->
+  <!-- SECTION: CV MAESTRO ATS (PUBLICATIONS)     -->
+  <!-- ========================================== -->
+  <div class="rounded-2xl bg-surface border border-border-subtle p-6 shadow-xl space-y-6">
+    <!-- Header with Title, Mode Switcher & Save Button -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border-subtle">
+      <div class="flex items-center gap-3.5">
+        <div class="w-10 h-10 rounded-xl bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center text-brand-primary">
+          <svg lucideFileText class="w-5 h-5"></svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg font-bold text-content-primary">CV Maestro ATS (Publications)</h2>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-brand-primary/10 text-brand-primary border border-brand-primary/20">
+              ats-cv • Gotenberg
+            </span>
+          </div>
+          <p class="text-xs text-content-secondary">
+            Estructura estricta para generación de PDFs ATS y postulación automática.
+          </p>
+        </div>
+      </div>
+
+      <!-- Action Buttons & Mode Toggles -->
+      <div class="flex flex-wrap items-center gap-2.5">
+        <!-- Tab Toggle: Visual vs JSON -->
+        <div class="inline-flex rounded-xl bg-surface-elevated p-1 border border-border-subtle text-xs">
+          <button
+            type="button"
+            (click)="setCvTab('visual')"
+            class="px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5"
+            [class.bg-brand-primary]="cvActiveTab() === 'visual'"
+            [class.text-white]="cvActiveTab() === 'visual'"
+            [class.text-content-secondary]="cvActiveTab() !== 'visual'">
+            <svg lucideEye class="w-3.5 h-3.5"></svg>
+            Formulario Visual
+          </button>
+          <button
+            type="button"
+            (click)="setCvTab('json')"
+            class="px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5"
+            [class.bg-brand-primary]="cvActiveTab() === 'json'"
+            [class.text-white]="cvActiveTab() === 'json'"
+            [class.text-content-secondary]="cvActiveTab() !== 'json'">
+            <svg lucideCode class="w-3.5 h-3.5"></svg>
+            Editor JSON
+          </button>
+        </div>
+
+        <!-- Language Switcher: ES vs EN (Visible in visual tab) -->
+        @if (cvActiveTab() === 'visual') {
+          <div class="inline-flex rounded-xl bg-surface-elevated p-1 border border-border-subtle text-xs">
+            <button
+              type="button"
+              (click)="setCvLang('es')"
+              class="px-2.5 py-1.5 rounded-lg font-mono font-semibold transition-all flex items-center gap-1"
+              [class.bg-surface]="cvLang() === 'es'"
+              [class.text-emerald-400]="cvLang() === 'es'"
+              [class.border]="cvLang() === 'es'"
+              [class.border-border-subtle]="cvLang() === 'es'"
+              [class.text-content-muted]="cvLang() !== 'es'">
+              🇲🇽 ES
+            </button>
+            <button
+              type="button"
+              (click)="setCvLang('en')"
+              class="px-2.5 py-1.5 rounded-lg font-mono font-semibold transition-all flex items-center gap-1"
+              [class.bg-surface]="cvLang() === 'en'"
+              [class.text-sky-400]="cvLang() === 'en'"
+              [class.border]="cvLang() === 'en'"
+              [class.border-border-subtle]="cvLang() === 'en'"
+              [class.text-content-muted]="cvLang() !== 'en'">
+              🇺🇸 EN
+            </button>
+          </div>
+        }
+
+        <!-- PDF Preview Button -->
+        <button
+          type="button"
+          (click)="previewCvPdf()"
+          [disabled]="!pipeline.activeCv()"
+          class="px-3.5 py-2 rounded-xl bg-surface-elevated border border-border-subtle hover:border-brand-primary/50 text-content-primary text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50">
+          <svg lucideEye class="w-3.5 h-3.5 text-sky-400"></svg>
+          Vista Previa PDF
+        </button>
+
+        <!-- Save Button -->
+        <button
+          type="button"
+          (click)="saveCv()"
+          [disabled]="pipeline.isSavingCv() || !pipeline.activeCv()"
+          class="px-4 py-2 rounded-xl bg-brand-primary hover:bg-brand-primary/90 text-white text-xs font-semibold flex items-center gap-1.5 shadow-lg shadow-brand-primary/20 transition-all disabled:opacity-50">
+          @if (pipeline.isSavingCv()) {
+            <span class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+            <span>Guardando...</span>
+          } @else {
+            <svg lucideSave class="w-3.5 h-3.5"></svg>
+            <span>Guardar CV en BD</span>
+          }
+        </button>
+      </div>
+    </div>
+
+    <!-- Notification Banners -->
+    @if (pipeline.cvSuccessMessage()) {
+      <div class="flex items-center gap-2.5 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs animate-fadeIn">
+        <svg lucideCheckCircle2 class="w-4 h-4 text-emerald-400 shrink-0"></svg>
+        <span>{{ pipeline.cvSuccessMessage() }}</span>
+      </div>
+    }
+    @if (pipeline.cvErrorMessage()) {
+      <div class="flex items-center gap-2.5 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs animate-fadeIn">
+        <svg lucideAlertCircle class="w-4 h-4 text-red-400 shrink-0"></svg>
+        <span>{{ pipeline.cvErrorMessage() }}</span>
+      </div>
+    }
+    @if (jsonError()) {
+      <div class="flex items-center gap-2.5 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs animate-fadeIn">
+        <svg lucideAlertCircle class="w-4 h-4 text-amber-400 shrink-0"></svg>
+        <span>{{ jsonError() }}</span>
+      </div>
+    }
+
+    <!-- Ingestion & Upload Box -->
+    <div
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave($event)"
+      (drop)="onDrop($event)"
+      class="p-5 rounded-xl border-2 border-dashed transition-all duration-200 flex flex-col md:flex-row items-center justify-between gap-4"
+      [class.border-brand-primary]="isDragging()"
+      [class.border-border-subtle]="!isDragging()"
+      [class.bg-surface-elevated]="!isDragging()">
+      
+      <div class="flex items-center gap-4 text-left">
+        <div class="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+          <svg lucideUpload class="w-6 h-6"></svg>
+        </div>
+        <div>
+          <h3 class="text-sm font-bold text-content-primary">Cargar o Reemplazar CV con Archivo PDF</h3>
+          <p class="text-xs text-content-secondary mt-0.5">
+            Arrastra tu archivo PDF aquí o selecciónalo para que Gemini Flash extraiga y genere automáticamente ambas versiones bilingües (ES & EN).
+          </p>
+          @if (selectedFileName()) {
+            <div class="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-surface border border-border-subtle text-xs font-mono text-content-primary">
+              <svg lucideFileText class="w-3.5 h-3.5 text-brand-primary"></svg>
+              <span>{{ selectedFileName() }}</span>
+              <button type="button" (click)="clearSelectedFile()" class="text-content-muted hover:text-red-400 ml-1">✕</button>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 shrink-0">
+        <label class="cursor-pointer px-3.5 py-2 rounded-xl bg-surface-elevated border border-border-subtle hover:border-brand-primary/50 text-content-primary text-xs font-semibold flex items-center gap-1.5 transition-all">
+          <svg lucideUpload class="w-3.5 h-3.5 text-brand-primary"></svg>
+          <span>Seleccionar PDF</span>
+          <input type="file" accept=".pdf,.txt,.md" (change)="onFileSelected($event)" class="hidden" />
+        </label>
+
+        @if (selectedCvFile()) {
+          <button
+            type="button"
+            (click)="uploadAndExtractCv()"
+            [disabled]="pipeline.isExtractingCv()"
+            class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-brand-primary hover:opacity-90 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md transition-all disabled:opacity-50">
+            @if (pipeline.isExtractingCv()) {
+              <span class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+              <span>Procesando con IA...</span>
+            } @else {
+              <svg lucideSparkles class="w-3.5 h-3.5"></svg>
+              <span>Acomodar y Guardar en BD</span>
+            }
+          </button>
+        }
+      </div>
+    </div>
+
+    <!-- TAB 1: VISUAL FORM EDITOR -->
+    @if (cvActiveTab() === 'visual') {
+      @if (getActiveTranslation(); as data) {
+        <div class="space-y-6 pt-2 animate-fadeIn">
+          <!-- Profile Header Section -->
+          <div class="p-5 rounded-xl bg-surface-elevated border border-border-subtle space-y-4">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-content-muted flex items-center gap-2">
+              <svg lucideBriefcase class="w-3.5 h-3.5 text-brand-primary"></svg>
+              Información de Cabecera (ATS Profile) [{{ cvLang() | uppercase }}]
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label class="text-[11px] font-semibold text-content-muted block mb-1">Nombre Completo</label>
+                <input
+                  type="text"
+                  [ngModel]="data.profile.name"
+                  (ngModelChange)="updateProfileField('name', $event)"
+                  class="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs text-content-primary focus:border-brand-primary outline-none" />
+              </div>
+              <div>
+                <label class="text-[11px] font-semibold text-content-muted block mb-1">Título / Rol Profesional</label>
+                <input
+                  type="text"
+                  [ngModel]="data.profile.role"
+                  (ngModelChange)="updateProfileField('role', $event)"
+                  class="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs text-content-primary focus:border-brand-primary outline-none" />
+              </div>
+              <div>
+                <label class="text-[11px] font-semibold text-content-muted block mb-1">Email</label>
+                <input
+                  type="email"
+                  [ngModel]="data.profile.email"
+                  (ngModelChange)="updateProfileField('email', $event)"
+                  class="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs text-content-primary focus:border-brand-primary outline-none" />
+              </div>
+              <div>
+                <label class="text-[11px] font-semibold text-content-muted block mb-1">Teléfono</label>
+                <input
+                  type="text"
+                  [ngModel]="data.profile.phone"
+                  (ngModelChange)="updateProfileField('phone', $event)"
+                  class="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs text-content-primary focus:border-brand-primary outline-none" />
+              </div>
+              <div>
+                <label class="text-[11px] font-semibold text-content-muted block mb-1">LinkedIn URL</label>
+                <input
+                  type="text"
+                  [ngModel]="data.profile.linkedin_url"
+                  (ngModelChange)="updateProfileField('linkedin_url', $event)"
+                  class="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs text-content-primary focus:border-brand-primary outline-none" />
+              </div>
+              <div>
+                <label class="text-[11px] font-semibold text-content-muted block mb-1">LinkedIn Label</label>
+                <input
+                  type="text"
+                  [ngModel]="data.profile.linkedin_label"
+                  (ngModelChange)="updateProfileField('linkedin_label', $event)"
+                  class="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-xs text-content-primary focus:border-brand-primary outline-none" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Summary Section -->
+          <div class="p-5 rounded-xl bg-surface-elevated border border-border-subtle space-y-3">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-content-muted flex items-center gap-2">
+              <svg lucideTarget class="w-3.5 h-3.5 text-indigo-400"></svg>
+              Resumen Ejecutivo (Summary) [{{ cvLang() | uppercase }}]
+            </h4>
+            <textarea
+              rows="4"
+              [ngModel]="data.summary.text"
+              (ngModelChange)="updateSummaryText($event)"
+              class="w-full bg-surface border border-border-subtle rounded-lg p-3 text-xs text-content-primary focus:border-brand-primary outline-none leading-relaxed resize-y"></textarea>
+          </div>
+
+          <!-- Technical Skills Section -->
+          <div class="p-5 rounded-xl bg-surface-elevated border border-border-subtle space-y-4">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-content-muted flex items-center gap-2">
+                <svg lucideShield class="w-3.5 h-3.5 text-sky-400"></svg>
+                Habilidades Técnicas por Categoría ({{ data.skills_technical.length }})
+              </h4>
+              <button
+                type="button"
+                (click)="addSkillCategory()"
+                class="px-2.5 py-1 rounded-lg bg-surface border border-border-subtle hover:border-brand-primary text-xs font-medium text-brand-primary flex items-center gap-1 transition-all">
+                <svg lucidePlus class="w-3 h-3"></svg>
+                Agregar Categoría
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              @for (cat of data.skills_technical; track $index; let idx = $index) {
+                <div class="p-3.5 rounded-xl bg-surface border border-border-subtle space-y-2">
+                  <div class="flex items-center justify-between">
+                    <input
+                      type="text"
+                      [ngModel]="cat.category"
+                      (ngModelChange)="updateSkillCategoryName(idx, $event)"
+                      placeholder="Nombre de Categoría"
+                      class="text-xs font-bold text-content-primary bg-transparent border-b border-dashed border-border-subtle focus:border-brand-primary outline-none pb-0.5 w-4/5" />
+                    <button
+                      type="button"
+                      (click)="removeSkillCategory(idx)"
+                      class="text-content-muted hover:text-red-400 p-1 transition-colors">
+                      <svg lucideTrash2 class="w-3.5 h-3.5"></svg>
+                    </button>
+                  </div>
+                  <div>
+                    <label class="text-[10px] text-content-muted block mb-1">Items separados por coma:</label>
+                    <input
+                      type="text"
+                      [ngModel]="cat.items.join(', ')"
+                      (ngModelChange)="updateSkillItems(idx, $event)"
+                      class="w-full bg-surface-elevated border border-border-subtle rounded-lg px-2.5 py-1.5 text-xs text-content-secondary focus:border-brand-primary outline-none" />
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Work Experience & Projects Section -->
+          <div class="p-5 rounded-xl bg-surface-elevated border border-border-subtle space-y-4">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-content-muted flex items-center gap-2">
+                <svg lucideBriefcase class="w-3.5 h-3.5 text-emerald-400"></svg>
+                Experiencia Laboral & Proyectos ({{ data.experience.length }})
+              </h4>
+              <button
+                type="button"
+                (click)="addExperience()"
+                class="px-2.5 py-1 rounded-lg bg-surface border border-border-subtle hover:border-brand-primary text-xs font-medium text-emerald-400 flex items-center gap-1 transition-all">
+                <svg lucidePlus class="w-3 h-3"></svg>
+                Agregar Empleo
+              </button>
+            </div>
+
+            <div class="space-y-4">
+              @for (exp of data.experience; track $index; let expIdx = $index) {
+                <div class="p-4 rounded-xl bg-surface border border-border-subtle space-y-3">
+                  <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-2 border-b border-border-subtle/60">
+                    <div class="flex flex-wrap items-center gap-2 flex-1">
+                      <input
+                        type="text"
+                        [(ngModel)]="exp.title"
+                        placeholder="Cargo / Puesto"
+                        class="text-xs font-bold text-content-primary bg-transparent border-b border-dashed border-border-subtle focus:border-brand-primary outline-none pb-0.5" />
+                      <span class="text-content-muted text-xs">•</span>
+                      <input
+                        type="text"
+                        [(ngModel)]="exp.company"
+                        placeholder="Empresa"
+                        class="text-xs font-semibold text-brand-primary bg-transparent border-b border-dashed border-border-subtle focus:border-brand-primary outline-none pb-0.5" />
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="text"
+                        [(ngModel)]="exp.period"
+                        placeholder="Periodo"
+                        class="text-xs font-mono text-content-muted bg-surface-elevated px-2 py-0.5 rounded border border-border-subtle outline-none" />
+                      <input
+                        type="text"
+                        [(ngModel)]="exp.location"
+                        placeholder="Ubicación"
+                        class="text-xs text-content-muted bg-surface-elevated px-2 py-0.5 rounded border border-border-subtle outline-none" />
+                      <button
+                        type="button"
+                        (click)="removeExperience(expIdx)"
+                        class="text-content-muted hover:text-red-400 p-1 ml-2 transition-colors">
+                        <svg lucideTrash2 class="w-3.5 h-3.5"></svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="text-[10px] text-content-muted block mb-1">Descripción del Puesto / Impacto:</label>
+                    <textarea
+                      rows="2"
+                      [(ngModel)]="exp.description"
+                      class="w-full bg-surface-elevated border border-border-subtle rounded-lg p-2.5 text-xs text-content-secondary focus:border-brand-primary outline-none resize-y"></textarea>
+                  </div>
+
+                  <!-- Sub-projects for this experience item -->
+                  <div class="pl-3 border-l-2 border-border-subtle space-y-2 mt-2">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[11px] font-semibold text-content-muted">Proyectos Clave ({{ exp.projects?.length || 0 }})</span>
+                      <button
+                        type="button"
+                        (click)="addExperienceProject(expIdx)"
+                        class="text-[10px] font-medium text-brand-primary hover:underline flex items-center gap-1">
+                        + Proyecto
+                      </button>
+                    </div>
+                    @for (proj of exp.projects; track $index; let pIdx = $index) {
+                      <div class="p-2.5 rounded-lg bg-surface-elevated/80 border border-border-subtle space-y-1">
+                        <div class="flex items-center justify-between">
+                          <input
+                            type="text"
+                            [(ngModel)]="proj.name"
+                            placeholder="Nombre del Proyecto"
+                            class="text-xs font-semibold text-content-primary bg-transparent border-b border-dashed border-border-subtle outline-none w-4/5" />
+                          <button
+                            type="button"
+                            (click)="removeExperienceProject(expIdx, pIdx)"
+                            class="text-content-muted hover:text-red-400 p-0.5">
+                            <svg lucideTrash2 class="w-3 h-3"></svg>
+                          </button>
+                        </div>
+                        <textarea
+                          rows="2"
+                          [(ngModel)]="proj.description"
+                          placeholder="Logros, tecnologías y métricas..."
+                          class="w-full bg-surface border border-border-subtle rounded px-2 py-1 text-[11px] text-content-secondary outline-none resize-y"></textarea>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Education & Languages Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Education -->
+            <div class="p-5 rounded-xl bg-surface-elevated border border-border-subtle space-y-3">
+              <div class="flex items-center justify-between">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-content-muted">Educación</h4>
+                <button
+                  type="button"
+                  (click)="addEducation()"
+                  class="px-2 py-0.5 rounded bg-surface border border-border-subtle text-xs text-brand-primary hover:border-brand-primary">
+                  + Agregar
+                </button>
+              </div>
+              <div class="space-y-2">
+                @for (edu of data.education; track $index; let eduIdx = $index) {
+                  <div class="p-2.5 rounded-lg bg-surface border border-border-subtle flex items-center justify-between gap-2">
+                    <div class="grid grid-cols-2 gap-2 flex-1">
+                      <input type="text" [(ngModel)]="edu.degree" placeholder="Título" class="text-xs font-semibold text-content-primary bg-transparent border-b border-border-subtle outline-none" />
+                      <input type="text" [(ngModel)]="edu.institution" placeholder="Institución" class="text-xs text-content-secondary bg-transparent border-b border-border-subtle outline-none" />
+                      <input type="text" [(ngModel)]="edu.year" placeholder="Año" class="text-xs font-mono text-content-muted bg-transparent border-b border-border-subtle outline-none" />
+                      <input type="text" [(ngModel)]="edu.location" placeholder="Ubicación" class="text-xs text-content-muted bg-transparent border-b border-border-subtle outline-none" />
+                    </div>
+                    <button type="button" (click)="removeEducation(eduIdx)" class="text-content-muted hover:text-red-400 p-1">
+                      <svg lucideTrash2 class="w-3 h-3"></svg>
+                    </button>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Languages -->
+            <div class="p-5 rounded-xl bg-surface-elevated border border-border-subtle space-y-3">
+              <div class="flex items-center justify-between">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-content-muted">Idiomas</h4>
+                <button
+                  type="button"
+                  (click)="addLanguage()"
+                  class="px-2 py-0.5 rounded bg-surface border border-border-subtle text-xs text-brand-primary hover:border-brand-primary">
+                  + Agregar
+                </button>
+              </div>
+              <div class="space-y-2">
+                @for (lang of data.languages; track $index; let langIdx = $index) {
+                  <div class="p-2.5 rounded-lg bg-surface border border-border-subtle flex items-center justify-between gap-2">
+                    <div class="grid grid-cols-2 gap-2 flex-1">
+                      <input type="text" [(ngModel)]="lang.name" placeholder="Idioma" class="text-xs font-semibold text-content-primary bg-transparent border-b border-border-subtle outline-none" />
+                      <input type="text" [(ngModel)]="lang.level" placeholder="Nivel (Nativo, Bilingüe)" class="text-xs text-content-secondary bg-transparent border-b border-border-subtle outline-none" />
+                    </div>
+                    <button type="button" (click)="removeLanguage(langIdx)" class="text-content-muted hover:text-red-400 p-1">
+                      <svg lucideTrash2 class="w-3 h-3"></svg>
+                    </button>
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      } @else {
+        <div class="p-8 text-center text-xs text-content-muted border border-dashed border-border-subtle rounded-xl">
+          Cargando ficha del CV maestro...
+        </div>
+      }
+    }
+
+    <!-- TAB 2: RAW JSON EDITOR (PUBLICATIONS SCHEMA) -->
+    @if (cvActiveTab() === 'json') {
+      <div class="space-y-3 animate-fadeIn">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-mono text-content-muted">
+            Documento Schema: Publications ATS CV (<code class="text-brand-primary">slug: ats-cv</code>)
+          </span>
+          <button
+            type="button"
+            (click)="formatJson()"
+            class="px-3 py-1 rounded-lg bg-surface-elevated border border-border-subtle hover:border-brand-primary text-xs font-mono text-brand-primary transition-all">
+            Formatear JSON
+          </button>
+        </div>
+        <textarea
+          rows="22"
+          [ngModel]="cvJsonText()"
+          (ngModelChange)="onJsonTextChange($event)"
+          spellcheck="false"
+          class="w-full bg-[#0d1117] text-[#e6edf3] font-mono text-xs p-4 rounded-xl border border-border-subtle focus:border-brand-primary outline-none leading-relaxed resize-y selection:bg-brand-primary/30"></textarea>
+      </div>
+    }
+  </div>
 </div>

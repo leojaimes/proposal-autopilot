@@ -71,7 +71,7 @@ test('merges an explicit project bullet the AI omitted instead of persisting a t
         },
       }],
     }),
-  })) as typeof fetch;
+  })) as unknown as typeof fetch;
 
   try {
     const service = new ClaudeProposalService();
@@ -161,7 +161,7 @@ test('uses the canonical AI-Native UX persona for structured positioning even wh
         proofStories: [],
       }) }] } }],
     }),
-  })) as typeof fetch;
+  })) as unknown as typeof fetch;
 
   try {
     const service = new ClaudeProposalService();
@@ -178,5 +178,161 @@ Seed-to-Series B SaaS founders and product leads.
     global.fetch = previousFetch;
     if (previousGemini === undefined) delete process.env.GEMINI_API_KEY;
     else process.env.GEMINI_API_KEY = previousGemini;
+  }
+});
+
+test('parseCvToPublicationsDocument returns structured bilingual PublicationsCvDocument', async () => {
+  const previousGemini = process.env.GEMINI_API_KEY;
+  const previousFetch = global.fetch;
+  process.env.GEMINI_API_KEY = 'test-key';
+  global.fetch = (async () => ({
+    ok: true,
+    json: async () => ({
+      candidates: [{
+        content: {
+          parts: [{
+            text: JSON.stringify({
+              name: 'Leonardo Jaimes CV ATS',
+              slug: 'ats-cv',
+              description: 'ATS-friendly single-column layout version.',
+              translations: {
+                en: {
+                  profile: { name: 'LEONARDO JAIMES', role: 'FULL STACK DEVELOPER', email: 'leo@test.com', phone: '+52 999' },
+                  summary: { text: '10+ years experience in full-stack SaaS.' },
+                  skills_technical: [{ category: 'Backend', items: ['NestJS', 'TypeScript'] }],
+                  skills_soft: ['Leadership'],
+                  experience: [{ title: 'Full Stack Dev', period: '2020 - Present', company: 'Spotlight', location: 'Merida' }],
+                  education: [{ degree: 'B.S. Software', institution: 'University', location: 'MX', year: '2019' }],
+                  languages: [{ name: 'Spanish', level: 'Native' }, { name: 'English', level: 'Fluent' }],
+                },
+                es: {
+                  profile: { name: 'LEONARDO JAIMES', role: 'DESARROLLADOR FULL STACK', email: 'leo@test.com', phone: '+52 999' },
+                  summary: { text: '10+ años de experiencia en SaaS full-stack.' },
+                  skills_technical: [{ category: 'Backend', items: ['NestJS', 'TypeScript'] }],
+                  skills_soft: ['Liderazgo'],
+                  experience: [{ title: 'Desarrollador Full Stack', period: '2020 - Presente', company: 'Spotlight', location: 'Mérida' }],
+                  education: [{ degree: 'Ing. Software', institution: 'Universidad', location: 'MX', year: '2019' }],
+                  languages: [{ name: 'Español', level: 'Nativo' }, { name: 'Inglés', level: 'Fluido' }],
+                },
+              },
+            }),
+          }],
+        },
+      }],
+    }),
+  })) as unknown as typeof fetch;
+
+  try {
+    const service = new ClaudeProposalService();
+    const result = await service.parseCvToPublicationsDocument('Raw CV Text of Leonardo', 'leo@test.com');
+    assert.equal(result.slug, 'ats-cv');
+    assert.equal(result.ownerEmail, 'leo@test.com');
+    assert.equal(result.translations.en.profile.role, 'FULL STACK DEVELOPER');
+    assert.equal(result.translations.es.profile.role, 'DESARROLLADOR FULL STACK');
+  } finally {
+    global.fetch = previousFetch;
+    if (previousGemini === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = previousGemini;
+  }
+});
+
+test('parseCvToPublicationsDocument deterministically extracts all jobs, projects, education, and languages without AI', async () => {
+  const previousGemini = process.env.GEMINI_API_KEY;
+  const previousGoogle = process.env.GOOGLE_AI_KEY;
+  const previousStudio = process.env.AI_STUDIO_API_KEY;
+  delete process.env.GEMINI_API_KEY;
+  delete process.env.GOOGLE_AI_KEY;
+  delete process.env.AI_STUDIO_API_KEY;
+
+  const rawCvText = `
+LEONARDO JAIMES ESTEVEZ
+FULL STACK DEVELOPER
+leo777jaimes@gmail.com | +52 9999000935 | LinkedIn: linkedIn
+SUMMARY
+Full Stack Developer with 10+ years of experience building scalable web and mobile applications. Specialized in
+Vue, Nuxt, Node.js, and MongoDB, with strong focus on AI-driven systems, automation, and spec-driven
+development. Currently building a multi-tenant SaaS platform that automates content generation, decision-
+making, and publishing based on real-time events and trends.
+TECHNICAL SKILLS
+AI & Automation: AI Agent Design, Prompt Engineering, Gemini, OpenAI, LangChain / Tavily, Spec-Driven Dev
+(SDD), Workflow Orchestration
+Backend Development: NestJS, Node.js, REST APIs, Multi-Tenant SaaS, Auth & RBAC, MongoDB, Firebase
+Storage
+Frontend Development: Vue, Nuxt, React, Next.js, TypeScript, Responsive Design
+Tools & Delivery: Git, Docker, Agile/Scrum, Jira, TDD, Unit & Integration Testing
+EXPERIENCE
+Full Stack Developer \t01/2020 - Present
+Spotlight Studio \tMérida, Yucatán, México
+AI Publications Platform (SaaS)
+Designed and led development of a multi-tenant SaaS platform that automates social media content creation
+and publishing for multiple clients from a single system.
+PepperTix Web Application
+Led frontend development for PepperTix, a ticket resale web platform, utilizing Vue and Nuxt.js.
+Pepper Tix Backend
+Developed backend services to support PepperTix features using Node.js and Express.js.
+Pepper Videos Mobile
+Developed the Pepper Videos mobile application using Flutter.
+Pepper Bot
+Built a conversational event search chatbot for Facebook Messenger.
+Independent Software Developer / Professional Transition \t2017 – 2019
+Independent \tRemote
+Focused on autonomous deep learning, updating technical stack to modern JavaScript frameworks (Vue.js, Node.js).
+Application Development Assistant \t01/2013 - 12/2016
+Fundación de la Mujer \tFloridablanca, Santander, Colombia
+Assisted with operational issue resolution, debugging, and refactoring.
+EDUCATION
+Telecommunications Engineering \t2015
+Unidades Tecnológicas de Santander \tBucaramanga, Colombia
+Information Systems Analysis and Development \t2005
+Servicio Nacional de Aprendizaje SENA \tSantander, Colombia
+LANGUAGES
+Spanish: Native English: B1+
+`;
+
+  try {
+    const service = new ClaudeProposalService();
+    const doc = await service.parseCvToPublicationsDocument(rawCvText, 'leo.jaimes.estevez@gmail.com');
+
+    assert.equal(doc.slug, 'ats-cv');
+    assert.equal(doc.translations.en.profile.name, 'LEONARDO JAIMES ESTEVEZ');
+    assert.equal(doc.translations.en.profile.email, 'leo777jaimes@gmail.com');
+
+    // Experience checks
+    assert.equal(doc.translations.en.experience.length, 3, 'Should extract all 3 jobs');
+    assert.equal(doc.translations.en.experience[0].company, 'Spotlight Studio');
+    assert.equal(doc.translations.en.experience[0].projects?.length, 5, 'Spotlight Studio should have 5 projects');
+    assert.equal(doc.translations.en.experience[0].projects?.[0].name, 'AI Publications Platform (SaaS)');
+    assert.equal(doc.translations.en.experience[0].projects?.[4].name, 'Pepper Bot');
+    assert.equal(doc.translations.en.experience[1].company, 'Independent');
+    assert.equal(doc.translations.en.experience[2].company, 'Fundación de la Mujer');
+
+    // Education checks
+    assert.equal(doc.translations.en.education?.length, 2, 'Should extract 2 education entries');
+    assert.equal(doc.translations.en.education?.[0].degree, 'Telecommunications Engineering');
+    assert.equal(doc.translations.en.education?.[0].year, '2015');
+    assert.equal(doc.translations.en.education?.[1].degree, 'Information Systems Analysis and Development');
+    assert.equal(doc.translations.en.education?.[1].year, '2005');
+
+    // Languages checks
+    assert.equal(doc.translations.en.languages?.length, 2, 'Should extract 2 languages');
+    assert.equal(doc.translations.en.languages?.[0].name, 'Spanish');
+    assert.equal(doc.translations.en.languages?.[0].level, 'Native');
+    assert.equal(doc.translations.en.languages?.[1].name, 'English');
+    assert.equal(doc.translations.en.languages?.[1].level, 'B1+');
+
+    // Spanish translation mirror checks
+    assert.equal(doc.translations.es.experience.length, 3);
+    assert.equal(doc.translations.es.experience[0].projects?.length, 5);
+    assert.equal(doc.translations.es.experience[0].projects?.[0].name, 'Plataforma de Publicaciones AI (SaaS)');
+    assert.equal(doc.translations.es.education?.[0].degree, 'Ingeniería en Telecomunicaciones');
+    assert.equal(doc.translations.es.languages?.[0].name, 'Español');
+    assert.equal(doc.translations.es.languages?.[0].level, 'Nativo');
+  } finally {
+    if (previousGemini === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = previousGemini;
+    if (previousGoogle === undefined) delete process.env.GOOGLE_AI_KEY;
+    else process.env.GOOGLE_AI_KEY = previousGoogle;
+    if (previousStudio === undefined) delete process.env.AI_STUDIO_API_KEY;
+    else process.env.AI_STUDIO_API_KEY = previousStudio;
   }
 });

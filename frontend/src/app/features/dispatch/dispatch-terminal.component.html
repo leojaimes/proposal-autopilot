@@ -1,4 +1,4 @@
-<div class="flex-1 flex flex-col overflow-hidden bg-[#0a0e18]">
+﻿<div class="flex-1 flex flex-col overflow-hidden bg-[#0a0e18]">
   
   <!-- WORKSPACE BODY: Left Feed + Right Console -->
   <div class="flex-1 flex overflow-hidden">
@@ -33,7 +33,7 @@
           <button (click)="selectedTier.set('ALL')"
                   class="flex-1 py-1.5 text-center rounded-lg text-xs font-semibold transition-all"
                   [ngClass]="selectedTier() === 'ALL' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-muted hover:text-content-primary'">
-            {{ 'terminal.tier_all' | translate }} ({{ report.jobs().length }})
+            {{ 'terminal.tier_all' | translate }} ({{ report.filteredJobs().length }})
           </button>
           <button (click)="selectedTier.set('Low')"
                   class="flex-1 py-1.5 text-center rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
@@ -284,9 +284,9 @@
                       <svg class="w-3 h-3 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                       </svg>
-                      Inicio del Proyecto en Upwork:
+                      {{ current.platform === 'LINKEDIN' ? 'Resumen & About Us de la Vacante:' : 'Inicio del Proyecto en Upwork:' }}
                     </span>
-                    <p class="text-slate-300">{{ current.jobDescription }}</p>
+                    <p class="text-slate-300 whitespace-pre-line">{{ current.jobDescription }}</p>
                   </div>
                 }
               </div>

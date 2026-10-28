@@ -83,6 +83,7 @@ interface WorkspaceProfile {
 
 interface WorkspaceResponse {
   positioningProfiles: WorkspaceProfile[];
+  enabledScrapingProviders?: string[];
 }
 
 interface FullProfilePayload {
@@ -115,6 +116,72 @@ interface FullProfilePayload {
     priority?: number;
   }>;
   proofStories: Array<{ keyCode: string; companyOrProduct: string; impactMetric: string; description: string; domainTags: string[] }>;
+}
+
+export interface CvProfileData {
+  name: string;
+  role: string;
+  email: string;
+  phone: string;
+  linkedin_url?: string;
+  linkedin_label?: string;
+}
+
+export interface CvSkillCategory {
+  category: string;
+  items: string[];
+}
+
+export interface CvExperienceProject {
+  name: string;
+  description: string;
+}
+
+export interface CvExperienceItem {
+  title: string;
+  period: string;
+  company: string;
+  location: string;
+  description?: string;
+  projects?: CvExperienceProject[];
+}
+
+export interface CvEducationItem {
+  degree: string;
+  institution: string;
+  location: string;
+  year: string;
+}
+
+export interface CvLanguageItem {
+  name: string;
+  level: string;
+}
+
+export interface BaseCvData {
+  profile: CvProfileData;
+  summary: { text: string };
+  skills_technical: CvSkillCategory[];
+  skills_soft?: string[];
+  experience: CvExperienceItem[];
+  education?: CvEducationItem[];
+  languages?: CvLanguageItem[];
+}
+
+export interface PublicationsCvDocument {
+  ownerEmail?: string;
+  name: string;
+  slug: string;
+  description?: string;
+  thumbnailUrl?: string;
+  css: string;
+  html?: string;
+  translations: {
+    es: BaseCvData;
+    en: BaseCvData;
+  };
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -157,6 +224,7 @@ export class PipelineStateService {
   public readonly tangentialRoles = signal<string[]>([]);
   public readonly excludedRoles = signal<string[]>([]);
   public readonly marketTaxonomy = signal<MarketTaxonomyNode[]>([]);
+  public readonly enabledScrapingProviders = signal<string[]>(['UPWORK', 'LINKEDIN']);
   public readonly categoryPolicies = signal<ProfileCategoryPolicy[]>([]);
   public readonly isSynthesizingTaxonomy = signal<boolean>(false);
   public readonly taxonomySuccessMessage = signal<string>('');
@@ -167,6 +235,14 @@ export class PipelineStateService {
   public readonly synthesisRationale = signal<string>('');
   public readonly synthesisSuccessMessage = signal<string>('');
   public readonly selectedBatchSize = signal<number>(30);
+
+  // Master CV State (Publications ATS)
+  public readonly activeCv = signal<PublicationsCvDocument | null>(null);
+  public readonly isLoadingCv = signal<boolean>(false);
+  public readonly isSavingCv = signal<boolean>(false);
+  public readonly isExtractingCv = signal<boolean>(false);
+  public readonly cvSuccessMessage = signal<string>('');
+  public readonly cvErrorMessage = signal<string>('');
 
   // Computed list of individual queries for interactive chips
   public readonly activeQueriesList = computed<string[]>(() => {
@@ -238,9 +314,13 @@ export class PipelineStateService {
     this.tangentialRoles.set(profile.tangentialRoles || []);
     this.excludedRoles.set(profile.excludedRoles || []);
     this.categoryPolicies.set(profile.categoryPolicies || []);
+    this.loadActiveProfileCv();
   }
 
   private applyWorkspace(workspace: WorkspaceResponse): void {
+    if (workspace.enabledScrapingProviders && Array.isArray(workspace.enabledScrapingProviders)) {
+      this.enabledScrapingProviders.set(workspace.enabledScrapingProviders);
+    }
     const profiles = (workspace.positioningProfiles || []).map((profile) => this.mapProfile(profile));
     this.profiles.set(profiles);
     const activeId = workspace.positioningProfiles?.find((profile) => profile.isActive)?.id || profiles[0]?.id;
@@ -264,6 +344,106 @@ export class PipelineStateService {
     } finally {
       this.isLoadingProfiles.set(false);
     }
+  }
+
+  public loadActiveProfileCv(): void {
+    const profileId = this.activeProfileId() || this.activeProfile()?.id;
+    if (!profileId) return;
+
+    this.isLoadingCv.set(true);
+    this.cvErrorMessage.set('');
+
+    this.http.get<PublicationsCvDocument>(`${this.getApiBase()}/config/profiles/${profileId}/cv`).subscribe({
+      next: (cv) => {
+        this.activeCv.set(cv);
+        this.isLoadingCv.set(false);
+      },
+      error: (err) => {
+        this.cvErrorMessage.set(err.error?.message || 'Error al cargar el CV');
+        this.isLoadingCv.set(false);
+      },
+    });
+  }
+
+  public saveActiveProfileCv(cv: PublicationsCvDocument): Promise<boolean> {
+    const profileId = this.activeProfileId() || this.activeProfile()?.id;
+    if (!profileId) return Promise.resolve(false);
+
+    this.isSavingCv.set(true);
+    this.cvErrorMessage.set('');
+    this.cvSuccessMessage.set('');
+
+    return new Promise((resolve) => {
+      this.http.put<{ success: boolean; baseCv: PublicationsCvDocument }>(
+        `${this.getApiBase()}/config/profiles/${profileId}/cv`,
+        { baseCv: cv },
+      ).subscribe({
+        next: (res) => {
+          this.activeCv.set(cv);
+          this.isSavingCv.set(false);
+          this.cvSuccessMessage.set('CV maestro guardado exitosamente en base de datos.');
+          setTimeout(() => this.cvSuccessMessage.set(''), 4000);
+          resolve(true);
+        },
+        error: (err) => {
+          this.isSavingCv.set(false);
+          this.cvErrorMessage.set(err.error?.message || 'Error al guardar el CV');
+          resolve(false);
+        },
+      });
+    });
+  }
+
+  public parseAndSaveCvFromPdf(file?: File, rawText?: string): Promise<boolean> {
+    const profileId = this.activeProfileId() || this.activeProfile()?.id;
+    this.isExtractingCv.set(true);
+    this.cvErrorMessage.set('');
+    this.cvSuccessMessage.set('');
+
+    const formData = new FormData();
+    if (file) {
+      formData.append('file', file);
+    }
+    if (rawText) {
+      formData.append('rawText', rawText);
+    }
+    if (profileId) {
+      formData.append('profileId', profileId);
+    }
+
+    return new Promise((resolve) => {
+      this.http.post<{ success: boolean; baseCv: PublicationsCvDocument }>(
+        `${this.getApiBase()}/config/cv/parse-and-save`,
+        formData,
+      ).subscribe({
+        next: (res) => {
+          if (res.baseCv) {
+            this.activeCv.set(res.baseCv);
+          }
+          this.isExtractingCv.set(false);
+          this.cvSuccessMessage.set('CV procesado y guardado con IA exitosamente (ES & EN espejo).');
+          setTimeout(() => this.cvSuccessMessage.set(''), 4000);
+          resolve(true);
+        },
+        error: (err) => {
+          this.isExtractingCv.set(false);
+          this.cvErrorMessage.set(err.error?.message || 'Error al procesar el archivo');
+          resolve(false);
+        },
+      });
+    });
+  }
+
+  public previewCvPdf(cvData: BaseCvData): void {
+    this.http.post(`${this.getApiBase()}/config/cv/preview-pdf`, { baseCv: cvData }, { responseType: 'blob' }).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      },
+      error: () => {
+        this.cvErrorMessage.set('Error generando previsualización de PDF con Gotenberg');
+      },
+    });
   }
 
   public selectProfile(profileId: string): void {

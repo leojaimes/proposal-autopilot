@@ -27,12 +27,13 @@ export class ApifyService {
     }
   ): Promise<RawApifyUpworkJob[]> {
     try {
+      if (!keywords || keywords.length === 0) {
+        throw new Error('No se proporcionaron palabras clave (keywords) para el scraper de Upwork.');
+      }
       this.logger.log(`Iniciando scraping en Apify con ${keywords.length} queries: ${keywords.join(' | ')} | Max: ${maxResults}`);
 
       // Actor flash_mage/upwork: el schema exige un máximo estricto de 5 items en 'query'
-      const sanitizedQueries = (keywords && keywords.length > 0)
-        ? keywords.slice(0, 5)
-        : ['UI/UX design', 'UX/UI designer', 'UX research', 'design system', 'AI product design'];
+      const sanitizedQueries = keywords.slice(0, 5);
 
       this.logger.log(`Enviando ${sanitizedQueries.length} queries a Apify (máx 5 permitido por actor): ${sanitizedQueries.join(' | ')}`);
 
@@ -57,30 +58,50 @@ export class ApifyService {
   }
 
   /**
-   * Ejecuta el actor de extracción de empleos de LinkedIn (curious_coder/linkedin-job-scraper)
+   * Ejecuta el actor de extracción de empleos de LinkedIn (curious_coder/linkedin-jobs-scraper)
    */
   async runLinkedInScraper(
     keywords: string[],
     maxResults: number = 20,
-    locations: string[] = ['Remote', 'United States']
+    locations: string[] = ['Remote']
   ): Promise<Record<string, any>[]> {
     try {
-      const sanitizedQueries = (keywords && keywords.length > 0)
-        ? keywords.slice(0, 5)
-        : ['UI/UX design', 'Full Stack Developer', 'AI Engineer'];
+      if (!keywords || keywords.length === 0) {
+        throw new Error('No se proporcionaron palabras clave (keywords) para el scraper de LinkedIn.');
+      }
+      const sanitizedQueries = keywords.slice(0, 5);
 
-      this.logger.log(`Iniciando LinkedIn Scrape en Apify: ${sanitizedQueries.join(' | ')} | Max: ${maxResults}`);
+      const activeLocations = (locations && locations.length > 0) ? locations : ['Remote'];
 
-      const run = await this.client.actor('curious_coder/linkedin-job-scraper').call({
-        queries: sanitizedQueries,
-        locations: locations && locations.length > 0 ? locations : ['Remote'],
-        maxItems: maxResults,
+      // Construir URLs de búsqueda directas de LinkedIn para cada query y cada ubicación/país objetivo
+      const searchUrls: string[] = [];
+      for (const q of sanitizedQueries) {
+        const cleanTerm = q.replace(/[()"]/g, '').replace(/\s+(AND|OR)\s+/gi, ' ').trim();
+        for (const loc of activeLocations) {
+          searchUrls.push(
+            `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(cleanTerm)}&location=${encodeURIComponent(loc)}`
+          );
+        }
+      }
+
+      // Proteger contra demasiadas combinaciones (máximo 10 URLs de búsqueda)
+      const finalUrls = searchUrls.slice(0, 10);
+
+      // Distribuir el límite entre las URLs de búsqueda configuradas (mínimo 3 por URL)
+      const limitPerSource = Math.max(3, Math.ceil(maxResults / Math.max(1, finalUrls.length)));
+
+      this.logger.log(`Iniciando LinkedIn Scrape en Apify con ${finalUrls.length} URLs de búsqueda (Ubicaciones: ${activeLocations.join(', ')}): ${finalUrls[0]} | Max total: ${maxResults} | LimitPerSource: ${limitPerSource}`);
+
+      const run = await this.client.actor('curious_coder/linkedin-jobs-scraper').call({
+        urls: finalUrls,
+        limitPerSource,
+        scrapeCompany: false, // Desactivado para no agotar el ancho de banda del proxy residencial
       });
 
       this.logger.log(`LinkedIn run finalizada con status: ${run.status}. Obteniendo dataset...`);
       const { items } = await this.client.dataset(run.defaultDatasetId).listItems();
 
-      return items as Record<string, any>[];
+      return (items as Record<string, any>[]).slice(0, maxResults);
     } catch (error) {
       this.logger.error('Error al ejecutar Apify Actor LinkedIn:', error);
       throw error;

@@ -319,22 +319,34 @@ export class ReportService {
 
   public downloadCsv(): void {
     const personaName = this.pipeline.activeProfile()?.name || '';
-    const url = personaName
-      ? `${this.baseUrl}/report/csv?personaName=${encodeURIComponent(personaName)}`
-      : `${this.baseUrl}/report/csv`;
+    const platform = this.selectedPlatform();
+    const params = new URLSearchParams();
+    if (personaName) params.set('personaName', personaName);
+    if (platform !== 'ALL') params.set('platform', platform);
+
+    const queryStr = params.toString();
+    const url = queryStr ? `${this.baseUrl}/report/csv?${queryStr}` : `${this.baseUrl}/report/csv`;
     window.open(url, '_blank');
   }
 
   public isReprocessing = signal<boolean>(false);
   public reprocessMessage = signal<string | null>(null);
 
-  public reprocessLeads() {
+  public reprocessLeads(platform?: 'UPWORK' | 'LINKEDIN') {
     this.isReprocessing.set(true);
-    this.reprocessMessage.set('Re-evaluando vacantes con tu perfil actual...');
+    const targetPlatform = platform || (this.selectedPlatform() !== 'ALL' ? this.selectedPlatform() : undefined);
+    this.reprocessMessage.set(
+      targetPlatform
+        ? `Re-evaluando vacantes de ${targetPlatform === 'LINKEDIN' ? 'LinkedIn' : 'Upwork'} con tu perfil actual...`
+        : 'Re-evaluando todas las vacantes con tu perfil actual...'
+    );
     const personaName = this.pipeline.activeProfile()?.name || '';
-    const url = personaName
-      ? `${this.baseUrl}/reprocess?personaName=${encodeURIComponent(personaName)}`
-      : `${this.baseUrl}/reprocess`;
+    const params = new URLSearchParams();
+    if (personaName) params.set('personaName', personaName);
+    if (targetPlatform) params.set('platform', targetPlatform);
+
+    const queryStr = params.toString();
+    const url = queryStr ? `${this.baseUrl}/reprocess?${queryStr}` : `${this.baseUrl}/reprocess`;
 
     return this.http.post<{ success: boolean; reprocessedCount: number; top3GoldGenerated: number; message: string }>(url, {}).pipe(
       tap((res) => {

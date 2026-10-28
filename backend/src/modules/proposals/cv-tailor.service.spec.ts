@@ -41,6 +41,18 @@ describe('CvTailorService - TDD Suite (Publications Parity)', () => {
         ],
       },
     ],
+    education: [
+      {
+        degree: 'Telecommunications Engineering',
+        institution: 'Unidades Tecnológicas de Santander',
+        location: 'Bucaramanga, Colombia',
+        year: '2015',
+      },
+    ],
+    languages: [
+      { name: 'Spanish', level: 'Native' },
+      { name: 'English', level: 'B1+' },
+    ],
   };
 
   const mockCoverLetter: CoverLetterData = {
@@ -65,6 +77,10 @@ describe('CvTailorService - TDD Suite (Publications Parity)', () => {
     assert.ok(html.includes('Backend Development'), 'Missing technical category');
     assert.ok(html.includes('NestJS, Node.js'), 'Missing technical items');
     assert.ok(html.includes('Spotlight Studio'), 'Missing company experience');
+    assert.ok(html.includes('Education'), 'Missing Education section');
+    assert.ok(html.includes('Telecommunications Engineering'), 'Missing degree');
+    assert.ok(html.includes('Languages'), 'Missing Languages section');
+    assert.ok(html.includes('Spanish:'), 'Missing Spanish language');
   });
 
   it('✔ should build ATS Cover Letter HTML string with recipient, company, subject and paragraphs', () => {
@@ -100,6 +116,9 @@ describe('CvTailorService - TDD Suite (Publications Parity)', () => {
     assert.ok(result.coverLetter.paragraphs.length >= 2, 'Expected at least 2 paragraphs');
     assert.ok(result.detectedCompany.includes('Acme') || result.detectedCompany.length > 0, 'Company should be detected or assigned');
     assert.strictEqual(result.adaptedCv.profile.name, mockCvData.profile.name, 'Candidate name must be preserved');
+    assert.strictEqual(result.adaptedCv.education?.length, 1, 'Education must be preserved in tailored CV');
+    assert.strictEqual(result.adaptedCv.languages?.length, 2, 'Languages must be preserved in tailored CV');
+    assert.strictEqual(result.adaptedCv.experience[0].projects?.length, 1, 'Projects must be preserved in tailored CV');
   });
 });
 

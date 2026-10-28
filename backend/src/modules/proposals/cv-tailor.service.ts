@@ -44,9 +44,26 @@ export interface BaseCvData {
   profile: ProfileData;
   summary: { text: string };
   skills_technical: SkillCategory[];
+  skills_soft?: string[];
   experience: ExperienceItem[];
   education?: EducationItem[];
   languages?: LanguageItem[];
+}
+
+export interface PublicationsCvDocument {
+  ownerEmail?: string;
+  name: string;
+  slug: string;
+  description?: string;
+  thumbnailUrl?: string;
+  css: string;
+  html?: string;
+  translations: {
+    es: BaseCvData;
+    en: BaseCvData;
+  };
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CoverLetterData {
@@ -58,7 +75,7 @@ export interface CoverLetterData {
   dateFormatted?: string;
 }
 
-const ATS_CV_CSS = `
+export const ATS_CV_CSS = `
   :root {
     --page-width: 215.9mm;
     --page-height: 279.4mm;
@@ -99,6 +116,15 @@ const ATS_CV_CSS = `
   .project-item { margin-top: 6px; padding-left: 10px; border-left: 2px solid #e2e8f0; }
   .project-name { font-size: 9pt; font-weight: 600; color: #1e293b; display: block; }
   .project-desc { font-size: 8.5pt; color: var(--text-muted); line-height: 1.4; margin-top: 2px; text-align: justify; }
+  .job-desc { font-size: 8.5pt; color: var(--text-muted); line-height: 1.4; margin-top: 2px; text-align: justify; }
+  .education-item { margin-bottom: 8px; }
+  .education-header { display: flex; justify-content: space-between; align-items: baseline; }
+  .degree-title { font-size: 9.5pt; font-weight: 700; color: #0f172a; }
+  .institution-info { display: flex; justify-content: space-between; font-size: 8.5pt; color: var(--text-muted); font-style: italic; }
+  .languages-list { display: flex; gap: 16px; font-size: 9pt; flex-wrap: wrap; }
+  .language-item { color: var(--text-main); }
+  .language-name { font-weight: 600; color: #0f172a; }
+  .language-level { color: var(--text-muted); margin-left: 2px; }
 `;
 
 const ATS_CL_CSS = `
@@ -159,42 +185,46 @@ export const BASE_LEONARDO_CV_EN: BaseCvData = {
     linkedin_label: 'linkedIn',
   },
   summary: {
-    text: 'Full Stack Developer with 10+ years of experience building scalable web applications, internal tools, and multi-tenant SaaS platforms. Pioneer in adopting AI-augmented engineering workflows (working daily with Gemini, Claude Code, and Codex) paired with Spec-Driven Development (SDD) to rapidly design, build, and maintain production-ready systems. Specialized in Node.js/NestJS, TypeScript, Vue/React, and MongoDB/PostgreSQL, with practical knowledge in AWS core cloud architecture (S3, Lambda, IAM). Combines strong architectural rigor with high-velocity autonomous delivery.',
+    text: 'Full Stack Developer with 10+ years of experience building scalable web and mobile applications. Specialized in Vue, Nuxt, Node.js, and MongoDB, with strong focus on AI-driven systems, automation, and spec-driven development. Currently building a multi-tenant SaaS platform that automates content generation, decision-making, and publishing based on real-time events and trends.',
   },
   skills_technical: [
     {
-      category: 'AI & Modern Engineering',
+      category: 'AI & Automation',
       items: [
-        'AI Coding Agents (Claude Code, Gemini, Codex)',
+        'AI Agent Design',
+        'Prompt Engineering',
+        'Gemini',
+        'OpenAI',
+        'LangChain / Tavily',
         'Spec-Driven Dev (SDD)',
-        'Prompt Engineering & Agent Design',
         'Workflow Orchestration',
-        'Rapid Prototyping & Delivery',
       ],
     },
     {
       category: 'Backend Development',
       items: [
-        'NestJS, Node.js',
+        'NestJS',
+        'Node.js',
         'REST APIs',
         'Multi-Tenant SaaS',
         'Auth & RBAC',
-        'PostgreSQL, MongoDB',
-        'Cloud Storage (AWS S3, Firebase)',
+        'MongoDB',
+        'Firebase Storage',
       ],
     },
     {
       category: 'Frontend Development',
-      items: ['Vue, Nuxt', 'React, Next.js', 'TypeScript', 'Responsive Design'],
+      items: ['Vue', 'Nuxt', 'React', 'Next.js', 'TypeScript', 'Responsive Design'],
     },
     {
-      category: 'Tools, DevOps & Delivery',
+      category: 'Tools & Delivery',
       items: [
-        'CI/CD (GitHub Actions Pipelines & Matrix Builds)',
-        'Docker (Multi-Stage Builds, GHCR)',
-        'AWS (Core Services: S3, Lambda, IAM)',
-        'Git & Quality Gates',
-        'TDD & Automated Testing (Jest, Playwright)',
+        'Git',
+        'Docker',
+        'Agile/Scrum',
+        'Jira',
+        'TDD',
+        'Unit & Integration Testing',
       ],
     },
   ],
@@ -206,66 +236,199 @@ export const BASE_LEONARDO_CV_EN: BaseCvData = {
       location: 'Mérida, Yucatán, México',
       projects: [
         {
-          name: 'Plataforma de Publicaciones AI (SaaS) & Internal Tooling',
+          name: 'AI Publications Platform (SaaS)',
           description:
-            'Designed and led full-stack development of a multi-tenant SaaS platform and automated tooling at Spotlight Studio. Championed an AI-augmented engineering methodology (utilizing Claude Code, Gemini, and Codex alongside Spec-Driven Development) to accelerate feature delivery, complex API integrations, and refactoring without sacrificing architecture or code quality. Implemented automated pipelines for real-time trend detection, dynamic content generation, and multi-channel publishing, reducing operational production time by over 80%. Built with Clean Architecture, strict TypeScript typing, and containerized Docker environments.',
+            'Designed and led development of a multi-tenant SaaS platform that automates social media content creation and publishing for multiple clients from a single system. The platform detects real-world events and trends in real time, generates branded visual content automatically, and schedules posts across social networks without manual intervention. Reduced content production time by over 80% per campaign while maintaining brand consistency across all clients. Built with scalability, security, and maintainability as core principles — structured to grow with the business.',
         },
         {
-          name: 'CI/CD Pipelines & Docker Infrastructure',
+          name: 'PepperTix Web Application',
           description:
-            'Architected and operated automated CI/CD workflows using GitHub Actions across the monorepo microservices. Configured matrix validation (lint, type-checking, unit/integration testing) and multi-stage Docker container builds published to GitHub Container Registry (GHCR) with BuildKit layer caching, guaranteeing environment parity across local development and staging environments.',
+            'Led frontend development for PepperTix, a ticket resale web platform, utilizing Vue and Nuxt.js to deliver a responsive and scalable user experience. Improved SEO performance and platform accessibility, resulting in increased user engagement. Collaborated closely with UX and QA teams to ensure high-quality deliverables.',
+        },
+        {
+          name: 'Pepper Tix Backend',
+          description:
+            'Developed backend services to support PepperTix features using Node.js and Express.js. Designed and maintained RESTful APIs to handle ticket transactions, user management, and notifications. Ensured database integration and data consistency with MongoDB.',
+        },
+        {
+          name: 'Pepper Videos Mobile',
+          description:
+            'Developed the Pepper Videos mobile application using Flutter, enabling users to search for videos, follow artists, and receive notifications. Implemented Clean Architecture principles ensuring scalability, testability, and maintainability.',
+        },
+        {
+          name: 'Pepper Bot',
+          description:
+            'Built a conversational event search chatbot for Facebook Messenger using Graph API, Messenger, Dialogflow, and ChatGPT.',
         },
       ],
     },
+    {
+      title: 'Independent Software Developer / Professional Transition',
+      period: '2017 – 2019',
+      company: 'Independent',
+      location: 'Remote',
+      description:
+        'Focused on autonomous deep learning, updating technical stack to modern JavaScript frameworks (Vue.js, Node.js), and exploring emerging cloud architectures. Delivered freelance web development solutions and technical consulting for local clients, ensuring high-performance standards and responsive designs. Dedicated time to professional upskilling, system design exploration, and personal engineering projects.',
+    },
+    {
+      title: 'Application Development Assistant',
+      period: '01/2013 - 12/2016',
+      company: 'Fundación de la Mujer',
+      location: 'Floridablanca, Santander, Colombia',
+      description:
+        'Assisted with operational issue resolution, debugging, and refactoring. Documented bugs and supported the development team. Worked with internal tools and SQL Server.',
+    },
+  ],
+  education: [
+    {
+      degree: 'Telecommunications Engineering',
+      institution: 'Unidades Tecnológicas de Santander',
+      location: 'Bucaramanga, Colombia',
+      year: '2015',
+    },
+    {
+      degree: 'Information Systems Analysis and Development',
+      institution: 'Servicio Nacional de Aprendizaje SENA',
+      location: 'Santander, Colombia',
+      year: '2005',
+    },
+  ],
+  languages: [
+    { name: 'Spanish', level: 'Native' },
+    { name: 'English', level: 'B1+' },
   ],
 };
 
 export const BASE_LEONARDO_CV_ES: BaseCvData = {
-  ...BASE_LEONARDO_CV_EN,
   profile: {
     ...BASE_LEONARDO_CV_EN.profile,
     role: 'DESARROLLADOR FULL STACK',
   },
   summary: {
-    text: 'Desarrollador Full Stack con más de 10 años de experiencia construyendo aplicaciones web escalables, herramientas internas y plataformas SaaS multi-tenant. Pionero en la adopción de flujos de desarrollo aumentado por IA (trabajando diariamente con Gemini, Claude Code y Codex) junto con Desarrollo Basado en Especificaciones (SDD) para diseñar, construir y mantener sistemas listos para producción con alta velocidad y rigor arquitectónico. Especializado en Node.js/NestJS, TypeScript, Vue/React y PostgreSQL/MongoDB, con conocimientos prácticos en AWS core (S3, Lambda, IAM).',
+    text: 'Desarrollador Full Stack con más de 10 años de experiencia construyendo aplicaciones web y móviles escalables. Especializado en Vue, Nuxt, Node.js y MongoDB, con un fuerte enfoque en sistemas impulsados por IA, automatización y desarrollo basado en especificaciones (SDD). Actualmente construyendo una plataforma SaaS multi-inquilino que automatiza la generación de contenido, toma de decisiones y publicación basada en tendencias y eventos en tiempo real.',
   },
   skills_technical: [
     {
-      category: 'IA & Ingeniería Moderna',
+      category: 'IA & Automatización',
       items: [
-        'Agentes de Código IA (Claude Code, Gemini, Codex)',
+        'Diseño de Agentes IA',
+        'Prompt Engineering',
+        'Gemini',
+        'OpenAI',
+        'LangChain / Tavily',
         'Desarrollo Basado en Especificaciones (SDD)',
-        'Prompt Engineering & Agentes IA',
         'Orquestación de Flujos',
-        'Prototipado Rápido & Entrega Autónoma',
       ],
     },
     {
       category: 'Desarrollo Backend',
       items: [
-        'NestJS, Node.js',
+        'NestJS',
+        'Node.js',
         'APIs REST',
         'SaaS Multi-Inquilino',
         'Auth & RBAC',
-        'PostgreSQL, MongoDB',
-        'Almacenamiento Cloud (AWS S3, Firebase)',
+        'MongoDB',
+        'Firebase Storage',
       ],
     },
     {
       category: 'Desarrollo Frontend',
-      items: ['Vue, Nuxt', 'React, Next.js', 'TypeScript', 'Diseño Responsivo'],
+      items: ['Vue', 'Nuxt', 'React', 'Next.js', 'TypeScript', 'Diseño Responsivo'],
     },
     {
       category: 'Herramientas, DevOps & Despliegue',
       items: [
-        'CI/CD (Pipelines de GitHub Actions & Builds Matriciales)',
-        'Docker (Multi-Stage Builds, GHCR)',
-        'AWS (Servicios Core: S3, Lambda, IAM)',
-        'Git & Quality Gates',
-        'TDD & Pruebas Automatizadas (Jest, Playwright)',
+        'Git',
+        'Docker',
+        'Agile/Scrum',
+        'Jira',
+        'TDD',
+        'Pruebas Unitarias e Integración',
       ],
     },
   ],
+  experience: [
+    {
+      title: 'Desarrollador Full Stack',
+      period: '01/2020 - Presente',
+      company: 'Spotlight Studio',
+      location: 'Mérida, Yucatán, México',
+      projects: [
+        {
+          name: 'Plataforma de Publicaciones AI (SaaS)',
+          description:
+            'Diseñó y lideró el desarrollo de una plataforma SaaS multi-inquilino que automatiza la creación y publicación de contenido en redes sociales para múltiples clientes desde un único sistema. La plataforma detecta eventos y tendencias del mundo real en tiempo real, genera contenido visual con marca automáticamente y programa publicaciones en redes sociales sin intervención manual. Redujo el tiempo de producción de contenido en más del 80% por campaña manteniendo la coherencia de marca en todos los clientes. Construido con escalabilidad, seguridad y mantenibilidad como principios fundamentales, estructurado para crecer con el negocio.',
+        },
+        {
+          name: 'Aplicación Web PepperTix',
+          description:
+            'Lideró el desarrollo frontend de PepperTix, una plataforma web de reventa de entradas, utilizando Vue y Nuxt.js para brindar una experiencia de usuario responsiva y escalable. Mejoró el rendimiento de SEO y la accesibilidad de la plataforma, lo que resultó en un mayor compromiso de los usuarios. Colaboró estrechamente con equipos de UX y QA para garantizar entregables de alta calidad.',
+        },
+        {
+          name: 'Backend Pepper Tix',
+          description:
+            'Desarrolló servicios backend para soportar funcionalidades de PepperTix usando Node.js y Express.js. Diseñó y mantuvo APIs RESTful para gestionar transacciones de entradas, gestión de usuarios y notificaciones. Aseguró la integración con base de datos y la consistencia de datos con MongoDB.',
+        },
+        {
+          name: 'App Móvil Pepper Videos',
+          description:
+            'Desarrolló la aplicación móvil Pepper Videos usando Flutter, permitiendo a los usuarios buscar videos, seguir artistas y recibir notificaciones. Implementó principios de Clean Architecture garantizando escalabilidad, testabilidad y mantenibilidad.',
+        },
+        {
+          name: 'Bot Conversacional Pepper',
+          description:
+            'Construyó un chatbot conversacional de búsqueda de eventos para Facebook Messenger usando Graph API, Messenger, Dialogflow y ChatGPT.',
+        },
+      ],
+    },
+    {
+      title: 'Desarrollador de Software Independiente / Transición Profesional',
+      period: '2017 – 2019',
+      company: 'Independiente',
+      location: 'Remoto',
+      description:
+        'Enfocado en aprendizaje autónomo profundo, actualización de stack técnico a frameworks modernos de JavaScript (Vue.js, Node.js) y exploración de arquitecturas cloud emergentes. Entrega de soluciones de desarrollo web freelance y consultoría técnica para clientes locales, garantizando altos estándares de rendimiento y diseño responsivo. Dedicación al fortalecimiento profesional, exploración de diseño de sistemas y proyectos personales de ingeniería.',
+    },
+    {
+      title: 'Asistente de Desarrollo de Aplicaciones',
+      period: '01/2013 - 12/2016',
+      company: 'Fundación de la Mujer',
+      location: 'Floridablanca, Santander, Colombia',
+      description:
+        'Asistencia en resolución de incidencias operativas, depuración y refactorización de código. Documentación de errores y soporte al equipo de desarrollo. Trabajo con herramientas internas y SQL Server.',
+    },
+  ],
+  education: [
+    {
+      degree: 'Ingeniería en Telecomunicaciones',
+      institution: 'Unidades Tecnológicas de Santander',
+      location: 'Bucaramanga, Colombia',
+      year: '2015',
+    },
+    {
+      degree: 'Análisis y Desarrollo de Sistemas de Información',
+      institution: 'Servicio Nacional de Aprendizaje SENA',
+      location: 'Santander, Colombia',
+      year: '2005',
+    },
+  ],
+  languages: [
+    { name: 'Español', level: 'Nativo' },
+    { name: 'Inglés', level: 'B1+' },
+  ],
+};
+
+export const DEFAULT_PUBLICATIONS_CV_DOCUMENT: PublicationsCvDocument = {
+  ownerEmail: 'leo.jaimes.estevez@gmail.com',
+  name: 'Leonardo Jaimes CV ATS',
+  slug: 'ats-cv',
+  description: 'ATS-friendly single-column layout version.',
+  css: ATS_CV_CSS,
+  translations: {
+    es: BASE_LEONARDO_CV_ES,
+    en: BASE_LEONARDO_CV_EN,
+  },
 };
 
 @Injectable()
@@ -327,6 +490,7 @@ Your task is to adapt my CV specifically to the job description while keeping it
 * Do NOT copy requirements from the job description into my experience unless my CV already supports them.
 * Do NOT fabricate metrics. If a metric is not explicitly supported by my CV, do not create one.
 * Keep my actual career profile and background intact.
+* CRITICAL (PRESERVE ALL PROJECTS & EDUCATION): You MUST preserve ALL companies, ALL jobs, and ALL projects under every company from the base CV intact. Do NOT drop, delete or omit ANY project (e.g. AI Publications Platform, PepperTix Web App, Pepper Tix Backend, Pepper Videos Mobile, Pepper Bot must ALL be kept). You may tailor their descriptions to highlight relevant achievements. You MUST also keep all education and language entries intact.
 * Prioritize relevant technologies and experience for the specific position.
 * Keep the language natural and credible, not overly corporate or AI-generated.
 
@@ -365,7 +529,9 @@ Return pure JSON matching this exact structure:
     "profile": ${JSON.stringify(baseData.profile)},
     "summary": { "text": "Tailored summary..." },
     "skills_technical": ${JSON.stringify(baseData.skills_technical)},
-    "experience": ${JSON.stringify(baseData.experience)}
+    "experience": ${JSON.stringify(baseData.experience)},
+    "education": ${JSON.stringify(baseData.education || [])},
+    "languages": ${JSON.stringify(baseData.languages || [])}
   }
 }
 
@@ -403,6 +569,29 @@ ${JSON.stringify(baseData)}`;
     );
     const sanitizedSummary = this.sanitizeAntiSlop(parsed.cv_data?.summary?.text || baseData.summary.text);
 
+    // Ensure all projects from baseData are preserved even if AI trimmed any
+    let tailoredExperience = parsed.cv_data?.experience || baseData.experience;
+    if (Array.isArray(tailoredExperience) && baseData.experience) {
+      tailoredExperience = baseData.experience.map((baseExp, idx) => {
+        const matchingAiExp = tailoredExperience[idx] || {};
+        const baseProjects = baseExp.projects || [];
+        const aiProjects = matchingAiExp.projects || [];
+        
+        // Merge projects to guarantee NONE are lost
+        const mergedProjects = baseProjects.map((bp) => {
+          const aiP = aiProjects.find((ap: any) => ap.name?.toLowerCase() === bp.name?.toLowerCase());
+          return aiP ? { name: bp.name, description: this.sanitizeAntiSlop(aiP.description || bp.description) } : bp;
+        });
+
+        return {
+          ...baseExp,
+          title: matchingAiExp.title || baseExp.title,
+          description: matchingAiExp.description ? this.sanitizeAntiSlop(matchingAiExp.description) : baseExp.description,
+          projects: mergedProjects.length > 0 ? mergedProjects : undefined,
+        };
+      });
+    }
+
     return {
       detectedCompany: parsed.detected_company || company,
       changesMade: parsed.changes_made || ['Aligned summary and skills with job vacancy'],
@@ -419,6 +608,13 @@ ${JSON.stringify(baseData)}`;
         ...baseData,
         summary: { text: sanitizedSummary },
         skills_technical: parsed.cv_data?.skills_technical || baseData.skills_technical,
+        experience: tailoredExperience,
+        education: (parsed.cv_data?.education && parsed.cv_data.education.length > 0)
+          ? parsed.cv_data.education
+          : (baseData.education || []),
+        languages: (parsed.cv_data?.languages && parsed.cv_data.languages.length > 0)
+          ? parsed.cv_data.languages
+          : (baseData.languages || []),
       },
     };
   }
@@ -537,6 +733,35 @@ ${JSON.stringify(baseData)}`;
       )
       .join('');
 
+    const isEs = (data.profile.role || '').toLowerCase().includes('desarrollador') ||
+      (data.summary?.text || '').toLowerCase().includes('desarrollador');
+
+    const educationHtml = (data.education || [])
+      .map(
+        (edu) => `
+        <div class="education-item">
+          <div class="education-header">
+            <span class="degree-title">${edu.degree}</span>
+            <span class="period">${edu.year}</span>
+          </div>
+          <div class="institution-info">
+            <span class="institution-name">${edu.institution}</span>
+            <span class="location-name">${edu.location}</span>
+          </div>
+        </div>`
+      )
+      .join('');
+
+    const languagesHtml = (data.languages || [])
+      .map(
+        (lang) => `
+        <div class="language-item">
+          <span class="language-name">${lang.name}:</span>
+          <span class="language-level">${lang.level}</span>
+        </div>`
+      )
+      .join('');
+
     const linkedinSection = data.profile.linkedin_url
       ? `<span class="contact-divider">|</span><span>LinkedIn: ${data.profile.linkedin_label || 'linkedIn'}</span>`
       : '';
@@ -565,21 +790,35 @@ ${JSON.stringify(baseData)}`;
             </header>
 
             <section class="cv-section">
-              <h2 class="section-title">Summary</h2>
+              <h2 class="section-title">${isEs ? 'Resumen' : 'Summary'}</h2>
               <p class="summary-text">${data.summary.text}</p>
             </section>
 
             <section class="cv-section">
-              <h2 class="section-title">Technical Skills</h2>
+              <h2 class="section-title">${isEs ? 'Habilidades Técnicas' : 'Technical Skills'}</h2>
               <div class="skills-grid">
                 ${skillsHtml}
               </div>
             </section>
 
             <section class="cv-section">
-              <h2 class="section-title">Experience</h2>
+              <h2 class="section-title">${isEs ? 'Experiencia Laboral' : 'Experience'}</h2>
               ${experienceHtml}
             </section>
+
+            ${data.education && data.education.length > 0 ? `
+            <section class="cv-section">
+              <h2 class="section-title">${isEs ? 'Educación' : 'Education'}</h2>
+              ${educationHtml}
+            </section>` : ''}
+
+            ${data.languages && data.languages.length > 0 ? `
+            <section class="cv-section">
+              <h2 class="section-title">${isEs ? 'Idiomas' : 'Languages'}</h2>
+              <div class="languages-list">
+                ${languagesHtml}
+              </div>
+            </section>` : ''}
           </td>
         </tr>
       </tbody>

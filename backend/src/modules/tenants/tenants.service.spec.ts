@@ -57,3 +57,41 @@ test('profile deletion migration preserves historical evaluations and proposals'
   assert.match(migration, /fit_evaluations_positioning_profile_id_fkey[\s\S]*ON DELETE SET NULL/u);
   assert.match(migration, /proposals_positioning_profile_id_fkey[\s\S]*ON DELETE SET NULL/u);
 });
+
+test('getProfileCv returns stored baseCv or default template', async () => {
+  const tenantId = 'tenant-1';
+  const profileId = 'profile-1';
+  const prismaWithCv = {
+    positioningProfile: {
+      findFirst: async () => ({ id: profileId, baseCv: { slug: 'ats-cv', name: 'Custom ATS CV' } }),
+    },
+  };
+  const service = new TenantsService(prismaWithCv as any, {} as any);
+  const cv = await service.getProfileCv(tenantId, profileId);
+  assert.equal(cv.name, 'Custom ATS CV');
+  assert.equal(cv.slug, 'ats-cv');
+});
+
+test('updateProfileCv persists baseCv JSON in positioningProfile', async () => {
+  const tenantId = 'tenant-1';
+  const profileId = 'profile-1';
+  let savedData: any = null;
+  const prisma = {
+    positioningProfile: {
+      findFirst: async () => ({ id: profileId }),
+      update: async ({ data }: any) => {
+        savedData = data;
+        return { id: profileId, baseCv: data.baseCv };
+      },
+    },
+  };
+  const service = new TenantsService(prisma as any, {} as any);
+  const res = await service.updateProfileCv(tenantId, profileId, {
+    name: 'Updated Leonardo CV ATS',
+    slug: 'ats-cv',
+    css: '',
+    translations: {} as any,
+  });
+  assert.equal(res.success, true);
+  assert.equal(savedData.baseCv.name, 'Updated Leonardo CV ATS');
+});
