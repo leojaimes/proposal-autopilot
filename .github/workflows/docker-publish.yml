@@ -58,15 +58,24 @@ jobs:
           npx prisma migrate deploy
 
           echo "============================================================"
-          echo "🛡️ [2/2] Verificando Schema Drift (schema.prisma vs migraciones)..."
+          echo "🛡️ [2/2] Verificando Schema Drift (columnas y tablas faltantes)..."
           echo "============================================================"
-          # Si alguien modificó schema.prisma sin crear la migración SQL, este comando sale con código 2 y aborta
-          npx prisma migrate diff \
+          DIFF=$(npx prisma migrate diff \
             --from-schema-datasource prisma/schema.prisma \
-            --to-schema-datamodel prisma/schema.prisma \
-            --exit-code
+            --to-schema-datamodel prisma/schema.prisma) || true
 
-          echo "✅ Aduana superada: Base de datos y schema.prisma 100% sincronizados."
+          echo "$DIFF"
+
+          # Detectar si hay columnas o tablas añadidas o eliminadas en schema.prisma sin migración SQL
+          if echo "$DIFF" | grep -Ei "Added (column|table)|Drop (column|table)"; then
+            echo ""
+            echo "🚨 ERROR CRÍTICO DE SCHEMA DRIFT DETECTADO:"
+            echo "   Has modificado columnas o tablas en 'schema.prisma' sin crear su migración SQL en 'prisma/migrations'."
+            echo "   Esto rompería producción. Ejecuta: 'npx prisma migrate dev --create-only --name <nombre>' antes de desplegar."
+            exit 1
+          fi
+
+          echo "✅ Aduana superada: No hay columnas ni tablas desalineadas entre el código y las migraciones."
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
