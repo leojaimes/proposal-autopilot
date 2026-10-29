@@ -1,16 +1,17 @@
-# Fit Score Engine: Especificación y Algoritmo de Calificación (0-100)
+# Fit Score Engine: Especificación Integral y Algoritmo de Calificación (0-100)
 
 > **Documentación Oficial de Arquitectura y Negocio**  
 > **Ubicación en Confluence:** `Spotlight Engineering > 02. Architecture & Core Engines > 02.3 Scoring & Intelligence Engine > Fit Score Algorithm & Lead Qualification`  
 > **Link Directo Confluence:** [Confluence Page (ID: 384237569)](https://spotlightus.atlassian.net/wiki/spaces/PROPAUTO/pages/384237569)  
+> **Archivo Maestro Confluence:** [`docs/confluence/01-fit-score-calculation-engine.md`](file:///d:/SpotlightProjects/proposal-autopilot/docs/confluence/01-fit-score-calculation-engine.md)  
 > **Labels:** `proposal-autopilot`, `scoring-algorithm`, `lead-qualification`, `architecture`, `upwork-automation`  
-> **Código Fuente:** [`backend/src/modules/scoring/`](file:///d:/SpotlightProjects/proposal-autopilot/backend/src/modules/scoring/)
+> **Código Fuente:** [`backend/src/modules/scoring/services/fit-calculator.service.ts`](file:///d:/SpotlightProjects/proposal-autopilot/backend/src/modules/scoring/services/fit-calculator.service.ts)
 
 ---
 
 ## 1. Visión General (Para Dummies)
 
-El **Fit Score (0 a 100)** funciona como un **radar detector de oportunidades de oro** en Upwork. Su objetivo es clasificar en milisegundos si una vacante recién extraída merece que le dediquemos tiempo y recursos de IA (generación de propuestas personalizadas y diagramas Mermaid), o si debe ser descartada inmediatamente por ser spam, estar fuera de nicho o provenir de clientes insolventes.
+El **Fit Score (0 a 100)** funciona como un **radar detector de oportunidades de oro** en Upwork. Su objetivo es clasificar en milisegundos si una vacante recién extraída merece que le dediquemos tiempo y recursos de IA (generación de propuestas personalizadas, diagrama Mermaid y CV a la medida), o si debe ser descartada inmediatamente por ser spam, estar fuera de nicho o provenir de clientes insolventes.
 
 ### Semáforo de Calificación:
 * 🟢 **HIGH FIT (75 - 100):** Oportunidad de ORO. Cliente solvente, fresca y afín a la especialidad técnica. El sistema genera automáticamente la propuesta ejecutiva y diagrama.
@@ -19,9 +20,14 @@ El **Fit Score (0 a 100)** funciona como un **radar detector de oportunidades de
 
 ---
 
-## 2. Diagrama de Ponderación (La Fórmula Dinámica con Renormalización)
+## 2. Diagrama de Ponderación y Arquitectura Deductiva Bi-Axial
 
-El puntaje base se calcula como una suma ponderada de cuatro dimensiones independientes, con **Renormalización Dinámica de Pesos** cuando faltan datos en el scraper:
+A diferencia de modelos ingenuos que suman puntos ciegamente, el motor de Proposal Autopilot opera de manera **deductiva y contextual**:
+1. **Punto de Partida:** Inicia evaluando el **potencial del rol** contra el perfil de posicionamiento activo (`baseFitScore` de 35 a 100).
+2. **Deducciones por Fricción:** Aplica penalizaciones objetivas por saturación de mercado, falta de solvencia del cliente o datos incompletos.
+3. **Ponderación Adaptativa del Perfil:** Aplica los pesos relativos configurados por el usuario para su perfil específico.
+4. **Multiplicador Semántico de Rol:** Ajusta la relevancia en base al árbol de roles (`Core`, `Hybrid`, `Tangential` o `Excluded`).
+5. **Techos de Seguridad Inviolables (Caps):** Si se detecta un país excluido o un rol incompatible, el puntaje es forzado a niveles de descalificación sin importar qué tan solvente sea el cliente.
 
 ```mermaid
 pie title Distribución Nominal de Pesos del Fit Score
@@ -31,136 +37,76 @@ pie title Distribución Nominal de Pesos del Fit Score
     "Frescura (Recency)" : 15
 ```
 
-$$\text{Puntaje Nominal} = (S \times 0.40) + (V \times 0.25) + (C \times 0.20) + (R \times 0.15)$$
+$$\text{Puntaje Compuesto Nominal} = \frac{S \cdot 40 + V \cdot 25 + C \cdot 20 + R \cdot 15}{100}$$
 
-### Renormalización Dinámica por Datos Faltantes:
-Si Apify no extrajo la fecha de publicación (`postedAt === null`), el factor de frescura $R$ se omite por completo y el puntaje se re-escala proporcionalmente sobre el peso efectivo restante ($W_{eff} = 0.85$):
+$$\text{Puntaje Compuesto Personalizado} = \frac{S \cdot W_{skill} + V \cdot W_{ai} + C \cdot W_{client} + R \cdot W_{recency}}{W_{skill} + W_{ai} + W_{client} + W_{recency}}$$
 
-$$\text{FitScore} = \text{round}\left(\frac{(S \times 0.40) + (V \times 0.25) + (C \times 0.20)}{0.85}\right)$$
+$$\Delta_{ajuste} = \text{round}(\text{Puntaje Personalizado} - \text{Puntaje Nominal})$$
 
-Esto evita regalar bonos ficticios por falta de información y mantiene la escala 0-100 matemáticamente rigurosa.
+$$\text{Score Base} = \text{clamp}_{15}^{100}(\text{baseFitScore} - \text{Deducciones} + \Delta_{ajuste})$$
 
 ---
 
 ## 3. Desglose Detallado de Cada Factor
 
 ### Factor 1: Afinidad Técnica ($S$ - Peso 40%)
-*Implementado en:* [`role-classifier.service.ts`](file:///d:/SpotlightProjects/proposal-autopilot/backend/src/modules/scoring/services/role-classifier.service.ts) y [`fit-calculator.service.ts:53-67`](file:///d:/SpotlightProjects/proposal-autopilot/backend/src/modules/scoring/services/fit-calculator.service.ts#L53-L67)
+*Implementado en:* [`role-classifier.service.ts`](file:///d:/SpotlightProjects/proposal-autopilot/backend/src/modules/scoring/services/role-classifier.service.ts) y [`fit-calculator.service.ts`](file:///d:/SpotlightProjects/proposal-autopilot/backend/src/modules/scoring/services/fit-calculator.service.ts)
 
-Analiza el texto de la vacante (`title`, `description`, `skills`) contra la taxonomía estratégica:
-
-| Categoría Estratégica (`StrategicLane`) | Criterio Semántico | Puntos Asignados |
-| :--- | :--- | :---: |
-| **CORE_AI_UX** | Agentes autónomos, LangGraph, LLMs, GenAI, Design Systems, Figma variables | **80 - 100 pts** |
-| **SOFTWARE_BACKEND_API** | NestJS, PostgreSQL, Prisma, APIs REST, microservicios, Docker, TypeScript | **85 - 100 pts** |
-| **PRODUCT_STRATEGY** | Product Management 0-to-1, Roadmap, CPO interino | **85 pts** |
-| **INTERFACE_BUILD** | Rediseño SaaS, Web apps, Framer, dashboards, UI/UX general | **70 pts** |
-| **DISQUALIFIED_NOISE** | Tareas operativas / fuera de nicho (adquisiciones, contabilidad, telemercadeo, diseño gráfico no UI, edición de fotos) | **15 pts** |
-
----
+* **DIRECT_MATCH:** Coincidencia exacta con expresiones clave primarias $\to$ `baseFitScore = 95 - 100 pts`.
+* **PARTIAL_MATCH:** Coincidencia contextual o secundaria $\to$ `baseFitScore = 75 - 85 pts`.
+* **OFF_NICHE:** La vacante pertenece a software/diseño pero no al stack específico del perfil $\to$ `baseFitScore = 40 pts` (topado a máx 35).
+* **DISQUALIFIED / INCOMPATIBLE:** Roles ajenos (asistencia virtual, telemarketing, data entry, edición de video) $\to$ `baseFitScore = 15 - 25 pts` (topado a máx 25).
 
 ### Factor 2: Viabilidad y Fricción de Mercado ($V$ - Peso 25%)
-*Implementado en:* [`fit-calculator.service.ts:68-81`](file:///d:/SpotlightProjects/proposal-autopilot/backend/src/modules/scoring/services/fit-calculator.service.ts#L68-L81)
+*Implementado en:* [`fit-calculator.service.ts:85-105`](file:///d:/SpotlightProjects/proposal-autopilot/backend/src/modules/scoring/services/fit-calculator.service.ts#L85-L105)
 
-Mide la saturación del mercado de forma totalmente **desacoplada de la etiqueta "AI"**:
-
-* **Base neutral:** 70 pts (20 pts si la tarea está descalificada).
-* $\le 5$ propuestas: **100 pts** (Ventana óptima de primera línea).
-* $6$ a $20$ propuestas: **70 pts** (Competencia normal).
-* $21$ a $50$ propuestas: **45 pts** (Competencia moderada/alta).
-* $> 50$ propuestas: **15 pts** (Mercado saturado: fricción crítica).
-* **Si `proposalsCount` es null:** Mantiene 70 pts neutrales sin otorgar bonos ficticios.
-
----
+* $\le 5$ propuestas: **100 pts** (Ventana de oro: primeros en postular).
+* $6$ a $15$ propuestas: **85 pts** (Deducción de -5 pts).
+* $16$ a $50$ propuestas: **55 pts** (Deducción de -15 pts).
+* $> 50$ propuestas: **20 pts** (Mercado saturado: deducción de -30 pts).
 
 ### Factor 3: Solvencia y Calidad del Cliente ($C$ - Peso 20%)
-*Implementado en:* [`fit-calculator.service.ts:83-118`](file:///d:/SpotlightProjects/proposal-autopilot/backend/src/modules/scoring/services/fit-calculator.service.ts#L83-L118)
+*Implementado en:* [`fit-calculator.service.ts:107-140`](file:///d:/SpotlightProjects/proposal-autopilot/backend/src/modules/scoring/services/fit-calculator.service.ts#L107-L140)
 
 * **Gasto histórico verificado:**
-  * $\ge \$100\text{k}$: 75 pts base.
-  * $\$25\text{k}$ a $\$100\text{k}$: 65 pts base.
-  * $\$5\text{k}$ a $\$25\text{k}$: 55 pts base.
-  * $\$500$ a $\$5\text{k}$: 45 pts base.
-  * $< \$500$: 40 pts base.
+  * $\ge \$10,000$ USD: **+15 pts de bono** (Cliente solvente).
+  * $\$1,000$ a $\$9,999$ USD: Puntuación neutral.
+  * $< \$1,000$ USD: **Deducción de -5 pts**.
+  * $\$0$ USD: Deducción de -5 pts si el pago está verificado; -15 pts si no tiene validación.
 * **Rating & Pago:**
-  * Rating $\ge 4.8$: **+10 pts**.
-  * Pago verificado: **+5 pts** (Pago no verificado: **-25 pts penalización**).
-* **Preferencia Geográfica Ponderada:**
-  * País preferente (US, UK, CA, AU, DE, IE): **+10 pts**.
-
----
+  * Rating $< 4.5$ estrellas: **Deducción de -10 pts**.
+  * Pago verificado: **85 pts base**.
+  * Pago no verificado: **30 pts base** (Deducción severa de **-20 pts**).
 
 ### Factor 4: Frescura y Recency ($R$ - Peso 15%)
-*Implementado en:* [`fit-calculator.service.ts:120-137`](file:///d:/SpotlightProjects/proposal-autopilot/backend/src/modules/scoring/services/fit-calculator.service.ts#L120-L137)
+*Implementado en:* [`fit-calculator.service.ts:142-163`](file:///d:/SpotlightProjects/proposal-autopilot/backend/src/modules/scoring/services/fit-calculator.service.ts#L142-L163)
 
-Calcula las horas transcurridas desde `postedAt`:
-* $\le 2$ horas: **100 pts**
-* $2$ a $6$ horas: **90 pts**
-* $6$ a $12$ horas: **80 pts**
-* $12$ a $24$ horas: **70 pts**
-* $24$ a $48$ horas: **55 pts**
-* $> 48$ horas: **35 pts**
+* $< 3$ horas: **100 pts**
+* $3$ a $24$ horas: **95 pts**
+* $24$ a $72$ horas: **90 pts**
+* $3$ a $7$ días: **85 pts**
+* $7$ a $21$ días: **75 pts**
+* $> 21$ días: **60 pts**
 
 ---
 
-## 4. 🛡️ Las 3 Reglas de Oro de Seguridad (Safety Caps y Estados Ortogonales)
+## 4. 🛡️ Las Reglas de Seguridad (Safety Caps y Estados Ortogonales)
 
 Para garantizar total transparencia operativa, el motor separa tres conceptos ortogonales:
 
 1. **`eligibilityStatus` (`ELIGIBLE` | `PENDING` | `EXCLUDED`):**
-   - Determina si el cliente y la vacante son legal y geográficamente aptos.
+   * Determina si el cliente y la vacante son legal y geográficamente aptos. Si el país está en `excludedCountries`, pasa a `EXCLUDED` y el score se fuerza a $\le 15$.
 2. **`dataQualityStatus` (`COMPLETE` | `INCOMPLETE`):**
-   - Indica si Apify proveyó todos los campos (`proposalsCount`, `postedAt`, `clientCountry`).
+   * Indica si Apify proveyó todos los campos (`proposalsCount`, `postedDate`). Si falta alguno, el score se topa a un máximo de 88 puntos (nunca se regala un 100 ficticio).
 3. **`isCapped` (`boolean`) & `capReason`:**
-   - **Skill Safety Cap:** Si `skillScore < 40` o la vacante está descalificada, el score final **se topa obligatoriamente en $\le 44$** (`LOW FIT`).
-   - **Strict Geo Exclusion:** Si el país está en `excludedCountries`, el puntaje se fija en **15 (`EXCLUDED`)**.
-   - **Missing Data under Strict Geo:** Si el país es desconocido bajo modo estricto, pasa a `PENDING` con score $\le 44$.
+   * **Incompatible Cap:** Topado en $\le 25$ pts.
+   * **Disqualified Cap:** Topado en $\le 25$ pts.
+   * **Off-Niche Cap:** Topado en $\le 35$ pts.
+   * **Geo Exclusion Cap:** Topado en $\le 15$ pts.
 
 ---
 
-## 5. Suite Adversaria TDD (11 Casos de Prueba Verificados)
-
-Implementada en [`fit-calculator.spec.ts`](file:///d:/SpotlightProjects/proposal-autopilot/backend/src/modules/scoring/services/fit-calculator.spec.ts), ejecutándose en **21.2ms**:
-
-* **ADV-1:** *Real Estate Acquisition Manager* $\to$ Descalificado en $\le 44$ pts (`LOW FIT`).
-* **ADV-2:** *Insurance Sales Agent* $\to$ Diferenciado de agentes de IA; topado en $\le 44$ pts.
-* **ADV-3:** *Datos Faltantes de Apify* $\to$ `dataQualityStatus: INCOMPLETE`, sin bonos de saturación ni frescura.
-* **ADV-4:** *QuickBooks Bookkeeping con \$500k de gasto* $\to$ Topado en 40 pts por Skill Cap.
-* **ADV-5:** *Senior NestJS & PostgreSQL Developer* $\to$ Reconocido en `SOFTWARE_BACKEND_API` ($\ge 75$ pts, `HIGH FIT`).
-* **ADV-6:** *Evasión Geográfica con país nulo* $\to$ Marcado como `PENDING` con score $\le 44$.
-* **ADV-7:** *Oportunidad Perfecta* $\to$ Alcanza **100 puntos exactos**.
-* **ADV-8:** *Saturación de Mercado* $\to$ Con $>50$ propuestas, viabilidad castigada sin importar mención de "AI".
-* **ADV-9:** *Build a Real Estate SaaS Platform* $\to$ No se excluye; reconocida como ingeniería legítima ($\ge 75$ pts).
-* **ADV-10:** *Control Monotónico* $\to$ Empleo incompleto jamás supera a uno idéntico completo.
-* **ADV-11:** *Exclusión Geográfica Inviolable* $\to$ País en lista negra forzado a 15 pts (`EXCLUDED`).
-
----
-
-## 6. Resultados Reales en Producción (EasyPanel)
-
-Auditoría ejecutada y verificada sobre las 15 vacantes reales en la base de datos de producción:
-
-| Vacante | Score Anterior | Score Nuevo | $\Delta$ | Clasificación | Estado / Cap |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Job Application Assistant for Technical Product** | 80 | **86** | +6 | **HIGH FIT** | `ELIGIBLE` (OK) |
-| **Portfolio Website for Work Showcase** | 64 | **67** | +3 | **MEDIUM FIT** | `ELIGIBLE` (OK) |
-| **Power Automate Specialist: Stabilize Existing Flow** | 70 | **65** | -5 | **MEDIUM FIT** | `ELIGIBLE` (OK) |
-| **Replit & AI-Assisted Application Development** | 80 | **63** | -17 | **MEDIUM FIT** | `ELIGIBLE` (OK) |
-| **Real Estate Acquisition Manager (ADV-1)** | 93 | **40** | **-53** | **LOW FIT** | `EXCLUDED` [CAP: 40] |
-| **QuickBooks Construction Bookkeeping (ADV-4)** | 77 | **40** | **-37** | **LOW FIT** | `EXCLUDED` [CAP: 40] |
-| **Telehealth Launch Operator** | 74 | **38** | **-36** | **LOW FIT** | `EXCLUDED` [CAP: 38] |
-| **Graphic Designer for Amazon Infographics** | 44 | **38** | **-6** | **LOW FIT** | `EXCLUDED` [CAP: 38] |
-| **Photoshop Real Estate Listing Photos** | 71 | **36** | **-35** | **LOW FIT** | `EXCLUDED` [CAP: 36] |
-| **Reddit Advertising for Website** | 68 | **33** | **-35** | **LOW FIT** | `EXCLUDED` [CAP: 33] |
-| **New minimalist squarespace or Wix website** | 41 | **33** | **-8** | **LOW FIT** | `EXCLUDED` [CAP: 33] |
-| **Native English YouTube Host and Narrator** | 68 | **31** | **-37** | **LOW FIT** | `EXCLUDED` [CAP: 31] |
-| **Poker Marketing Manager** | 64 | **25** | **-39** | **LOW FIT** | `EXCLUDED` [CAP: 25] |
-| **Cold Calling Specialist** | 64 | **25** | **-39** | **LOW FIT** | `EXCLUDED` [CAP: 25] |
-| **Creative Marketing Strategist Wanted** | 64 | **25** | **-39** | **LOW FIT** | `EXCLUDED` [CAP: 25] |
-
----
-
-## 7. Mapeo de Código Fuente
+## 5. Mapeo de Código Fuente
 
 ```
 backend/src/modules/scoring/
@@ -169,11 +115,7 @@ backend/src/modules/scoring/
 ├── services/
 │   ├── fit-calculator.service.ts      # Motor matemático de cálculo, normalización y caps
 │   ├── fit-calculator.spec.ts         # Suite de 11 pruebas adversarias (TDD)
-│   └── role-classifier.service.ts     # Detección semántica context-aware
+│   ├── role-classifier.service.ts     # Detección semántica context-aware
+│   └── deterministic-semantic.service.ts # Eje bi-axial de roles (Core/Hybrid/Tangential)
 └── scoring.module.ts                  # Inyección de dependencias
-
-backend/src/modules/scraping/
-├── adapters/
-│   └── apify-job.adapter.ts           # Mapeo defensivo de payload con null safety
-└── scraping.controller.ts             # POST /rescore-all y pipeline de extracción
 ```

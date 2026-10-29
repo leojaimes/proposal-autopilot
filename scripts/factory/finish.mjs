@@ -47,10 +47,22 @@ export async function finishTask(taskSlug, autoConfirm = false) {
   console.log('🛑 PRE-DEPLOY VISUAL GATE (Aduana de Despliegue hacia GHCR)');
   console.log('═'.repeat(60));
 
-  // Check if branch contains database migrations
+  // Check if branch contains database modifications or schema changes
   try {
     const diffFiles = runGit(`diff --name-only origin/main...HEAD`);
-    if (diffFiles.includes('migrations') && diffFiles.includes('.sql')) {
+    const hasSchemaChanges = diffFiles.includes('schema.prisma');
+    const hasNewMigrations = diffFiles.includes('migrations') && diffFiles.includes('.sql');
+
+    if (hasSchemaChanges && !hasNewMigrations) {
+      console.error('\n🚨 ADUANA BLOQUEADA: Has modificado "schema.prisma" pero NO incluiste una migración en "prisma/migrations".');
+      console.error('   Esto causa fallos críticos de Schema Drift en producción (columnas inexistentes).');
+      console.error('   Genera la migración con: "cd backend && npx prisma migrate dev --create-only --name <nombre>"');
+      if (!process.argv.includes('--force')) {
+        process.exit(1);
+      }
+    }
+
+    if (hasNewMigrations) {
       console.log('\n🗄️ Detectadas nuevas migraciones de base de datos en esta entrega.');
       console.log('   Ejecutando verificación de integridad pre-despliegue (af verify-db --pre)...');
       await runIntegrityCheck('pre');

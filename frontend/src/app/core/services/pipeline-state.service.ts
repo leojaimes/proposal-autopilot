@@ -224,7 +224,7 @@ export class PipelineStateService {
   public readonly tangentialRoles = signal<string[]>([]);
   public readonly excludedRoles = signal<string[]>([]);
   public readonly marketTaxonomy = signal<MarketTaxonomyNode[]>([]);
-  public readonly enabledScrapingProviders = signal<string[]>(['UPWORK', 'LINKEDIN']);
+  public readonly enabledScrapingProviders = signal<string[]>(['UPWORK']);
   public readonly categoryPolicies = signal<ProfileCategoryPolicy[]>([]);
   public readonly isSynthesizingTaxonomy = signal<boolean>(false);
   public readonly taxonomySuccessMessage = signal<string>('');

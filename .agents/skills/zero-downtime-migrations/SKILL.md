@@ -1,125 +1,81 @@
 ---
 name: zero-downtime-migrations
-description: "Trigger: schema.prisma, prisma migrate, postgresql lock, non-blocking ddl, safe migrations, alter table, expand contract, agregar columna, migración postgresql. Enforces non-blocking, zero-downtime database migrations in PostgreSQL and Prisma using the Expand/Contract pattern, batched backfills, and lock timeouts."
+description: "Trigger: prisma migrate, easypanel db, actualizar db hostinger, migrar postgresql easypanel, schema.prisma, lock timeout. Non-blocking Prisma migrations, pre-flight snapshots, and safe DDL rollout on EasyPanel Hostinger."
+license: Apache-2.0
+metadata:
+  author: spotlight-engineering
+  version: "1.1"
 ---
 
-# Zero-Downtime Database Migrations (PostgreSQL & Prisma)
+## Activation Contract
 
-This skill provides strict engineering guidelines to execute zero-downtime schema and data changes in PostgreSQL, preventing table locks, connection pool exhaustion, and deployment outages.
+Activate this skill whenever:
+- Modifying `schema.prisma` or creating new Prisma migrations.
+- Executing database migrations locally or deploying to EasyPanel on Hostinger VPS.
+- Diagnosing blocked migrations, lock timeouts, or container restart loops caused by `_prisma_migrations`.
+- Verifying database integrity or running pre/post-migration snapshots.
 
----
+## Hard Rules
 
-## 1. The Core Golden Rules
+- **Zero Schema Drift (Anti-Drift Guard):** Queda estrictamente prohibido usar `prisma db push` para cambios que van a producción. Toda adición, modificación o eliminación de columnas en `schema.prisma` DEBE contar con su respectivo archivo de migración SQL en `backend/prisma/migrations/`. La aduana de CI/CD (GitHub Actions) y `af finish` bloquearán automáticamente el despliegue si existe desalineación (`prisma migrate diff --exit-code`).
+- **Pre-Flight Snapshot:** Always dump the target PostgreSQL database before applying non-trivial DDL in production (`pg_dump` via SSH).
+- **Mandatory `lock_timeout`:** Every SQL migration file MUST prepend `SET lock_timeout = '3s';`. Never queue requests behind heavy locks.
+- **Expand/Contract Isolation:** Never rename or drop active columns in a single release. Decouple schema expansion from code contraction.
+- **No Monolithic DDL/Updates:** Never run table-locking constraints without `NOT VALID`, indexes without `CONCURRENTLY`, or massive `UPDATE`/`DELETE` queries without 1,000–2,000 row batch chunking.
+- **Zero Hardcoded Remote Credentials:** Use environment variables (`$EASYPANEL_HOST`, `$EASYPANEL_USER`) or prompt the user; never commit plain credentials.
+- **Crash-Loop Guard:** If EasyPanel backend fails during startup migration, diagnose via `af.mjs migrate doctor` or `prisma migrate resolve --rolled-back` before rebooting.
 
-1. **Never Take Long Table Locks:** Any operation acquiring `ACCESS EXCLUSIVE` lock on a production table for more than a few milliseconds is forbidden.
-2. **Always Use `lock_timeout`:** Every migration script must start with `SET lock_timeout = '3s';`. If the lock cannot be acquired within 3 seconds, fail fast instead of queueing queries.
-3. **Decouple Code from Schema (Expand/Contract):** Always run migrations across multiple phased deployments so both the old and new versions of the application can operate concurrently.
-4. **No Monolithic `UPDATE` or `DELETE`:** Large table mutations must be chunked into small batches (1,000–2,000 rows) with small sleeps between batches.
+## Decision Gates
 
----
+| Scenario | Primary Action | Fallback / Reference |
+|---|---|---|
+| Adding nullable column / constant default | Safe instant metadata change. Generate with `--create-only` and add `lock_timeout`. | [safe-ddl-patterns.md](references/safe-ddl-patterns.md) |
+| Adding Foreign Key / Check constraint | Add as `NOT VALID`, then validate in step 2. | [safe-ddl-patterns.md](references/safe-ddl-patterns.md) |
+| Creating index | Use `CREATE INDEX CONCURRENTLY IF NOT EXISTS` outside Prisma multi-statement transaction. | [safe-ddl-patterns.md](references/safe-ddl-patterns.md) |
+| Deploying to Hostinger EasyPanel | Webhook triggers `docker-entrypoint.sh` (`npx prisma migrate deploy`). Pre-dump required if table >10k rows. | [easypanel-hostinger-playbook.md](references/easypanel-hostinger-playbook.md) |
+| Migration failed on EasyPanel | Container restarts every 30s. Run `af.mjs migrate doctor` and resolve rolled back. | [easypanel-hostinger-playbook.md](references/easypanel-hostinger-playbook.md) |
 
-## 2. Safe PostgreSQL DDL Patterns
+## Execution Steps
 
-### A. Adding Columns
-* **Nullable Columns (`NULL`):**
-  ```sql
-  -- Safe: Metadata-only change in PostgreSQL 11+
-  ALTER TABLE "JobPost" ADD COLUMN "sourceFeed" TEXT;
-  ```
-* **Columns with Constant Defaults (`NOT NULL DEFAULT ...`):**
-  ```sql
-  -- Safe in PostgreSQL 11+: Constant defaults update metadata instantly without rewriting the table
-  ALTER TABLE "JobPost" ADD COLUMN "categoryVersion" INTEGER NOT NULL DEFAULT 1;
-  ```
-* **Columns with Non-Constant Defaults (e.g. `now()`, functions):**
-  * Do NOT add in one shot! (Rewrites the entire table).
-  * Follow Expand/Contract:
-    1. Add column as nullable without default.
-    2. Backfill existing rows in batches.
-    3. Set `NOT NULL` with safe validation.
-
-### B. Adding Constraints & Foreign Keys (2-Step Validation)
-* **Unsafe (Table Scan Lock):** `ALTER TABLE "JobPost" ADD CONSTRAINT "fk_tenant" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id");`
-* **Safe (Non-Blocking):**
-  ```sql
-  -- Step 1: Add constraint without validating existing rows (instant, acquires minimal lock)
-  ALTER TABLE "JobPost" ADD CONSTRAINT "fk_tenant" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") NOT VALID;
-
-  -- Step 2: Validate existing data concurrently without blocking writes
-  ALTER TABLE "JobPost" VALIDATE CONSTRAINT "fk_tenant";
-  ```
-
-### C. Creating Indexes (Always `CONCURRENTLY`)
-* **Unsafe:** `CREATE INDEX "idx_job_post_title" ON "JobPost"("title");` (Blocks writes until index is built).
-* **Safe:**
-  ```sql
-  CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_job_post_title" ON "JobPost"("title");
-  ```
-  *(Note: Prisma `prisma migrate dev` executes migrations inside a transaction. In PostgreSQL, `CREATE INDEX CONCURRENTLY` cannot run inside a multi-statement transaction block. When adding an index in Prisma, disable the transaction for that migration file or use raw migration).*
-
-### D. Changing Column Types or Renaming Columns
-* **Never rename an active column:** It breaks running instances of the older application version immediately.
-* **The Expand/Contract workflow for Renaming/Retyping:**
-  1. **Expand:** Add the new column with the target name/type (nullable).
-  2. **Dual-write:** Update application code to write to both columns and read from the new column with fallback.
-  3. **Backfill:** Copy historical data from old column to new column in chunks.
-  4. **Contract:** Remove the old column in a later release.
-
----
-
-## 3. Safe Backfills: The Chunking Protocol
-
-Never execute a naked `UPDATE <table> SET column = value;`. It locks the table and bloats the WAL.
-
-Use this chunking pattern in an SQL script or background migration worker:
-
-```sql
-DO $$ 
-DECLARE 
-    rows_affected INT;
-BEGIN 
-    LOOP 
-        UPDATE "JobPost" 
-        SET "classificationStatus" = 'COMPLETED' 
-        WHERE "id" IN (
-            SELECT "id" FROM "JobPost" 
-            WHERE "classificationStatus" IS NULL 
-            LIMIT 2000
-        );
-        GET DIAGNOSTICS rows_affected = ROW_COUNT;
-        EXIT WHEN rows_affected = 0;
-        
-        -- Pause briefly to allow ongoing user traffic and worker transactions to execute
-        PERFORM pg_sleep(0.05);
-    END LOOP; 
-END $$;
-```
-
----
-
-## 4. Prisma-Specific Workflows
-
-When Prisma generates a migration with potentially blocking DDL:
-1. Generate migration without applying:
+1. **Pre-flight Integrity & Status Check:**
    ```bash
-   npx prisma migrate dev --create-only --name <migration-name>
+   node scripts/factory/af.mjs verify-db --pre
+   node scripts/factory/af.mjs migrate status
    ```
-2. Open `backend/prisma/migrations/<timestamp>_<migration-name>/migration.sql`.
-3. Inspect and adjust:
+2. **Draft & Harden Safe Migration:**
+   ```bash
+   cd backend && npx prisma migrate dev --create-only --name <migration_name>
+   ```
+   Edit the generated `migration.sql`:
    - Prepend `SET lock_timeout = '3s';`.
-   - Ensure all `NOT NULL` columns have defaults or are deferred to backfill.
-   - Separate constraint additions into `NOT VALID` followed by `VALIDATE CONSTRAINT`.
-4. Apply cleanly to test database:
+   - Convert blocking constraints to `NOT VALID` + `VALIDATE CONSTRAINT`.
+3. **Local Dry-Run & Client Generation:**
    ```bash
-   npx prisma migrate deploy
+   node scripts/factory/af.mjs migrate deploy
+   node scripts/factory/af.mjs migrate generate
    ```
+4. **Deploy to Hostinger EasyPanel:**
+   - Commit and push to `main` (triggers GHCR build + EasyPanel webhook auto-deploy).
+   - If manual verification is required on the remote VPS:
+     ```bash
+     ssh root@$EASYPANEL_HOST 'docker exec $(docker ps -q -f name=proposal-autopilot_proposal-backend.1) npx prisma migrate status'
+     ```
+5. **Post-Deployment Verification & Diagnostics:**
+   ```bash
+   node scripts/factory/af.mjs verify-db --post
+   ```
+   If container crashes: execute `af.mjs migrate doctor` and check remote logs with `af.mjs guardian 60`.
 
----
+## Output Contract
 
-## 5. Integration Test Isolation Checklist
+Return:
+- Migration name and execution timestamp.
+- DDL safety confirmation (lock timeout, non-blocking constraints/indexes).
+- Status on local database (`proposal_autopilot_db` on port 5438).
+- Status on Hostinger EasyPanel (`proposal-autopilot_proposal-backend` / `proposal-autopilot_proposal-db`).
+- Pre/Post integrity check verification and backup snapshot identifier.
 
-When writing integration tests that touch PostgreSQL:
-- [ ] Connect strictly to the isolated test database (`proposal_autopilot_test`), never `proposal_autopilot`.
-- [ ] Use `randomUUID()` for all newly generated entities (`jobId`, `tenantId`, `batchId`).
-- [ ] Always wrap test execution in `try ... finally` blocks to ensure created records are deleted after asserts run.
-- [ ] Avoid running `prisma migrate reset` during local unit/integration test loops; rely on idempotent UUIDs.
+## References
+
+- [safe-ddl-patterns.md](references/safe-ddl-patterns.md) — Safe PostgreSQL DDL, chunked backfills, and concurrent indexing.
+- [easypanel-hostinger-playbook.md](references/easypanel-hostinger-playbook.md) — Remote Hostinger EasyPanel operations, backups, and Swarm rollback.

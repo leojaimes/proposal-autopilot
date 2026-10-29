@@ -115,16 +115,18 @@
       </span>
     </button>
 
-    <button (click)="report.setPlatformFilter('LINKEDIN')"
-            [ngClass]="report.selectedPlatform() === 'LINKEDIN' ? 'bg-sky-500/20 text-sky-300 shadow-sm border border-sky-500/40' : 'text-content-secondary hover:text-content-primary'"
-            class="px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
-            title="Filtrar sólo vacantes de LinkedIn">
-      <span class="w-2 h-2 rounded-full bg-sky-400"></span>
-      <span>LinkedIn</span>
-      <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-sky-500/10 text-sky-300">
-        {{ report.linkedInJobsCount() }}
-      </span>
-    </button>
+    @if (pipeline.enabledScrapingProviders().includes('LINKEDIN')) {
+      <button (click)="report.setPlatformFilter('LINKEDIN')"
+              [ngClass]="report.selectedPlatform() === 'LINKEDIN' ? 'bg-sky-500/20 text-sky-300 shadow-sm border border-sky-500/40' : 'text-content-secondary hover:text-content-primary'"
+              class="px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+              title="Filtrar sólo vacantes de LinkedIn">
+        <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+        <span>LinkedIn</span>
+        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-sky-500/10 text-sky-300">
+          {{ report.linkedInJobsCount() }}
+        </span>
+      </button>
+    }
   </div>
 
   <!-- Right: Engine Settings & User Avatar Menu -->

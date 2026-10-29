@@ -263,7 +263,8 @@ export class AppSidebarComponent {
   });
 
   public readonly activeScrapePlatform = computed<'UPWORK' | 'LINKEDIN'>(() => {
-    return this.report.selectedPlatform() === 'LINKEDIN' ? 'LINKEDIN' : 'UPWORK';
+    const isLinkedInEnabled = this.pipeline.enabledScrapingProviders().includes('LINKEDIN');
+    return (this.report.selectedPlatform() === 'LINKEDIN' && isLinkedInEnabled) ? 'LINKEDIN' : 'UPWORK';
   });
 
   public readonly scrapeButtonLabel = computed<string>(() => {

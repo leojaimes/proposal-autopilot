@@ -18,9 +18,55 @@ jobs:
       contents: read
       packages: write
 
+    # PostgreSQL de prueba efímero para validar migraciones y schema drift
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: drift_check_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      # 🛡️ ADUANA CRÍTICA DE BASE DE DATOS: Previene desalineación de columnas y migraciones rotas
+      - name: Verify Prisma Migrations & Schema Drift Guard
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/drift_check_db?schema=public
+        run: |
+          npm ci
+          echo "============================================================"
+          echo "📦 [1/2] Aplicando todas las migraciones en base limpia..."
+          echo "============================================================"
+          npx prisma migrate deploy
+
+          echo "============================================================"
+          echo "🛡️ [2/2] Verificando Schema Drift (schema.prisma vs migraciones)..."
+          echo "============================================================"
+          # Si alguien modificó schema.prisma sin crear la migración SQL, este comando sale con código 2 y aborta
+          npx prisma migrate diff \
+            --from-schema-datasource prisma/schema.prisma \
+            --to-schema-datamodel prisma/schema.prisma \
+            --exit-code
+
+          echo "✅ Aduana superada: Base de datos y schema.prisma 100% sincronizados."
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

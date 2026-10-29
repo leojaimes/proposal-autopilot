@@ -34,6 +34,31 @@ export async function runMigration(action = 'deploy') {
       return { success: true };
     }
 
+    if (action === 'drift' || action === 'check-drift') {
+      console.log('🛡️ Verificando Schema Drift (schema.prisma vs base de datos)...');
+      try {
+        const out = execSync(
+          'npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code',
+          {
+            cwd: BACKEND_DIR,
+            env,
+            encoding: 'utf8',
+            stdio: ['pipe', 'pipe', 'pipe']
+          }
+        );
+        console.log('✅ Esquema 100% en sincronía. No hay Schema Drift detectado.');
+        return { success: true, drift: false };
+      } catch (err) {
+        if (err.status === 2) {
+          console.error('🚨 ALERTA CRÍTICA: Se detectó Schema Drift entre schema.prisma y la base de datos.');
+          console.error('   Hay columnas, tablas o tipos modificados sin migración generada.');
+          console.error('   Ejecuta: "cd backend && npx prisma migrate dev --create-only --name <nombre>"');
+          return { success: false, drift: true, error: 'Schema drift detected' };
+        }
+        throw err;
+      }
+    }
+
     if (action === 'generate') {
       console.log('⚙️ Generando cliente Prisma...');
       execSync('npx prisma generate', {
