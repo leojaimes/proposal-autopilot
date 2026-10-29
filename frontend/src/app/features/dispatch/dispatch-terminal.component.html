@@ -80,14 +80,16 @@
             <!-- Top Row: Score Badge + Status + Budget -->
             <div class="flex items-center justify-between mb-2">
               <div class="flex items-center gap-1.5 flex-wrap">
-                @if (job.platform === 'LINKEDIN') {
-                  <span class="px-1.5 py-0.2 rounded font-mono font-bold text-[9px] bg-sky-500/15 text-sky-300 border border-sky-500/30">
-                    LinkedIn
-                  </span>
-                } @else {
-                  <span class="px-1.5 py-0.2 rounded font-mono font-bold text-[9px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                    Upwork
-                  </span>
+                @if (pipeline.enabledScrapingProviders().length > 1) {
+                  @if (job.platform === 'LINKEDIN') {
+                    <span class="px-1.5 py-0.2 rounded font-mono font-bold text-[9px] bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                      LinkedIn
+                    </span>
+                  } @else {
+                    <span class="px-1.5 py-0.2 rounded font-mono font-bold text-[9px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                      Upwork
+                    </span>
+                  }
                 }
 
                 <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-mono font-bold text-xs"

@@ -2,6 +2,7 @@
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReportService } from '../../core/services/report.service';
+import { PipelineStateService } from '../../core/services/pipeline-state.service';
 import { JobReportItem } from '../../core/models/pipeline.model';
 import {
   LucideZap,
@@ -68,6 +69,7 @@ import { I18nPipe } from '../../core/pipes/i18n.pipe';
 })
 export class DispatchTerminalComponent {
   public readonly report = inject(ReportService);
+  public readonly pipeline = inject(PipelineStateService);
 
   public readonly selectedTier = signal<'ALL' | 'High' | 'Low'>('High'); // High Fit active by default!
   public readonly searchTerm = signal<string>('');

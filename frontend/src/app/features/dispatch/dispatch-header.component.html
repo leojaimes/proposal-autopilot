@@ -94,26 +94,30 @@
 
   <!-- Center: Platform Filter Switcher (Spacious & Focused) -->
   <div class="hidden md:flex items-center gap-1 p-1 bg-[#171b26] rounded-xl border border-border-subtle/80 shadow-inner">
-    <button (click)="report.setPlatformFilter('ALL')"
-            [ngClass]="report.selectedPlatform() === 'ALL' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
-            class="px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
-            title="Mostrar todas las vacantes">
-      <span>Todos</span>
-      <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/[0.06] text-content-muted">
-        {{ report.jobs().length }}
-      </span>
-    </button>
+    @if (pipeline.enabledScrapingProviders().length > 1) {
+      <button (click)="report.setPlatformFilter('ALL')"
+              [ngClass]="report.selectedPlatform() === 'ALL' ? 'bg-[#262a35] text-cyan-400 shadow-sm border border-cyan-400/30' : 'text-content-secondary hover:text-content-primary'"
+              class="px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+              title="Mostrar todas las vacantes">
+        <span>Todos</span>
+        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/[0.06] text-content-muted">
+          {{ report.jobs().length }}
+        </span>
+      </button>
+    }
 
-    <button (click)="report.setPlatformFilter('UPWORK')"
-            [ngClass]="report.selectedPlatform() === 'UPWORK' ? 'bg-emerald-500/20 text-emerald-300 shadow-sm border border-emerald-500/40' : 'text-content-secondary hover:text-content-primary'"
-            class="px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
-            title="Filtrar sólo vacantes de Upwork">
-      <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-      <span>Upwork</span>
-      <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400">
-        {{ report.upworkJobsCount() }}
-      </span>
-    </button>
+    @if (pipeline.enabledScrapingProviders().includes('UPWORK')) {
+      <button (click)="report.setPlatformFilter('UPWORK')"
+              [ngClass]="report.selectedPlatform() === 'UPWORK' || (pipeline.enabledScrapingProviders().length === 1 && report.selectedPlatform() === 'ALL') ? 'bg-emerald-500/20 text-emerald-300 shadow-sm border border-emerald-500/40' : 'text-content-secondary hover:text-content-primary'"
+              class="px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+              title="Filtrar sólo vacantes de Upwork">
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span>Upwork</span>
+        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400">
+          {{ report.upworkJobsCount() }}
+        </span>
+      </button>
+    }
 
     @if (pipeline.enabledScrapingProviders().includes('LINKEDIN')) {
       <button (click)="report.setPlatformFilter('LINKEDIN')"
