@@ -49,7 +49,7 @@ export interface TacticalPolygonPreset {
 }
 
 export interface CountryData {
-  countryCode: 'MX' | 'US';
+  countryCode: 'MX' | 'US' | 'CO';
   countryName: string;
   flag: string;
   states: StatePreset[];
@@ -114,10 +114,83 @@ export const COUNTRIES_CONFIG: CountryData[] = [
     ],
   },
   {
+    countryCode: 'CO',
+    countryName: 'Colombia',
+    flag: '🇨🇴',
+    states: [
+      {
+        name: 'Bogotá D.C. / Cundinamarca',
+        cities: [
+          { name: 'Bogotá (Distrito Capital)', lat: 4.7110, lng: -74.0721 },
+          { name: 'Chía', lat: 4.8633, lng: -74.0583 },
+          { name: 'Soacha', lat: 4.5794, lng: -74.2169 },
+          { name: 'Zipaquirá', lat: 5.0264, lng: -74.0040 },
+        ],
+      },
+      {
+        name: 'Antioquia',
+        cities: [
+          { name: 'Medellín', lat: 6.2442, lng: -75.5812 },
+          { name: 'Envigado', lat: 6.1759, lng: -75.5917 },
+          { name: 'Itagüí', lat: 6.1846, lng: -75.5991 },
+          { name: 'Bello', lat: 6.3373, lng: -75.5579 },
+          { name: 'Rionegro (Oriente)', lat: 6.1552, lng: -75.3737 },
+          { name: 'Sabaneta', lat: 6.1514, lng: -75.6164 },
+        ],
+      },
+      {
+        name: 'Santander',
+        cities: [
+          { name: 'Bucaramanga', lat: 7.1193, lng: -73.1227 },
+          { name: 'Floridablanca', lat: 7.0622, lng: -73.0864 },
+          { name: 'Girón', lat: 7.0682, lng: -73.1698 },
+          { name: 'Piedecuesta', lat: 6.9880, lng: -73.0498 },
+          { name: 'Barrancabermeja', lat: 7.0653, lng: -73.8547 },
+        ],
+      },
+      {
+        name: 'Valle del Cauca',
+        cities: [
+          { name: 'Cali', lat: 3.4516, lng: -76.5320 },
+          { name: 'Palmira', lat: 3.5394, lng: -76.3036 },
+          { name: 'Yumbo (Industrial)', lat: 3.5822, lng: -76.4947 },
+        ],
+      },
+      {
+        name: 'Atlántico',
+        cities: [
+          { name: 'Barranquilla', lat: 10.9685, lng: -74.7813 },
+          { name: 'Soledad', lat: 10.9184, lng: -74.7646 },
+          { name: 'Puerto Colombia', lat: 10.9878, lng: -74.9547 },
+        ],
+      },
+    ],
+  },
+  {
     countryCode: 'US',
     countryName: 'United States',
     flag: '🇺🇸',
     states: [
+      {
+        name: 'California',
+        cities: [
+          { name: 'San Francisco (SoMa & Tech Hub)', lat: 37.7785, lng: -122.3950 },
+          { name: 'San Francisco (Financial District)', lat: 37.7946, lng: -122.3999 },
+          { name: 'San Francisco (Mission District)', lat: 37.7599, lng: -122.4148 },
+          { name: 'Palo Alto (Stanford / Sand Hill)', lat: 37.4419, lng: -122.1430 },
+          { name: 'Mountain View (Google HQ & Castro)', lat: 37.3861, lng: -122.0839 },
+          { name: 'Sunnyvale (Cloud & Telecom)', lat: 37.3688, lng: -122.0363 },
+          { name: 'Santa Clara (Silicon & AI Hardware)', lat: 37.3541, lng: -121.9552 },
+          { name: 'San Jose (Silicon Valley Capital)', lat: 37.3382, lng: -121.8863 },
+          { name: 'Oakland (Downtown & Port)', lat: 37.8044, lng: -122.2712 },
+          { name: 'Berkeley (Research & Biotech)', lat: 37.8715, lng: -122.2730 },
+          { name: 'San Mateo (Enterprise SaaS)', lat: 37.5630, lng: -122.3255 },
+          { name: 'Redwood City (Tech Campuses)', lat: 37.4852, lng: -122.2364 },
+          { name: 'Los Angeles (Silicon Beach)', lat: 34.0195, lng: -118.4912 },
+          { name: 'Irvine (Orange County Business)', lat: 33.6846, lng: -117.8265 },
+          { name: 'San Diego (Biotech & Qualcomm)', lat: 32.8328, lng: -117.2713 },
+        ],
+      },
       {
         name: 'Texas',
         cities: [
@@ -134,15 +207,6 @@ export const COUNTRIES_CONFIG: CountryData[] = [
           { name: 'Orlando', lat: 28.5383, lng: -81.3792 },
           { name: 'Tampa', lat: 27.9506, lng: -82.4572 },
           { name: 'Fort Lauderdale', lat: 26.1224, lng: -80.1373 },
-        ],
-      },
-      {
-        name: 'California',
-        cities: [
-          { name: 'Los Angeles', lat: 34.0522, lng: -118.2437 },
-          { name: 'San Francisco', lat: 37.7749, lng: -122.4194 },
-          { name: 'San Diego', lat: 32.7157, lng: -117.1611 },
-          { name: 'San Jose (Silicon Valley)', lat: 37.3382, lng: -121.8863 },
         ],
       },
       {
@@ -296,6 +360,84 @@ export const TACTICAL_POLYGONS: TacticalPolygonPreset[] = [
     ],
   },
   {
+    name: 'Milla de Oro & El Poblado',
+    city: 'Medellín',
+    country: 'Colombia',
+    flag: '🇨🇴',
+    category: 'Financiero',
+    polygon: [
+      [6.2020, -75.5780],
+      [6.2160, -75.5780],
+      [6.2160, -75.5670],
+      [6.2020, -75.5670],
+    ],
+  },
+  {
+    name: 'Distrito Financiero Calle 72 / Chicó',
+    city: 'Bogotá (Distrito Capital)',
+    country: 'Colombia',
+    flag: '🇨🇴',
+    category: 'Financiero',
+    polygon: [
+      [4.6530, -74.0620],
+      [4.6750, -74.0620],
+      [4.6750, -74.0480],
+      [4.6530, -74.0480],
+    ],
+  },
+  {
+    name: 'Cabecera del Llano & Cra 33',
+    city: 'Bucaramanga',
+    country: 'Colombia',
+    flag: '🇨🇴',
+    category: 'Comercial',
+    polygon: [
+      [7.1120, -73.1180],
+      [7.1260, -73.1180],
+      [7.1260, -73.1060],
+      [7.1120, -73.1060],
+    ],
+  },
+  {
+    name: 'SoMa & Financial District AI Tech Hub',
+    city: 'San Francisco (SoMa & Tech Hub)',
+    country: 'United States',
+    flag: '🇺🇸',
+    category: 'Financiero',
+    polygon: [
+      [37.7810, -122.4080],
+      [37.7980, -122.4080],
+      [37.7980, -122.3920],
+      [37.7810, -122.3920],
+    ],
+  },
+  {
+    name: 'Mission Bay Biotech & Life Sciences',
+    city: 'San Francisco (Financial District)',
+    country: 'United States',
+    flag: '🇺🇸',
+    category: 'Industrial',
+    polygon: [
+      [37.7650, -122.3950],
+      [37.7770, -122.3950],
+      [37.7770, -122.3830],
+      [37.7650, -122.3830],
+    ],
+  },
+  {
+    name: 'Sand Hill Road VC Alley & Stanford',
+    city: 'Palo Alto (Stanford / Sand Hill)',
+    country: 'United States',
+    flag: '🇺🇸',
+    category: 'Financiero',
+    polygon: [
+      [37.4080, -122.1850],
+      [37.4280, -122.1850],
+      [37.4280, -122.1480],
+      [37.4080, -122.1480],
+    ],
+  },
+  {
     name: 'Parque Industrial Apodaca',
     city: 'Monterrey',
     country: 'Mexico',
@@ -388,7 +530,7 @@ export const TACTICAL_POLYGONS: TacticalPolygonPreset[] = [
                 class="w-full mt-1 bg-[#131b29] border border-slate-700/80 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 cursor-pointer"
               >
                 @for (country of countries; track country.countryCode) {
-                  <option [value]="country.countryName">{{ country.flag }} {{ country.countryName === 'Mexico' ? 'México' : 'USA' }}</option>
+                  <option [value]="country.countryName">{{ country.flag }} {{ country.countryCode === 'MX' ? 'México' : (country.countryCode === 'CO' ? 'Colombia' : 'USA') }}</option>
                 }
               </select>
             </div>
@@ -627,7 +769,7 @@ export const TACTICAL_POLYGONS: TacticalPolygonPreset[] = [
           </button>
           <div class="h-4 w-px bg-slate-800"></div>
           <span class="text-[11px] text-slate-400 font-mono px-1">
-            📍 {{ selectedCity }}, {{ selectedState }} ({{ selectedCountry === 'Mexico' ? '🇲🇽 MX' : '🇺🇸 US' }})
+            📍 {{ selectedCity }}, {{ selectedState }} ({{ getCountryBadge() }})
           </span>
         </div>
 
@@ -1400,5 +1542,11 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
       default:
         return '💡 Oportunidad Detectada';
     }
+  }
+
+  getCountryBadge(): string {
+    if (this.selectedCountry === 'Colombia') return '🇨🇴 CO';
+    if (this.selectedCountry === 'United States') return '🇺🇸 US';
+    return '🇲🇽 MX';
   }
 }
