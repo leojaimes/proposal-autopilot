@@ -10,20 +10,31 @@ export interface GeocodedCityResult {
   displayName: string;
 }
 
-// Fallback presets for key Mexican cities to ensure 100% reliability offline/dev
-const FALLBACK_CITIES: Record<string, { lat: number; lng: number; state: string }> = {
-  queretaro: { lat: 20.5888, lng: -100.3899, state: 'Querétaro' },
-  'santiago de queretaro': { lat: 20.5888, lng: -100.3899, state: 'Querétaro' },
-  'san juan del rio': { lat: 20.3889, lng: -99.9961, state: 'Querétaro' },
-  corregidora: { lat: 20.5317, lng: -100.4439, state: 'Querétaro' },
-  cdmx: { lat: 19.4326, lng: -99.1332, state: 'Ciudad de México' },
-  'ciudad de mexico': { lat: 19.4326, lng: -99.1332, state: 'Ciudad de México' },
-  guadalajara: { lat: 20.6597, lng: -103.3496, state: 'Jalisco' },
-  zapopan: { lat: 20.7167, lng: -103.4000, state: 'Jalisco' },
-  monterrey: { lat: 25.6866, lng: -100.3161, state: 'Nuevo León' },
-  puebla: { lat: 19.0414, lng: -98.2063, state: 'Puebla' },
-  merida: { lat: 20.9674, lng: -89.5926, state: 'Yucatán' },
-  cancun: { lat: 21.1619, lng: -86.8515, state: 'Quintana Roo' },
+// Fallback presets for key Mexican & USA cities to ensure 100% reliability offline/dev
+const FALLBACK_CITIES: Record<string, { lat: number; lng: number; state: string; country: string }> = {
+  queretaro: { lat: 20.5888, lng: -100.3899, state: 'Querétaro', country: 'Mexico' },
+  'santiago de queretaro': { lat: 20.5888, lng: -100.3899, state: 'Querétaro', country: 'Mexico' },
+  'san juan del rio': { lat: 20.3889, lng: -99.9961, state: 'Querétaro', country: 'Mexico' },
+  corregidora: { lat: 20.5317, lng: -100.4439, state: 'Querétaro', country: 'Mexico' },
+  cdmx: { lat: 19.4326, lng: -99.1332, state: 'Ciudad de México', country: 'Mexico' },
+  'ciudad de mexico': { lat: 19.4326, lng: -99.1332, state: 'Ciudad de México', country: 'Mexico' },
+  guadalajara: { lat: 20.6597, lng: -103.3496, state: 'Jalisco', country: 'Mexico' },
+  zapopan: { lat: 20.7167, lng: -103.4000, state: 'Jalisco', country: 'Mexico' },
+  monterrey: { lat: 25.6866, lng: -100.3161, state: 'Nuevo León', country: 'Mexico' },
+  puebla: { lat: 19.0414, lng: -98.2063, state: 'Puebla', country: 'Mexico' },
+  merida: { lat: 20.9674, lng: -89.5926, state: 'Yucatán', country: 'Mexico' },
+  cancun: { lat: 21.1619, lng: -86.8515, state: 'Quintana Roo', country: 'Mexico' },
+  // USA Cities
+  austin: { lat: 30.2672, lng: -97.7431, state: 'Texas', country: 'United States' },
+  houston: { lat: 29.7604, lng: -95.3698, state: 'Texas', country: 'United States' },
+  dallas: { lat: 32.7767, lng: -96.7970, state: 'Texas', country: 'United States' },
+  miami: { lat: 25.7617, lng: -80.1918, state: 'Florida', country: 'United States' },
+  orlando: { lat: 28.5383, lng: -81.3792, state: 'Florida', country: 'United States' },
+  'los angeles': { lat: 34.0522, lng: -118.2437, state: 'California', country: 'United States' },
+  'san francisco': { lat: 37.7749, lng: -122.4194, state: 'California', country: 'United States' },
+  'san jose': { lat: 37.3382, lng: -121.8863, state: 'California', country: 'United States' },
+  'new york': { lat: 40.7128, lng: -74.0060, state: 'New York', country: 'United States' },
+  chicago: { lat: 41.8781, lng: -87.6298, state: 'Illinois', country: 'United States' },
 };
 
 @Injectable()

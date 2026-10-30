@@ -42,49 +42,160 @@ export interface StatePreset {
 export interface TacticalPolygonPreset {
   name: string;
   city: string;
+  country: string;
+  flag: string;
   category: 'Industrial' | 'Comercial' | 'Financiero';
   polygon: [number, number][];
 }
 
-const MEXICO_PRESETS: StatePreset[] = [
+export interface CountryData {
+  countryCode: 'MX' | 'US';
+  countryName: string;
+  flag: string;
+  states: StatePreset[];
+}
+
+export const COUNTRIES_CONFIG: CountryData[] = [
   {
-    name: 'Querétaro',
-    cities: [
-      { name: 'Querétaro', lat: 20.5888, lng: -100.3899 },
-      { name: 'San Juan del Río', lat: 20.3889, lng: -99.9961 },
-      { name: 'Corregidora', lat: 20.5317, lng: -100.4439 },
-      { name: 'El Marqués', lat: 20.6667, lng: -100.3000 },
+    countryCode: 'MX',
+    countryName: 'Mexico',
+    flag: '🇲🇽',
+    states: [
+      {
+        name: 'Yucatán',
+        cities: [
+          { name: 'Mérida', lat: 20.9674, lng: -89.5926 },
+          { name: 'Progreso', lat: 21.2833, lng: -89.6667 },
+          { name: 'Valladolid', lat: 20.6897, lng: -88.2025 },
+          { name: 'Kanasín', lat: 20.9333, lng: -89.5667 },
+        ],
+      },
+      {
+        name: 'Querétaro',
+        cities: [
+          { name: 'Querétaro', lat: 20.5888, lng: -100.3899 },
+          { name: 'San Juan del Río', lat: 20.3889, lng: -99.9961 },
+          { name: 'Corregidora', lat: 20.5317, lng: -100.4439 },
+          { name: 'El Marqués', lat: 20.6667, lng: -100.3000 },
+        ],
+      },
+      {
+        name: 'Jalisco',
+        cities: [
+          { name: 'Guadalajara', lat: 20.6597, lng: -103.3496 },
+          { name: 'Zapopan', lat: 20.7167, lng: -103.4000 },
+          { name: 'Tlaquepaque', lat: 20.6394, lng: -103.3134 },
+        ],
+      },
+      {
+        name: 'Ciudad de México',
+        cities: [
+          { name: 'Cuauhtémoc (Centro)', lat: 19.4326, lng: -99.1332 },
+          { name: 'Benito Juárez', lat: 19.3800, lng: -99.1600 },
+          { name: 'Miguel Hidalgo', lat: 19.4200, lng: -99.1900 },
+        ],
+      },
+      {
+        name: 'Nuevo León',
+        cities: [
+          { name: 'Monterrey', lat: 25.6866, lng: -100.3161 },
+          { name: 'San Pedro Garza García', lat: 25.6600, lng: -100.4000 },
+          { name: 'Apodaca', lat: 25.7800, lng: -100.1900 },
+        ],
+      },
+      {
+        name: 'Quintana Roo',
+        cities: [
+          { name: 'Cancún', lat: 21.1619, lng: -86.8515 },
+          { name: 'Playa del Carmen', lat: 20.6274, lng: -87.0799 },
+          { name: 'Tulum', lat: 20.2114, lng: -87.4654 },
+        ],
+      },
     ],
   },
   {
-    name: 'Jalisco',
-    cities: [
-      { name: 'Guadalajara', lat: 20.6597, lng: -103.3496 },
-      { name: 'Zapopan', lat: 20.7167, lng: -103.4000 },
-      { name: 'Tlaquepaque', lat: 20.6394, lng: -103.3134 },
-    ],
-  },
-  {
-    name: 'Ciudad de México',
-    cities: [
-      { name: 'Cuauhtémoc (Centro)', lat: 19.4326, lng: -99.1332 },
-      { name: 'Benito Juárez', lat: 19.3800, lng: -99.1600 },
-      { name: 'Miguel Hidalgo', lat: 19.4200, lng: -99.1900 },
-    ],
-  },
-  {
-    name: 'Nuevo León',
-    cities: [
-      { name: 'Monterrey', lat: 25.6866, lng: -100.3161 },
-      { name: 'San Pedro Garza García', lat: 25.6600, lng: -100.4000 },
+    countryCode: 'US',
+    countryName: 'United States',
+    flag: '🇺🇸',
+    states: [
+      {
+        name: 'Texas',
+        cities: [
+          { name: 'Austin', lat: 30.2672, lng: -97.7431 },
+          { name: 'Houston', lat: 29.7604, lng: -95.3698 },
+          { name: 'Dallas', lat: 32.7767, lng: -96.7970 },
+          { name: 'San Antonio', lat: 29.4241, lng: -98.4936 },
+        ],
+      },
+      {
+        name: 'Florida',
+        cities: [
+          { name: 'Miami', lat: 25.7617, lng: -80.1918 },
+          { name: 'Orlando', lat: 28.5383, lng: -81.3792 },
+          { name: 'Tampa', lat: 27.9506, lng: -82.4572 },
+          { name: 'Fort Lauderdale', lat: 26.1224, lng: -80.1373 },
+        ],
+      },
+      {
+        name: 'California',
+        cities: [
+          { name: 'Los Angeles', lat: 34.0522, lng: -118.2437 },
+          { name: 'San Francisco', lat: 37.7749, lng: -122.4194 },
+          { name: 'San Diego', lat: 32.7157, lng: -117.1611 },
+          { name: 'San Jose (Silicon Valley)', lat: 37.3382, lng: -121.8863 },
+        ],
+      },
+      {
+        name: 'New York',
+        cities: [
+          { name: 'New York City (Manhattan)', lat: 40.7128, lng: -74.0060 },
+          { name: 'Brooklyn', lat: 40.6782, lng: -73.9442 },
+          { name: 'Queens', lat: 40.7282, lng: -73.7949 },
+        ],
+      },
+      {
+        name: 'Illinois',
+        cities: [
+          { name: 'Chicago', lat: 41.8781, lng: -87.6298 },
+          { name: 'Naperville', lat: 41.7508, lng: -88.1535 },
+        ],
+      },
     ],
   },
 ];
 
 export const TACTICAL_POLYGONS: TacticalPolygonPreset[] = [
   {
+    name: 'Corredor Industrial Mérida - Progreso',
+    city: 'Mérida',
+    country: 'Mexico',
+    flag: '🇲🇽',
+    category: 'Industrial',
+    polygon: [
+      [21.0100, -89.6500],
+      [21.0550, -89.6500],
+      [21.0550, -89.5950],
+      [21.0100, -89.5950],
+    ],
+  },
+  {
+    name: 'Paseo de Montejo & Zona Hotelera',
+    city: 'Mérida',
+    country: 'Mexico',
+    flag: '🇲🇽',
+    category: 'Comercial',
+    polygon: [
+      [20.9700, -89.6250],
+      [21.0020, -89.6250],
+      [21.0020, -89.6100],
+      [20.9700, -89.6100],
+    ],
+  },
+  {
     name: 'Zona Industrial Benito Juárez',
     city: 'Querétaro',
+    country: 'Mexico',
+    flag: '🇲🇽',
     category: 'Industrial',
     polygon: [
       [20.6150, -100.4400],
@@ -96,6 +207,8 @@ export const TACTICAL_POLYGONS: TacticalPolygonPreset[] = [
   {
     name: 'Corredor Comercial Bernardo Quintana',
     city: 'Querétaro',
+    country: 'Mexico',
+    flag: '🇲🇽',
     category: 'Comercial',
     polygon: [
       [20.5900, -100.3850],
@@ -107,6 +220,8 @@ export const TACTICAL_POLYGONS: TacticalPolygonPreset[] = [
   {
     name: 'Centro Histórico & Comercial',
     city: 'Querétaro',
+    country: 'Mexico',
+    flag: '🇲🇽',
     category: 'Comercial',
     polygon: [
       [20.5850, -100.4050],
@@ -118,6 +233,8 @@ export const TACTICAL_POLYGONS: TacticalPolygonPreset[] = [
   {
     name: 'Distrito Providencia / Américas',
     city: 'Guadalajara',
+    country: 'Mexico',
+    flag: '🇲🇽',
     category: 'Financiero',
     polygon: [
       [20.6900, -103.3900],
@@ -127,8 +244,49 @@ export const TACTICAL_POLYGONS: TacticalPolygonPreset[] = [
     ],
   },
   {
+    name: 'Brickell Financial District',
+    city: 'Miami',
+    country: 'United States',
+    flag: '🇺🇸',
+    category: 'Financiero',
+    polygon: [
+      [25.7550, -80.1980],
+      [25.7720, -80.1980],
+      [25.7720, -80.1850],
+      [25.7550, -80.1850],
+    ],
+  },
+  {
+    name: 'Austin Downtown Tech Corridor',
+    city: 'Austin',
+    country: 'United States',
+    flag: '🇺🇸',
+    category: 'Financiero',
+    polygon: [
+      [30.2600, -97.7550],
+      [30.2780, -97.7550],
+      [30.2780, -97.7350],
+      [30.2600, -97.7350],
+    ],
+  },
+  {
+    name: 'Silicon Valley Innovation Hub',
+    city: 'San Jose (Silicon Valley)',
+    country: 'United States',
+    flag: '🇺🇸',
+    category: 'Industrial',
+    polygon: [
+      [37.3600, -121.9500],
+      [37.4200, -121.9500],
+      [37.4200, -121.8800],
+      [37.3600, -121.8800],
+    ],
+  },
+  {
     name: 'Corredor Corporativo Santa Fe',
     city: 'Ciudad de México',
+    country: 'Mexico',
+    flag: '🇲🇽',
     category: 'Financiero',
     polygon: [
       [19.3550, -99.2700],
@@ -140,6 +298,8 @@ export const TACTICAL_POLYGONS: TacticalPolygonPreset[] = [
   {
     name: 'Parque Industrial Apodaca',
     city: 'Monterrey',
+    country: 'Mexico',
+    flag: '🇲🇽',
     category: 'Industrial',
     polygon: [
       [25.7500, -100.2250],
@@ -218,26 +378,38 @@ export const TACTICAL_POLYGONS: TacticalPolygonPreset[] = [
             </div>
           </div>
 
-          <!-- LOCATION CONTROLS (ESTADO & CIUDAD) -->
-          <div class="grid grid-cols-2 gap-2 pt-1">
+          <!-- LOCATION CONTROLS (PAÍS, ESTADO & CIUDAD) -->
+          <div class="grid grid-cols-3 gap-2 pt-1">
+            <div>
+              <label class="text-[10px] font-semibold text-slate-400 uppercase">País</label>
+              <select
+                [(ngModel)]="selectedCountry"
+                (change)="onCountryChange()"
+                class="w-full mt-1 bg-[#131b29] border border-slate-700/80 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 cursor-pointer"
+              >
+                @for (country of countries; track country.countryCode) {
+                  <option [value]="country.countryName">{{ country.flag }} {{ country.countryName === 'Mexico' ? 'México' : 'USA' }}</option>
+                }
+              </select>
+            </div>
             <div>
               <label class="text-[10px] font-semibold text-slate-400 uppercase">Estado</label>
               <select
                 [(ngModel)]="selectedState"
                 (change)="onStateChange()"
-                class="w-full mt-1 bg-[#131b29] border border-slate-700/80 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                class="w-full mt-1 bg-[#131b29] border border-slate-700/80 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 cursor-pointer"
               >
-                @for (state of states; track state.name) {
+                @for (state of currentStates(); track state.name) {
                   <option [value]="state.name">{{ state.name }}</option>
                 }
               </select>
             </div>
             <div>
-              <label class="text-[10px] font-semibold text-slate-400 uppercase">Ciudad / Municipio</label>
+              <label class="text-[10px] font-semibold text-slate-400 uppercase">Ciudad</label>
               <select
                 [(ngModel)]="selectedCity"
                 (change)="onCityChange()"
-                class="w-full mt-1 bg-[#131b29] border border-slate-700/80 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                class="w-full mt-1 bg-[#131b29] border border-slate-700/80 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 cursor-pointer"
               >
                 @for (city of currentCities(); track city.name) {
                   <option [value]="city.name">{{ city.name }}</option>
@@ -455,7 +627,7 @@ export const TACTICAL_POLYGONS: TacticalPolygonPreset[] = [
           </button>
           <div class="h-4 w-px bg-slate-800"></div>
           <span class="text-[11px] text-slate-400 font-mono px-1">
-            📍 {{ selectedCity }}, {{ selectedState }}
+            📍 {{ selectedCity }}, {{ selectedState }} ({{ selectedCountry === 'Mexico' ? '🇲🇽 MX' : '🇺🇸 US' }})
           </span>
         </div>
 
@@ -563,7 +735,7 @@ export const TACTICAL_POLYGONS: TacticalPolygonPreset[] = [
                     (click)="applyPresetPolygon(preset)"
                     class="p-2.5 rounded-xl bg-slate-900/80 hover:bg-[#152033] border border-slate-800 hover:border-cyan-500/50 text-left transition-all group cursor-pointer"
                   >
-                    <div class="text-[11px] font-bold text-white group-hover:text-cyan-300 truncate">{{ preset.name }}</div>
+                    <div class="text-[11px] font-bold text-white group-hover:text-cyan-300 truncate">{{ preset.flag }} {{ preset.name }}</div>
                     <div class="text-[10px] text-slate-500 font-mono mt-0.5">{{ preset.city }} · {{ preset.category }}</div>
                   </button>
                 }
@@ -658,11 +830,12 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
   private customPolygonLayer?: L.Polygon;
   private leadMarkersLayer = L.layerGroup();
 
-  // State & Cities presets
-  readonly states = MEXICO_PRESETS;
-  selectedState = 'Querétaro';
-  selectedCity = 'Querétaro';
-  currentCenter = { lat: 20.5888, lng: -100.3899 };
+  // Multi-Country & State & Cities presets
+  readonly countries = COUNTRIES_CONFIG;
+  selectedCountry = 'Mexico';
+  selectedState = 'Yucatán';
+  selectedCity = 'Mérida';
+  currentCenter = { lat: 20.9674, lng: -89.5926 };
 
   // Inputs & Scanning mode
   selectedSector = 'Dentistas';
@@ -684,9 +857,11 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
   });
 
   readonly copiedPitch = signal<boolean>(false);
-  currentCities = signal<{ name: string; lat: number; lng: number }[]>([]);
+  readonly currentStates = signal<StatePreset[]>([]);
+  readonly currentCities = signal<{ name: string; lat: number; lng: number }[]>([]);
 
   ngOnInit() {
+    this.updateCurrentStates();
     this.updateCurrentCities();
   }
 
@@ -723,6 +898,15 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  onCountryChange() {
+    this.updateCurrentStates();
+    const firstState = this.currentStates()[0];
+    if (firstState) {
+      this.selectedState = firstState.name;
+      this.onStateChange();
+    }
+  }
+
   onStateChange() {
     this.updateCurrentCities();
     const firstCity = this.currentCities()[0];
@@ -736,15 +920,25 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
     const cityObj = this.currentCities().find((c) => c.name === this.selectedCity);
     if (cityObj) {
       this.currentCenter = { lat: cityObj.lat, lng: cityObj.lng };
-      this.fetchCityBoundary(cityObj.name, this.selectedState);
+      this.fetchCityBoundary(cityObj.name, this.selectedState, this.selectedCountry);
       this.updateMapPosition();
     }
   }
 
+  private updateCurrentStates() {
+    const countryObj = this.countries.find((c) => c.countryName === this.selectedCountry);
+    if (countryObj) {
+      this.currentStates.set(countryObj.states);
+    }
+  }
+
   private updateCurrentCities() {
-    const stateObj = this.states.find((s) => s.name === this.selectedState);
+    const states = this.currentStates();
+    const stateObj = states.find((s) => s.name === this.selectedState) || states[0];
     if (stateObj) {
       this.currentCities.set(stateObj.cities);
+    } else {
+      this.currentCities.set([]);
     }
   }
 
@@ -804,7 +998,7 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.updateRadarCircle();
-    this.fetchCityBoundary(this.selectedCity, this.selectedState);
+    this.fetchCityBoundary(this.selectedCity, this.selectedState, this.selectedCountry);
   }
 
   private handleGeomanDrawnLayer(layer: any) {
@@ -887,8 +1081,8 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private fetchCityBoundary(city: string, state: string) {
-    this.prospecting.geocodeCity(city, state).subscribe({
+  private fetchCityBoundary(city: string, state: string, country: string = 'Mexico') {
+    this.prospecting.geocodeCity(city, state, country).subscribe({
       next: (res) => {
         if (res?.center) {
           this.currentCenter = res.center;
@@ -929,6 +1123,15 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
   applyPresetPolygon(preset: TacticalPolygonPreset) {
     this.setPolygonOnMap(preset.polygon);
     this.selectedCity = preset.city;
+    if (preset.country) {
+      this.selectedCountry = preset.country;
+      this.updateCurrentStates();
+      const stateObj = this.currentStates().find((s) => s.cities.some((c) => c.name === preset.city));
+      if (stateObj) {
+        this.selectedState = stateObj.name;
+        this.updateCurrentCities();
+      }
+    }
     this.isPolygonModalOpen.set(false);
   }
 
@@ -1072,6 +1275,7 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
         radiusKm: this.radiusKm,
         city: this.selectedCity,
         state: this.selectedState,
+        country: this.selectedCountry,
         polygon: isPolygon ? this.customPolygon()! : undefined,
       })
       .subscribe({
