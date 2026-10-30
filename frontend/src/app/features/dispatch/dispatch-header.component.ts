@@ -31,7 +31,7 @@ import { I18nPipe } from '../../core/pipes/i18n.pipe';
 import { I18nService } from '../../core/services/i18n.service';
 import { AuthService } from '../../core/services/auth.service';
 
-export type AppViewMode = 'TERMINAL' | 'EXPLORER' | 'RADAR' | 'PROFILE';
+export type AppViewMode = 'TERMINAL' | 'EXPLORER' | 'RADAR' | 'PROFILE' | 'WORKBENCH';
 
 @Component({
   selector: 'app-dispatch-header',

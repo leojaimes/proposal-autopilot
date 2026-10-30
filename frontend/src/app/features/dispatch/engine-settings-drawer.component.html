@@ -768,7 +768,7 @@
             <div class="flex items-center justify-between">
               <label class="text-xs font-bold text-content-primary uppercase tracking-wider inline-flex items-center gap-1.5">
                 <svg lucideTarget class="w-3.5 h-3.5 text-brand-primary"></svg>
-                <span>Países Objetivo Permitidos ({{ pipeline.targetCountries().length }})</span>
+                <span>Países o Ciudades Objetivo ({{ pipeline.targetCountries().length }})</span>
               </label>
               <span class="text-[11px] text-content-muted">Clientes prioritarios</span>
             </div>
@@ -785,7 +785,7 @@
                   </button>
                 </span>
               } @empty {
-                <span class="text-xs text-content-muted p-1">No hay países definidos (Acepta cualquier país mundial).</span>
+                <span class="text-xs text-content-muted p-1">No hay ubicaciones definidas (Acepta cualquier país o ciudad).</span>
               }
             </div>
 
@@ -795,7 +795,7 @@
                      [ngModel]="newCountryInput()"
                      (ngModelChange)="newCountryInput.set($event)"
                      (keyup.enter)="addCountry()"
-                     placeholder="Escribe un país (ej: Ireland, Singapore, Spain)..."
+                     placeholder="Escribe un país o ciudad (ej: Colombia, Mexico, Bogota, CDMX, Austin)..."
                      class="flex-1 bg-surface border border-border-subtle rounded-xl px-3 py-2 text-xs text-content-primary focus:outline-none focus:border-brand-primary">
               <button type="button"
                       (click)="addCountry()"

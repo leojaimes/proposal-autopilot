@@ -12,6 +12,8 @@
           Radar de Mercado
         } @else if (activeView() === 'PROFILE') {
           Perfil de Posicionamiento
+        } @else if (activeView() === 'WORKBENCH') {
+          Taller 1:1 · Vacante Externa
         }
       </span>
     </div>
@@ -135,6 +137,15 @@
 
   <!-- Right: Engine Settings & User Avatar Menu -->
   <div class="flex items-center gap-3 shrink-0">
+    <!-- Workbench Quick Action Button -->
+    <button (click)="viewModeChange.emit('WORKBENCH')"
+            [ngClass]="activeView() === 'WORKBENCH' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/40 shadow-sm' : 'bg-[#1c1f2a] hover:bg-[#262a35] text-content-primary border-border-subtle/80'"
+            class="px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
+            title="Abrir Taller 1:1 para analizar vacante por URL o texto">
+      <svg lucideSparkles class="w-3.5 h-3.5 text-cyan-400"></svg>
+      <span>⚡ Analizar Vacante</span>
+    </button>
+
     <!-- Engine Settings Trigger Button -->
     <button (click)="openSettings.emit()"
             class="px-3 py-1.5 rounded-xl bg-[#1c1f2a] hover:bg-[#262a35] text-content-primary border border-border-subtle/80 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm">

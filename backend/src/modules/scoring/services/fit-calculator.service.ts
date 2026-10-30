@@ -210,14 +210,32 @@ export class FitCalculatorService {
     let isCapped = false;
     let capReason: string | null = null;
 
-    const excluded = (input.excludedCountries || []).map(c => c.toLowerCase().trim());
-    const countryLower = (input.clientCountry || '').toLowerCase().trim();
-    if (countryLower && excluded.includes(countryLower)) {
-      overallScore = Math.min(15, overallScore);
-      eligibilityStatus = 'EXCLUDED';
-      isCapped = true;
-      capReason = `GEO EXCLUDED: Fuera de países permitidos (${input.clientCountry})`;
-      drags.push(capReason);
+    const normalizeGeo = (s: string) =>
+      s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
+    const excluded = (input.excludedCountries || []).map(normalizeGeo).filter(Boolean);
+    const targets = (input.targetCountries || []).map(normalizeGeo).filter(Boolean);
+    const countryClean = input.clientCountry ? normalizeGeo(input.clientCountry) : '';
+
+    if (countryClean) {
+      if (excluded.some(ex => countryClean.includes(ex) || ex.includes(countryClean))) {
+        overallScore = Math.min(15, overallScore);
+        eligibilityStatus = 'EXCLUDED';
+        isCapped = true;
+        capReason = `GEO EXCLUDED: Fuera de países permitidos (${input.clientCountry})`;
+        drags.push(capReason);
+      } else if (targets.length > 0) {
+        const matchesTarget = targets.some(tg => countryClean.includes(tg) || tg.includes(countryClean));
+        if (!matchesTarget) {
+          overallScore = Math.min(15, overallScore);
+          eligibilityStatus = 'EXCLUDED';
+          isCapped = true;
+          capReason = `GEO MISMATCH: Ubicación (${input.clientCountry}) no coincide con los países o ciudades objetivo (${input.targetCountries?.join(', ')})`;
+          drags.push(capReason);
+        } else {
+          drivers.push(`Ubicación Objetivo: Coincide con ${input.clientCountry}`);
+        }
+      }
     }
 
     if (match.isIncompatible) {

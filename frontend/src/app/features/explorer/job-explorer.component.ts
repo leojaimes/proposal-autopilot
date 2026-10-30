@@ -5,6 +5,7 @@ import { ReportService } from '../../core/services/report.service';
 import { I18nService } from '../../core/services/i18n.service';
 import { I18nPipe } from '../../core/pipes/i18n.pipe';
 import { JobReportItem } from '../../core/models/pipeline.model';
+import { formatRelativeTime, getTimestampOrZero } from '../../core/utils/date.utils';
 import { ExcelDataTableComponent } from '../../shared/components/excel-table/excel-table.component';
 import { ExcelColumnDef } from '../../shared/components/excel-table/excel-table.models';
 
@@ -111,6 +112,17 @@ export class JobExplorerComponent {
       filterable: true,
       width: '145px',
       align: 'center',
+    },
+    {
+      key: 'postedAt',
+      header: this.i18n.t('explorer.col.posted'),
+      type: 'date',
+      sortable: true,
+      filterable: true,
+      width: '115px',
+      align: 'center',
+      valueGetter: (row) => getTimestampOrZero(row.postedAt),
+      valueFormatter: (_val, row) => formatRelativeTime(row.postedAt),
     },
     {
       key: 'status',

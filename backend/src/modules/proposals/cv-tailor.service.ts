@@ -450,7 +450,10 @@ export class CvTailorService {
     const lang = input.lang || 'en';
     const isEn = lang === 'en';
     const base = input.baseCv || (isEn ? BASE_LEONARDO_CV_EN : BASE_LEONARDO_CV_ES);
-    const company = (input.companyName || '').trim() || 'empresa';
+    const rawCompany = typeof input.companyName === 'object' && input.companyName !== null
+      ? ((input.companyName as any).name || '')
+      : (typeof input.companyName === 'string' ? input.companyName : '');
+    const company = rawCompany.trim() || 'empresa';
 
     // 1. If Gemini API is available, invoke AI
     if (this.geminiApiKey && !this.geminiApiKey.includes('REPLACE_WITH_YOUR')) {

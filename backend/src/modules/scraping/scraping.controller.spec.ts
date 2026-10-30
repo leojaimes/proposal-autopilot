@@ -23,3 +23,8 @@ test('resolves LINKEDIN platform when externalId has li: prefix or payload has _
   assert.equal(resolveJobPlatform({ externalUpworkId: 'li:401928374' }), 'LINKEDIN');
   assert.equal(resolveJobPlatform({ externalUpworkId: 'random-id', rawApifyPayload: { _platform: 'LINKEDIN' } }), 'LINKEDIN');
 });
+
+test('resolves direct application (LINKEDIN style) when externalId has ext: prefix or payload has _platform CUSTOM', () => {
+  assert.equal(resolveJobPlatform({ externalUpworkId: 'ext:171829384:abc' }), 'LINKEDIN');
+  assert.equal(resolveJobPlatform({ externalUpworkId: 'custom-id', rawApifyPayload: { _platform: 'CUSTOM' } }), 'LINKEDIN');
+});

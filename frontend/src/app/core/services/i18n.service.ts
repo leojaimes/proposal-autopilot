@@ -62,6 +62,7 @@ export const ES_TRANSLATIONS: Translations = {
   'explorer.col.bids': 'Bids',
   'explorer.col.story': 'Historia Inyectada',
   'explorer.col.status': 'Estado',
+  'explorer.col.posted': 'Publicado',
   'explorer.col.actions': 'Acciones',
   'explorer.empty': 'No se encontraron empleos que coincidan con la combinación de filtros de Excel aplicada.',
   'explorer.copy_letter': 'Copiar Carta',
@@ -80,6 +81,10 @@ export const ES_TRANSLATIONS: Translations = {
   'radar.status': 'Estado',
   'radar.refresh': 'Actualizar Radar',
   'radar.live': 'En Vivo',
+
+  // Workbench
+  'workbench.title': 'Taller de Postulación 1:1 & Ingesta Universal',
+  'workbench.subtitle': 'Analiza cualquier vacante por URL o texto crudo, diagnostica el fit y adapta tu CV ATS y propuesta con edición humana.',
 
   // Engine Settings Drawer
   'drawer.title': 'Calibración de Motor de Posicionamiento',
@@ -208,6 +213,7 @@ export const EN_TRANSLATIONS: Translations = {
   'explorer.col.bids': 'Bids',
   'explorer.col.story': 'Injected Story',
   'explorer.col.status': 'Status',
+  'explorer.col.posted': 'Posted',
   'explorer.col.actions': 'Actions',
   'explorer.empty': 'No jobs found matching the applied Excel filter combination.',
   'explorer.copy_letter': 'Copy Cover Letter',

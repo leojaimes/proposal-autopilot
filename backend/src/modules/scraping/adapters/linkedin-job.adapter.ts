@@ -1,17 +1,38 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { BudgetType } from '@prisma/client';
 import { NormalizedJob, JobDataSourcePort } from '../ports/job-data-source.port';
 import { ApifyService } from '../apify.service';
+import { LambdaLinkedInScraperService } from '../services/lambda-linkedin-scraper.service';
 
 @Injectable()
 export class LinkedInJobAdapter implements JobDataSourcePort {
-  readonly providerName = 'LINKEDIN_APIFY' as any;
+  readonly providerName = 'LINKEDIN' as any;
   private readonly logger = new Logger(LinkedInJobAdapter.name);
 
-  constructor(private readonly apifyService: ApifyService) {}
+  constructor(
+    private readonly apifyService: ApifyService,
+    @Optional() private readonly lambdaScraper?: LambdaLinkedInScraperService,
+  ) {}
 
-  async fetchJobs(keywords: string[], maxResults: number = 15): Promise<NormalizedJob[]> {
-    const rawItems = await this.apifyService.runLinkedInScraper(keywords, maxResults);
+  async fetchJobs(keywords: string[], maxResults: number = 15, locations?: string[]): Promise<NormalizedJob[]> {
+    let rawItems: Record<string, any>[] = [];
+
+    if (this.lambdaScraper && process.env.AWS_LAMBDA_SCRAPER_FUNCTION_NAME) {
+      try {
+        const location = locations?.[0] || 'United States';
+        rawItems = await this.lambdaScraper.scrapeJobs({
+          keywords,
+          limit: maxResults,
+          location,
+        });
+      } catch (err: any) {
+        this.logger.warn(`[LinkedInJobAdapter] Falló AWS Lambda, recurriendo a Apify fallback: ${err.message}`);
+        rawItems = await this.apifyService.runLinkedInScraper(keywords, maxResults, locations);
+      }
+    } else {
+      rawItems = await this.apifyService.runLinkedInScraper(keywords, maxResults, locations);
+    }
+
     return rawItems.map((item) => this.normalizeRaw(item));
   }
 

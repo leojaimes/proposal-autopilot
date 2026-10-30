@@ -130,6 +130,13 @@
         }
 
         <!-- Status Dropdown Column (No truncation) -->
+        <!-- Posted At (Antigüedad) Column -->
+        @case ('postedAt') {
+          <span class="font-mono text-xs text-slate-300 whitespace-nowrap" [title]="row.postedAt || 'Reciente'">
+            {{ col.valueFormatter ? col.valueFormatter(row.postedAt, row) : row.postedAt }}
+          </span>
+        }
+
         @case ('status') {
           <select [ngModel]="row.status"
                   (ngModelChange)="report.updateJobStatus(row.id, $event)"

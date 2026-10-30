@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Post, Get, Patch, Body, Param, Query, Logger, NotFoundException, Res, Sse, MessageEvent } from '@nestjs/common';
+import { BadRequestException, Controller, Post, Get, Patch, Body, Param, Query, Logger, NotFoundException, Res, Sse, MessageEvent, Optional } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { randomUUID } from 'node:crypto';
 import { Response } from 'express';
@@ -6,6 +6,7 @@ import { ApifyService } from './apify.service';
 import { ScrapingProgressService } from './scraping-progress.service';
 import { ApifyJobAdapter } from './adapters/apify-job.adapter';
 import { LinkedInJobAdapter } from './adapters/linkedin-job.adapter';
+import { ExternalJobExtractorService } from './services/external-job-extractor.service';
 import { FitCalculatorService } from '../scoring/services/fit-calculator.service';
 import { ClaudeProposalService } from '../proposals/claude-proposal.service';
 import { TechnicalProposalPdfService } from '../proposals/technical-proposal-pdf.service';
@@ -64,7 +65,9 @@ export function needsTaxonomyReprocessing(
 
 export function resolveJobPlatform(job: { externalUpworkId: string; rawApifyPayload?: any }): 'UPWORK' | 'LINKEDIN' {
   if (job?.rawApifyPayload?._platform === 'LINKEDIN') return 'LINKEDIN';
+  if (job?.rawApifyPayload?._platform === 'CUSTOM') return 'LINKEDIN';
   if (job?.externalUpworkId?.startsWith('li:')) return 'LINKEDIN';
+  if (job?.externalUpworkId?.startsWith('ext:')) return 'LINKEDIN';
   return 'UPWORK';
 }
 
@@ -89,6 +92,7 @@ export class ScrapingController {
     private readonly taxonomyClassificationWork: TaxonomyClassificationWorkService,
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    @Optional() private readonly externalJobExtractor?: ExternalJobExtractorService,
   ) {}
 
   /**
@@ -1367,6 +1371,170 @@ isActive: true,
    * POST /api/scraping/synthesize-batch
    * Genera propuestas en lote para los empleos de alto fitScore (Highest Fit Score First).
    */
+  /**
+   * POST /api/scraping/custom-job/analyze
+   * Ingesta una vacante por URL o texto, calcula Fit/Gaps y genera el kit de postulación (CV ATS, Carta, Propuesta).
+   */
+  @Post('custom-job/analyze')
+  async analyzeCustomJob(
+    @Body() body: { url?: string; rawText?: string; personaName?: string; lang?: 'en' | 'es' },
+  ) {
+    const tenantId = this.tenantContext.getTenantId();
+    if (!body?.url && !body?.rawText) {
+      throw new BadRequestException('Debes proporcionar una URL o el texto de la vacante.');
+    }
+
+    if (!this.externalJobExtractor) {
+      throw new BadRequestException('Servicio de extracción de vacantes externas no disponible.');
+    }
+
+    // 1. Extraer datos estructurados de la vacante
+    const extracted = body.url
+      ? await this.externalJobExtractor.extractFromUrl(body.url)
+      : await this.externalJobExtractor.extractFromRawText(body.rawText!);
+
+    // 2. Perfil activo para calibración
+    const activeProfile = await this.resolveActiveProfile(body.personaName);
+
+    // 3. Evaluar Fit, Drivers y Skill Gaps
+    const evaluation = this.fitCalculator.calculate({
+      title: extracted.title,
+      description: extracted.description,
+      skills: extracted.requiredSkills,
+      taxonomy: activeProfile
+        ? {
+            coreRoles: activeProfile.coreRoles,
+            hybridRoles: activeProfile.hybridRoles,
+            tangentialRoles: activeProfile.tangentialRoles,
+            excludedRoles: activeProfile.excludedRoles,
+          }
+        : undefined,
+      weights: activeProfile
+        ? {
+            skill: activeProfile.weightSkill,
+            ai: activeProfile.weightAi,
+            client: activeProfile.weightClient,
+            recency: activeProfile.weightRecency,
+          }
+        : undefined,
+      clientCountry: extracted.location,
+      postedDate: extracted.postedAt,
+    });
+
+    // 4. Adaptar CV ATS y redactar Carta de Presentación en idioma objetivo (EN / ES)
+    const lang = (body.lang === 'es' ? 'es' : 'en') as 'en' | 'es';
+    const safeCompanyName = typeof extracted.companyName === 'string' ? extracted.companyName : 'Litera';
+    const storedCv = activeProfile?.baseCv as any;
+    const baseCvData = storedCv?.translations?.[lang];
+
+    const adaptedResult = await this.cvTailor.adaptCvAndCoverLetter({
+      jobDescription: extracted.description,
+      companyName: safeCompanyName,
+      lang,
+      baseCv: baseCvData,
+    });
+
+    const isEn = lang === 'en';
+    const techProposal = isEn
+      ? `## Technical Execution Proposal for ${safeCompanyName}\n\nSolution architecture, modular design, and CI/CD strategy for the ${extracted.title} role.`
+      : `## Propuesta de Ejecución Técnica para ${safeCompanyName}\n\nDiseño de solución e integración continua para el rol de ${extracted.title}.`;
+
+    const mermaidCode = isEn
+      ? 'flowchart TD\n  A[Requirements & Spec Review] --> B[Architecture & Prototype]\n  B --> C[Modular Implementation]\n  C --> D[Deploy & Production Monitoring]'
+      : 'flowchart TD\n  A[Análisis de Requerimientos] --> B[Arquitectura & Prototipo]\n  B --> C[Implementación Modular]\n  C --> D[Despliegue & Monitoreo]';
+
+    // 5. Persistir en Base de Datos bajo aislamiento estricto de tenant
+    const customExternalId = `ext:${Date.now()}:${Math.random().toString(36).substring(7)}`;
+    const jobPost = await this.prisma.jobPost.create({
+      data: {
+        tenantId,
+        externalUpworkId: customExternalId,
+        title: extracted.title,
+        description: extracted.description,
+        clientCountry: extracted.location,
+        jobUrl: extracted.jobUrl || 'https://custom-vacancy.internal',
+        postedAt: (extracted.postedAt && !isNaN(extracted.postedAt.getTime())) ? extracted.postedAt : new Date(),
+        status: 'NEEDS_REVIEW',
+        rawApifyPayload: {
+          _platform: 'CUSTOM',
+          companyName: safeCompanyName,
+          skills: extracted.requiredSkills,
+          rawPayload: extracted.rawPayload,
+        },
+        fitEvaluations: {
+          create: {
+            positioningProfileId: activeProfile?.id,
+            overallScore: evaluation.overallScore,
+            fitTier: evaluation.fitTier,
+            strategicLane: evaluation.strategicLane as any,
+            normalizedRole: evaluation.normalizedRole || extracted.title,
+            skillScore: evaluation.skillScore,
+            aiFeasibilityScore: evaluation.aiFeasibilityScore,
+            clientQualityScore: evaluation.clientQualityScore,
+            recencyScore: evaluation.recencyScore,
+            isCapped: evaluation.isCapped,
+            capReason: evaluation.capReason,
+            summaryRationale: evaluation.summaryRationale,
+            detectedGaps: evaluation.detectedGaps,
+            suggestedProofStory: evaluation.suggestedProofStory,
+          },
+        },
+        proposals: {
+          create: {
+            positioningProfileId: activeProfile?.id,
+            contactName: 'Hiring Team',
+            coverLetter35Words: adaptedResult.coverLetter?.paragraphs?.join('\n\n') || '',
+            technicalProposalBody: techProposal,
+            mermaidDiagramCode: mermaidCode,
+          },
+        },
+      },
+    });
+
+    return {
+      success: true,
+      jobId: jobPost.id,
+      lang,
+      title: extracted.title,
+      companyName: safeCompanyName,
+      location: extracted.location,
+      description: extracted.description,
+      requiredSkills: extracted.requiredSkills,
+      fitScore: evaluation.overallScore,
+      fitLabel: evaluation.overallScore >= 70 ? 'High' : (evaluation.overallScore >= 45 ? 'Medium' : 'Low'),
+      strategicLane: evaluation.strategicLane,
+      drivers: evaluation.drivers,
+      drags: evaluation.drags,
+      scoreNotes: evaluation.summaryRationale,
+      adaptedCv: adaptedResult.adaptedCv,
+      coverLetter: adaptedResult.coverLetter,
+      technicalProposal: techProposal,
+      mermaidCode,
+    };
+  }
+
+  /**
+   * POST /api/scraping/custom-job/compile-pdf
+   * Compila los cambios humanos editados en vivo en un PDF ATS final vía Gotenberg.
+   */
+  @Post('custom-job/compile-pdf')
+  async compileCustomCvPdf(
+    @Body() body: { cvData: any; filename?: string },
+    @Res() res: Response,
+  ) {
+    if (!body?.cvData) {
+      throw new BadRequestException('cvData es requerido para compilar el PDF');
+    }
+    const pdfBuffer = await this.cvTailor.generateCvPdf(body.cvData);
+    const filename = body.filename || `cv_tailored_${new Date().toISOString().slice(0, 10)}.pdf`;
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': String(pdfBuffer.length),
+    });
+    res.end(pdfBuffer);
+  }
+
   @Post('synthesize-batch')
   async synthesizeBatch(
     @Body() body: { minScore?: number; overwrite?: boolean; limit?: number; personaName?: string },

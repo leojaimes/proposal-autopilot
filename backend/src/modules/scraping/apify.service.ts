@@ -24,6 +24,7 @@ export class ApifyService {
     options?: {
       experienceLevel?: string[];
       sort?: string;
+      locations?: string[];
     }
   ): Promise<RawApifyUpworkJob[]> {
     try {
@@ -32,8 +33,23 @@ export class ApifyService {
       }
       this.logger.log(`Iniciando scraping en Apify con ${keywords.length} queries: ${keywords.join(' | ')} | Max: ${maxResults}`);
 
+      // Generar queries combinadas con ubicaciones objetivo si están definidas
+      let queriesToRun: string[] = [];
+      const locations = (options?.locations || []).filter(Boolean);
+
+      if (locations.length > 0) {
+        for (const kw of keywords) {
+          for (const loc of locations) {
+            queriesToRun.push(`${kw} ${loc}`.trim());
+          }
+        }
+      }
+      if (queriesToRun.length === 0) {
+        queriesToRun = keywords;
+      }
+
       // Actor flash_mage/upwork: el schema exige un máximo estricto de 5 items en 'query'
-      const sanitizedQueries = keywords.slice(0, 5);
+      const sanitizedQueries = queriesToRun.slice(0, 5);
 
       this.logger.log(`Enviando ${sanitizedQueries.length} queries a Apify (máx 5 permitido por actor): ${sanitizedQueries.join(' | ')}`);
 

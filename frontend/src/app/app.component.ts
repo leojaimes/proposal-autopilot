@@ -9,6 +9,7 @@ import { ZeroStateOnboardingComponent } from './features/onboarding/zero-state-o
 import { LiveScrapeProgressComponent } from './features/dispatch/live-scrape-progress.component';
 import { MarketRadarComponent } from './features/radar/market-radar.component';
 import { UserProfileComponent } from './features/profile/user-profile.component';
+import { CustomJobWorkbenchComponent } from './features/workbench/custom-job-workbench.component';
 import { ReportService } from './core/services/report.service';
 import { AuthService } from './core/services/auth.service';
 import { RegisterCardComponent } from './features/auth/register-card.component';
@@ -28,6 +29,7 @@ import { RegisterCardComponent } from './features/auth/register-card.component';
     LiveScrapeProgressComponent,
     MarketRadarComponent,
     UserProfileComponent,
+    CustomJobWorkbenchComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -59,6 +61,10 @@ import { RegisterCardComponent } from './features/auth/register-card.component';
           @if (currentView() === 'PROFILE') {
             <main class="flex-1 overflow-y-auto bg-app">
               <app-user-profile></app-user-profile>
+            </main>
+          } @else if (currentView() === 'WORKBENCH') {
+            <main class="flex-1 overflow-y-auto bg-app">
+              <app-custom-job-workbench></app-custom-job-workbench>
             </main>
           } @else if (report.jobs().length === 0 && !report.isLoading() && !report.isScrapingInProgress()) {
             <!-- ZERO STATE / GREENFIELD ONBOARDING -->

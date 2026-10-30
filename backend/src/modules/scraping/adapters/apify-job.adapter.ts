@@ -46,17 +46,31 @@ export class ApifyJobAdapter implements JobDataSourcePort {
     const clientRating = Number(buyerStats.score ?? raw.client?.rating ?? 0);
     const clientTotalSpend = Number(buyerStats.totalCharges?.amount ?? raw.client?.totalSpent ?? 0);
 
-    // 4. Ubicación del Cliente Normalizada
+    // 4. Ubicación del Cliente Normalizada (Ciudad y País)
     let clientCountry: string | null = raw.buyer?.location?.country || raw.client?.country || null;
-    if (!clientCountry && raw.nation) {
-      // Formato típico en Apify: "India/Hyderabad" -> "India"
-      clientCountry = String(raw.nation).split('/')[0].trim();
+    let clientCity: string | null = raw.buyer?.location?.city || raw.client?.city || null;
+    if (raw.nation) {
+      // Formato típico en Apify: "India/Hyderabad" -> país "India", ciudad "Hyderabad"
+      const parts = String(raw.nation).split('/');
+      if (!clientCountry && parts[0]) {
+        clientCountry = parts[0].trim();
+      }
+      if (!clientCity && parts[1]) {
+        clientCity = parts[1].trim();
+      }
     }
     if (clientCountry) {
       const lower = clientCountry.toLowerCase().trim();
       if (lower === 'us' || lower === 'usa' || lower.includes('united states')) {
         clientCountry = 'United States';
       }
+    }
+    if (clientCity && clientCountry) {
+      if (!clientCity.toLowerCase().includes(clientCountry.toLowerCase())) {
+        clientCountry = `${clientCity}, ${clientCountry}`;
+      }
+    } else if (clientCity && !clientCountry) {
+      clientCountry = clientCity;
     }
 
     // 5. Verificación de Pago y Competencia (Propuestas enviadas)

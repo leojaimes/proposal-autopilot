@@ -9,6 +9,8 @@ import { TenantContextService } from '../../core/context/tenant-context.service'
 import { ApifyJobAdapter } from './adapters/apify-job.adapter';
 import { OfficialUpworkApiAdapter } from './adapters/official-upwork.adapter';
 import { LinkedInJobAdapter } from './adapters/linkedin-job.adapter';
+import { LambdaLinkedInScraperService } from './services/lambda-linkedin-scraper.service';
+import { ExternalJobExtractorService } from './services/external-job-extractor.service';
 import { ScrapingProgressService } from './scraping-progress.service';
 import { MarketTaxonomyAssignmentService } from './services/market-taxonomy-assignment.service';
 import { MarketSnapshotService } from './services/market-snapshot.service';
@@ -27,6 +29,8 @@ import { TaxonomyClassificationWorkService } from './services/taxonomy-classific
     ApifyJobAdapter, 
     OfficialUpworkApiAdapter,
     LinkedInJobAdapter,
+    LambdaLinkedInScraperService,
+    ExternalJobExtractorService,
     MarketTaxonomyAssignmentService,
     MarketSnapshotService,
     MarketRadarOperationsService,
@@ -37,6 +41,6 @@ import { TaxonomyClassificationWorkService } from './services/taxonomy-classific
     PrismaService, 
     TenantContextService
   ],
-  exports: [ApifyService, ScrapingProgressService, ApifyJobAdapter, OfficialUpworkApiAdapter, LinkedInJobAdapter],
+  exports: [ApifyService, ScrapingProgressService, ApifyJobAdapter, OfficialUpworkApiAdapter, LinkedInJobAdapter, LambdaLinkedInScraperService, ExternalJobExtractorService],
 })
 export class ScrapingModule {}

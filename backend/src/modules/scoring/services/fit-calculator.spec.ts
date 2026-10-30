@@ -297,4 +297,47 @@ describe('Adversarial & Edge-Case Scoring Engine Suite - Deductive Model', () =>
       'Dar mayor peso a viabilidad/competencia debe bajar una vacante saturada',
     );
   });
+
+  // ADV-13: Ubicaciones Objetivo (targetCountries/targetLocations)
+  it('ADV-13: Un empleo fuera de las ubicaciones objetivo (targetCountries) debe ser topado a <= 15 y marcado como EXCLUDED', () => {
+    const input: FitCalculationInput = {
+      title: 'Senior AI Product Designer',
+      description: 'Design generative AI interfaces.',
+      activeQueries: userActiveQueries,
+      clientCountry: 'United States',
+      targetCountries: ['Colombia', 'Mexico'],
+      clientTotalSpend: 50000,
+      clientRating: 5.0,
+      proposalsCount: 2,
+      isPaymentVerified: true,
+      postedDate: new Date(),
+    };
+
+    const result = fitCalculator.calculate(input);
+    assert.equal(result.eligibilityStatus, 'EXCLUDED');
+    assert.ok(result.overallScore <= 15, `Score de país no objetivo debe ser <= 15, obtenido: ${result.overallScore}`);
+    assert.equal(result.isCapped, true);
+    assert.ok(result.capReason?.includes('GEO MISMATCH'), `capReason debe indicar GEO MISMATCH, obtenido: ${result.capReason}`);
+  });
+
+  // ADV-14: Coincidencia por Ciudad y País (ej. Bogotá, Colombia)
+  it('ADV-14: Debe hacer match geográfico válido si la vacante coincide por país o por ciudad específica (ej. "Bogotá, Colombia" con target "Bogota" o "Colombia")', () => {
+    const inputCity: FitCalculationInput = {
+      title: 'Senior AI Product Design & Agentic Workflow Design Lead',
+      description: 'Lead AI product design, Figma design system and agentic workflows for our Series A startup.',
+      activeQueries: userActiveQueries,
+      clientCountry: 'Bogotá, Colombia',
+      targetCountries: ['Bogota', 'Mexico'],
+      clientTotalSpend: 85000,
+      clientRating: 5.0,
+      proposalsCount: 2,
+      isPaymentVerified: true,
+      postedDate: new Date(),
+    };
+
+    const resultCity = fitCalculator.calculate(inputCity);
+    assert.equal(resultCity.eligibilityStatus, 'ELIGIBLE');
+    assert.equal(resultCity.isCapped, false);
+    assert.ok(resultCity.overallScore >= 90, `Score con ciudad objetivo debe ser alto, obtenido: ${resultCity.overallScore}`);
+  });
 });

@@ -159,10 +159,12 @@ export class ReportService {
       this.elapsedTimeSeconds.update(s => s + 1);
     }, 1000);
 
-    // POST asíncrono con las palabras clave prioritarias del perfil
-    const payload: { maxResults: number; keywords?: string[]; platform: 'UPWORK' | 'LINKEDIN' } = {
+    // POST asíncrono con las palabras clave prioritarias y ubicaciones del perfil
+    const activeLocations = this.pipeline.targetCountries();
+    const payload: { maxResults: number; keywords?: string[]; platform: 'UPWORK' | 'LINKEDIN'; targetLocations?: string[] } = {
       maxResults: limit,
       platform,
+      targetLocations: activeLocations.length > 0 ? activeLocations : undefined,
     };
     if (keywords && keywords.length > 0) {
       payload.keywords = keywords;

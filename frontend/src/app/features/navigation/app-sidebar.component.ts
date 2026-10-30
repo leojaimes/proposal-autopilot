@@ -15,7 +15,8 @@ import {
   LucidePin,
   LucidePinOff,
   LucideLogOut,
-  LucideShield
+  LucideShield,
+  LucideSparkles
 } from '@lucide/angular';
 
 @Component({
@@ -33,7 +34,8 @@ import {
     LucidePin,
     LucidePinOff,
     LucideLogOut,
-    LucideShield
+    LucideShield,
+    LucideSparkles
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -142,6 +144,20 @@ import {
             <svg lucideUser class="w-4 h-4 shrink-0 transition-transform group-hover:scale-110"></svg>
             @if (isExpandedView()) {
               <span class="truncate flex-1 text-left">Mi Perfil</span>
+            }
+          </button>
+          <!-- TALLER 1:1 / VACANTES EXTERNAS -->
+          <button
+            (click)="viewModeChange.emit('WORKBENCH')"
+            [ngClass]="activeView() === 'WORKBENCH' ? 'bg-cyan-500/15 text-cyan-400 border-cyan-400/30 font-bold' : 'text-content-secondary hover:text-content-primary hover:bg-white/[0.05] border-transparent'"
+            class="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-xs transition-all border group"
+            title="Taller 1:1 - Analizador de Vacante Externa">
+            <svg lucideSparkles class="w-4 h-4 shrink-0 transition-transform group-hover:scale-110 text-cyan-400"></svg>
+            @if (isExpandedView()) {
+              <span class="truncate flex-1 text-left">Taller 1:1</span>
+              <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">
+                Nuevo
+              </span>
             }
           </button>
         </nav>
