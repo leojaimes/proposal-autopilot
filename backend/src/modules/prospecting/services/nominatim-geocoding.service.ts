@@ -40,25 +40,42 @@ const FALLBACK_CITIES: Record<string, { lat: number; lng: number; state: string;
   piedecuesta: { lat: 6.9880, lng: -73.0498, state: 'Santander', country: 'Colombia' },
   cali: { lat: 3.4516, lng: -76.5320, state: 'Valle del Cauca', country: 'Colombia' },
   barranquilla: { lat: 10.9685, lng: -74.7813, state: 'Atlántico', country: 'Colombia' },
-  // USA Cities & California / Bay Area
+  // USA Cities & California / Bay Area & SoCal
   austin: { lat: 30.2672, lng: -97.7431, state: 'Texas', country: 'United States' },
   houston: { lat: 29.7604, lng: -95.3698, state: 'Texas', country: 'United States' },
   dallas: { lat: 32.7767, lng: -96.7970, state: 'Texas', country: 'United States' },
   miami: { lat: 25.7617, lng: -80.1918, state: 'Florida', country: 'United States' },
   orlando: { lat: 28.5383, lng: -81.3792, state: 'Florida', country: 'United States' },
-  'los angeles': { lat: 34.0522, lng: -118.2437, state: 'California', country: 'United States' },
+  // San Francisco Proper Districts
   'san francisco': { lat: 37.7749, lng: -122.4194, state: 'California', country: 'United States' },
-  'san jose': { lat: 37.3382, lng: -121.8863, state: 'California', country: 'United States' },
+  'soma': { lat: 37.7785, lng: -122.3950, state: 'California', country: 'United States' },
+  'financial district': { lat: 37.7946, lng: -122.3999, state: 'California', country: 'United States' },
+  'mission district': { lat: 37.7599, lng: -122.4148, state: 'California', country: 'United States' },
+  'design district': { lat: 37.7700, lng: -122.4040, state: 'California', country: 'United States' },
+  'mission bay': { lat: 37.7670, lng: -122.3920, state: 'California', country: 'United States' },
+  'potrero hill': { lat: 37.7580, lng: -122.3980, state: 'California', country: 'United States' },
+  'pacific heights': { lat: 37.7925, lng: -122.4350, state: 'California', country: 'United States' },
+  'marina': { lat: 37.8030, lng: -122.4360, state: 'California', country: 'United States' },
+  'presidio': { lat: 37.7989, lng: -122.4662, state: 'California', country: 'United States' },
+  // Bay Area / Silicon Valley
   'palo alto': { lat: 37.4419, lng: -122.1430, state: 'California', country: 'United States' },
   'mountain view': { lat: 37.3861, lng: -122.0839, state: 'California', country: 'United States' },
   'sunnyvale': { lat: 37.3688, lng: -122.0363, state: 'California', country: 'United States' },
   'santa clara': { lat: 37.3541, lng: -121.9552, state: 'California', country: 'United States' },
+  'san jose': { lat: 37.3382, lng: -121.8863, state: 'California', country: 'United States' },
   'oakland': { lat: 37.8044, lng: -122.2712, state: 'California', country: 'United States' },
   'berkeley': { lat: 37.8715, lng: -122.2730, state: 'California', country: 'United States' },
   'san mateo': { lat: 37.5630, lng: -122.3255, state: 'California', country: 'United States' },
   'redwood city': { lat: 37.4852, lng: -122.2364, state: 'California', country: 'United States' },
-  'san diego': { lat: 32.7157, lng: -117.1611, state: 'California', country: 'United States' },
+  // Southern California (SoCal)
+  'los angeles': { lat: 34.0522, lng: -118.2437, state: 'California', country: 'United States' },
+  'silicon beach': { lat: 34.0195, lng: -118.4912, state: 'California', country: 'United States' },
+  'santa monica': { lat: 34.0195, lng: -118.4912, state: 'California', country: 'United States' },
+  'venice': { lat: 33.9850, lng: -118.4695, state: 'California', country: 'United States' },
   'irvine': { lat: 33.6846, lng: -117.8265, state: 'California', country: 'United States' },
+  'san diego': { lat: 32.7157, lng: -117.1611, state: 'California', country: 'United States' },
+  'la jolla': { lat: 32.8328, lng: -117.2713, state: 'California', country: 'United States' },
+  'sorrento valley': { lat: 32.8990, lng: -117.2000, state: 'California', country: 'United States' },
   'new york': { lat: 40.7128, lng: -74.0060, state: 'New York', country: 'United States' },
   chicago: { lat: 41.8781, lng: -87.6298, state: 'Illinois', country: 'United States' },
 };
@@ -119,7 +136,13 @@ export class NominatimGeocodingService {
 
     // Reliable fallback
     const cityClean = city.trim().toLowerCase();
-    const fallback = FALLBACK_CITIES[cityClean] || { lat: 20.5888, lng: -100.3899, state: state || 'Querétaro' };
+    const cityBase = cityClean.split(/[-–(]/)[0].trim();
+    const fallback =
+      FALLBACK_CITIES[cityClean] ||
+      FALLBACK_CITIES[cityBase] ||
+      (state?.toLowerCase().includes('california')
+        ? { lat: 37.7749, lng: -122.4194, state: 'California', country: 'United States' }
+        : { lat: 20.5888, lng: -100.3899, state: state || 'Querétaro', country: country || 'Mexico' });
 
     const fallbackResult: GeocodedCityResult = {
       city: city.trim(),
