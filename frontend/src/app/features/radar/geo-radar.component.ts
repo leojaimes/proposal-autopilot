@@ -759,10 +759,15 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
       zoomControl: false,
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-      subdomains: 'abcd',
-      maxZoom: 19,
+    // Basemap táctico oscuro de alta definición (Esri World Dark Gray Canvas) - 100% Gratuito, sin marcas de agua ni API Key
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '&copy; Esri, HERE, Garmin, &copy; OpenStreetMap',
+      maxZoom: 16,
+    }).addTo(this.map);
+
+    // Capa táctica de etiquetas de calles, avenidas y colonias
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 16,
     }).addTo(this.map);
 
     L.control.zoom({ position: 'bottomright' }).addTo(this.map);
