@@ -128,6 +128,12 @@ import {
                   placeholder="https://litera.wd12.myworkdayjobs.com/Litera_Careers/job/Denver-CO/Senior-Software-Engineer_R-501348-1"
                   class="flex-1 px-3.5 py-2.5 rounded-xl bg-[#0d1017] border border-white/[0.1] text-xs font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-400 transition-colors"
                   (keyup.enter)="analyze()" />
+                <input
+                  type="text"
+                  [(ngModel)]="companyNameInput"
+                  placeholder="Empresa (opcional)"
+                  class="w-44 px-3.5 py-2.5 rounded-xl bg-[#0d1017] border border-white/[0.1] text-xs font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-400 transition-colors"
+                  (keyup.enter)="analyze()" />
                 <button
                   (click)="analyze()"
                   [disabled]="isLoading() || !urlInput.trim()"
@@ -149,12 +155,25 @@ import {
                   <svg lucideFileText class="w-3.5 h-3.5 text-cyan-400"></svg>
                   <span>Descripción o requerimientos completos de la vacante</span>
                 </label>
-                <button
-                  (click)="loadTextExample()"
-                  class="text-[11px] font-mono text-cyan-400 hover:text-cyan-300 underline underline-offset-2">
-                  Cargar texto de ejemplo
-                </button>
+                <div class="flex items-center gap-2">
+                  <button
+                    (click)="loadStripeExample()"
+                    class="text-[11px] font-mono text-cyan-400 hover:text-cyan-300 underline underline-offset-2">
+                    Ejemplo Stripe
+                  </button>
+                  <span class="text-slate-600">|</span>
+                  <button
+                    (click)="loadTextExample()"
+                    class="text-[11px] font-mono text-cyan-400 hover:text-cyan-300 underline underline-offset-2">
+                    Ejemplo Litera
+                  </button>
+                </div>
               </div>
+              <input
+                type="text"
+                [(ngModel)]="companyNameInput"
+                placeholder="Empresa / Compañía (Opcional - la IA la detecta automáticamente del texto si se deja vacío)"
+                class="w-full px-3.5 py-2 rounded-xl bg-[#0d1017] border border-white/[0.1] text-xs font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-400 transition-colors" />
               <textarea
                 [(ngModel)]="textInput"
                 rows="4"
@@ -198,13 +217,27 @@ import {
               <div class="flex items-start justify-between gap-2">
                 <div>
                   <h2 class="text-sm font-bold text-white font-headline">{{ r.title }}</h2>
-                  <div class="flex items-center gap-3 text-xs text-slate-400 mt-1 font-mono">
-                    <span class="flex items-center gap-1 text-slate-300">
-                      <svg lucideBuilding class="w-3.5 h-3.5 text-cyan-400"></svg>
-                      {{ r.companyName }}
-                    </span>
+                  <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-1 font-mono">
+                    <div class="flex items-center gap-1.5 text-slate-300">
+                      <svg lucideBuilding class="w-3.5 h-3.5 text-cyan-400 shrink-0"></svg>
+                      <input
+                        type="text"
+                        [(ngModel)]="companyNameInput"
+                        placeholder="Nombre empresa"
+                        title="Puedes editar el nombre de la empresa y hacer clic en Actualizar"
+                        class="px-2 py-0.5 rounded bg-[#0d1017] border border-white/[0.1] text-xs font-mono text-cyan-200 focus:outline-none focus:border-cyan-400 w-36" />
+                      @if (companyNameInput.trim() && companyNameInput.trim() !== r.companyName) {
+                        <button
+                          (click)="analyze()"
+                          [disabled]="isLoading()"
+                          class="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-400/30 transition-all flex items-center gap-1"
+                          title="Actualizar carta de presentación y kit con este nuevo nombre">
+                          <span>Actualizar</span>
+                        </button>
+                      }
+                    </div>
                     <span class="flex items-center gap-1 text-slate-400">
-                      <svg lucideMapPin class="w-3.5 h-3.5 text-emerald-400"></svg>
+                      <svg lucideMapPin class="w-3.5 h-3.5 text-emerald-400 shrink-0"></svg>
                       {{ r.location }}
                     </span>
                   </div>
@@ -228,6 +261,31 @@ import {
                   }
                 </div>
               </div>
+
+              <!-- VERIFIED COMPANY INTELLIGENCE VIA ORION -->
+              @if (r.companyProfile?.summary) {
+                <div class="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-xs space-y-1 mt-2">
+                  <div class="flex items-center justify-between text-[11px] font-mono text-cyan-300 font-bold">
+                    <span class="flex items-center gap-1">
+                      <svg lucideSparkles class="w-3 h-3 text-cyan-400"></svg>
+                      Inteligencia Orion (Empresa Verificada)
+                    </span>
+                    @if (r.companyProfile?.website) {
+                      <a [href]="r.companyProfile?.website" target="_blank" rel="noopener noreferrer" class="underline text-cyan-400 hover:text-cyan-200">
+                        Sitio Web ↗
+                      </a>
+                    }
+                  </div>
+                  <p class="text-[11px] text-slate-300 leading-relaxed">
+                    {{ r.companyProfile?.summary }}
+                  </p>
+                  @if (r.companyProfile?.industry) {
+                    <span class="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-400/20 text-cyan-200 border border-cyan-400/30">
+                      {{ r.companyProfile?.industry }}
+                    </span>
+                  }
+                </div>
+              }
             </div>
 
             <!-- 🎯 WHY APPLY? (DRIVERS) -->
@@ -462,6 +520,7 @@ export class CustomJobWorkbenchComponent {
   public readonly inputMode = signal<'URL' | 'TEXT'>('URL');
   public urlInput = '';
   public textInput = '';
+  public companyNameInput = '';
   public readonly isLoading = signal<boolean>(false);
   public readonly errorMessage = signal<string>('');
 
@@ -491,9 +550,25 @@ export class CustomJobWorkbenchComponent {
 
   public loadWorkdayExample(): void {
     this.urlInput = 'https://litera.wd12.myworkdayjobs.com/Litera_Careers/job/Denver-CO/Senior-Software-Engineer_R-501348-1';
+    this.companyNameInput = 'Litera';
+  }
+
+  public loadStripeExample(): void {
+    this.companyNameInput = '';
+    this.textInput = `Role: Senior Backend Engineer at Stripe
+Location: San Francisco, CA / Remote
+
+About Stripe:
+Stripe builds economic infrastructure for the internet. Businesses of every size use our software to accept payments and manage their businesses online.
+
+Requirements:
+- 5+ years of experience with TypeScript, Node.js, and distributed systems.
+- Experience with PostgreSQL, Redis, and high-throughput transaction processing.
+- Background in Cloud (AWS/GCP), Docker, and CI/CD.`;
   }
 
   public loadTextExample(): void {
+    this.companyNameInput = 'Litera';
     this.textInput = `Company: Litera
 Role: Senior Software Engineer
 Location: Denver, CO, United States
@@ -513,9 +588,20 @@ Key Requirements:
 
     this.errorMessage.set('');
     const mode = this.inputMode();
+    const explicitCompany = this.companyNameInput.trim() || undefined;
     const payload = mode === 'URL'
-      ? { url: this.urlInput.trim(), personaName: this.pipeline.activeProfile()?.name, lang: this.targetLanguage() }
-      : { rawText: this.textInput.trim(), personaName: this.pipeline.activeProfile()?.name, lang: this.targetLanguage() };
+      ? {
+          url: this.urlInput.trim(),
+          personaName: this.pipeline.activeProfile()?.name,
+          lang: this.targetLanguage(),
+          companyName: explicitCompany,
+        }
+      : {
+          rawText: this.textInput.trim(),
+          personaName: this.pipeline.activeProfile()?.name,
+          lang: this.targetLanguage(),
+          companyName: explicitCompany,
+        };
 
     if (mode === 'URL' && !payload.url) {
       this.errorMessage.set('Por favor ingresa una URL válida.');
@@ -531,6 +617,9 @@ Key Requirements:
       next: (res) => {
         this.result.set(res);
         this.isLoading.set(false);
+        if (res.companyName) {
+          this.companyNameInput = res.companyName;
+        }
 
         // Pre-cargar campos editables con los resultados de la IA
         this.editableSummary = res.adaptedCv?.summary?.text || '';

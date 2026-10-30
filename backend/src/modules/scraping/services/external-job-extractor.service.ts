@@ -44,11 +44,7 @@ export class ExternalJobExtractorService {
     }
 
     // Extracción de empresa
-    let companyName = 'Litera';
-    const companyMatch = text.match(/(?:Company|Organization|Empresa|Client|Hiring):\s*([^\r\n]+)/i);
-    if (companyMatch && companyMatch[1].trim()) {
-      companyName = companyMatch[1].trim();
-    }
+    const companyName = this.extractCompanyName(text);
 
     // Extracción de ubicación
     let location = 'Remote, United States';
@@ -190,6 +186,47 @@ export class ExternalJobExtractorService {
       this.logger.error(`Error extracting Workday job from ${url}: ${err.message}`);
       throw err;
     }
+  }
+
+  private extractCompanyName(text: string): string {
+    // 1. Explicit labels: "Company: Acme", "Empresa: Acme", "Client: Acme"
+    const explicitMatch = text.match(/(?:Company|Organization|Empresa|Client|Cliente|Hiring Organization|Hiring Company)\s*[:\-]\s*([^\r\n,;]+)/i);
+    if (explicitMatch && explicitMatch[1].trim()) {
+      return explicitMatch[1].trim();
+    }
+
+    // 2. "About <Company>:" or "Acerca de <Company>:"
+    const aboutMatch = text.match(/(?:About|Acerca de|Sobre)\s+([A-Z0-9][A-Za-z0-9&.\- ]{1,35})[:\r\n]/i);
+    if (aboutMatch && aboutMatch[1].trim()) {
+      const candidate = aboutMatch[1].trim();
+      const isGeneric = /^(?:the\s+(?:job|role|position|team|company|opportunity|client)|us|our\s+team|este\s+rol|la\s+empresa|nosotros)$/i.test(candidate);
+      if (!isGeneric) {
+        return candidate;
+      }
+    }
+
+    // 3. "<Role> at <Company>" or "<Role> en <Company>" (e.g. Senior Backend Engineer at Spotify)
+    const atMatch = text.match(/(?:Engineer|Developer|Architect|Lead|Manager|Consultant|Specialist|Programmer|Desarrollador|Ingeniero)\s+(?:at|en|@)\s+([A-Z0-9][A-Za-z0-9&.\- ]{1,35})/i);
+    if (atMatch && atMatch[1].trim()) {
+      const candidate = atMatch[1].trim();
+      const isGeneric = /^(?:the\s+|our\s+|a\s+|este\s+)/i.test(candidate);
+      if (!isGeneric) {
+        return candidate;
+      }
+    }
+
+    // 4. "At <Company>, we..." or "En <Company>, ..."
+    const atWeMatch = text.match(/(?:At|En|Join|Únete a)\s+([A-Z0-9][A-Za-z0-9&.\- ]{1,25})(?:,|\s+(?:we\b|we're\b|our\b|you\b|buscamos\b|es\b|is\b|to\b))/i);
+    if (atWeMatch && atWeMatch[1].trim()) {
+      const candidate = atWeMatch[1].trim();
+      const isGeneric = /^(?:this\s+time|least|present|este|nuestra)/i.test(candidate);
+      if (!isGeneric) {
+        return candidate;
+      }
+    }
+
+    // 5. Default fallback (never hardcoded 'Litera')
+    return 'Hiring Team';
   }
 }
 

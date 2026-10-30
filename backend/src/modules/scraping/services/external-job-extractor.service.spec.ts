@@ -100,4 +100,38 @@ describe('ExternalJobExtractorService - Unit Test Suite', () => {
     assert.ok(result.requiredSkills.includes('TypeScript'));
     assert.ok(result.requiredSkills.includes('Node.js'));
   });
+
+  it('should detect company from various natural language patterns and avoid hardcoded fallback', async () => {
+    const service = new ExternalJobExtractorService({} as any);
+
+    // Case A: "About Stripe:"
+    const textA = `
+      Senior Backend Engineer
+      About Stripe:
+      Stripe is building economic infrastructure for the internet.
+      Requirements: TypeScript, Node.js, PostgreSQL.
+    `;
+    const resA = await service.extractFromRawText(textA);
+    assert.strictEqual(resA.companyName, 'Stripe');
+
+    // Case B: "Role at Company"
+    const textB = `
+      Staff Cloud Architect at Spotify
+      Location: Stockholm, Sweden
+      Join our platform engineering team to build scalable microservices.
+      Requirements: Go, Docker, Kubernetes.
+    `;
+    const resB = await service.extractFromRawText(textB);
+    assert.strictEqual(resB.companyName, 'Spotify');
+
+    // Case C: No company mentioned in text -> should NOT default to 'Litera'
+    const textC = `
+      Full Stack Developer
+      We are looking for a developer to help build modern web applications.
+      Requirements: React, Node.js.
+    `;
+    const resC = await service.extractFromRawText(textC);
+    assert.notStrictEqual(resC.companyName, 'Litera', 'Should not default to Litera when not mentioned');
+    assert.strictEqual(resC.companyName, 'Hiring Team');
+  });
 });

@@ -8,6 +8,15 @@ export interface CustomJobAnalysisResult {
   lang?: 'en' | 'es';
   title: string;
   companyName: string;
+  companyProfile?: {
+    industry?: string;
+    coreProduct?: string;
+    targetAudience?: string;
+    valueProposition?: string;
+    summary?: string;
+    website?: string;
+    enriched?: boolean;
+  };
   location: string;
   description: string;
   requiredSkills: string[];
@@ -39,7 +48,7 @@ export class CustomJobService {
       ? '/api/scraping'
       : 'http://localhost:7000/api/scraping';
 
-  analyzeJob(dto: { url?: string; rawText?: string; personaName?: string; lang?: 'en' | 'es' }): Observable<CustomJobAnalysisResult> {
+  analyzeJob(dto: { url?: string; rawText?: string; personaName?: string; lang?: 'en' | 'es'; companyName?: string }): Observable<CustomJobAnalysisResult> {
     return this.http.post<CustomJobAnalysisResult>(`${this.baseUrl}/custom-job/analyze`, dto);
   }
 

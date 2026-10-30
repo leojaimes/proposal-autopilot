@@ -11,6 +11,8 @@ import { OfficialUpworkApiAdapter } from './adapters/official-upwork.adapter';
 import { LinkedInJobAdapter } from './adapters/linkedin-job.adapter';
 import { LambdaLinkedInScraperService } from './services/lambda-linkedin-scraper.service';
 import { ExternalJobExtractorService } from './services/external-job-extractor.service';
+import { OrionSearchService } from './services/orion-search.service';
+import { CompanyEnricherService } from './services/company-enricher.service';
 import { ScrapingProgressService } from './scraping-progress.service';
 import { MarketTaxonomyAssignmentService } from './services/market-taxonomy-assignment.service';
 import { MarketSnapshotService } from './services/market-snapshot.service';
@@ -31,6 +33,8 @@ import { TaxonomyClassificationWorkService } from './services/taxonomy-classific
     LinkedInJobAdapter,
     LambdaLinkedInScraperService,
     ExternalJobExtractorService,
+    OrionSearchService,
+    CompanyEnricherService,
     MarketTaxonomyAssignmentService,
     MarketSnapshotService,
     MarketRadarOperationsService,
@@ -41,6 +45,16 @@ import { TaxonomyClassificationWorkService } from './services/taxonomy-classific
     PrismaService, 
     TenantContextService
   ],
-  exports: [ApifyService, ScrapingProgressService, ApifyJobAdapter, OfficialUpworkApiAdapter, LinkedInJobAdapter, LambdaLinkedInScraperService, ExternalJobExtractorService],
+  exports: [
+    ApifyService,
+    ScrapingProgressService,
+    ApifyJobAdapter,
+    OfficialUpworkApiAdapter,
+    LinkedInJobAdapter,
+    LambdaLinkedInScraperService,
+    ExternalJobExtractorService,
+    OrionSearchService,
+    CompanyEnricherService,
+  ],
 })
 export class ScrapingModule {}

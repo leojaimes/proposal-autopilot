@@ -122,6 +122,7 @@ model Tenant {
   marketCategorySnapshots     MarketCategorySnapshot[]
   profileOpportunitySnapshots ProfileOpportunitySnapshot[]
   marketRadarDecisions        MarketRadarDecision[]
+  prospectedBusinesses        ProspectedBusiness[]
 
   @@map("tenants")
 }
@@ -558,4 +559,58 @@ model Proposal {
 
   @@unique([jobPostId, positioningProfileId], name: "uq_proposal_job_profile")
   @@map("proposals")
+}
+
+enum CompanyPainCategory {
+  NO_WEBSITE
+  OUTDATED_OR_SLOW_WEB
+  NO_ONLINE_BOOKING
+  UNRESPONSIVE_CUSTOMER_SERVICE
+  MANUAL_INVENTORY_OR_CATALOG
+  LACK_OF_ECOMMERCE
+  GENERAL_REPUTATION_ISSUE
+}
+
+enum ProspectedLeadStatus {
+  DISCOVERED
+  AUDITED
+  CONTACTED
+  DISQUALIFIED
+}
+
+model ProspectedBusiness {
+  id              String               @id @default(uuid()) @db.Uuid
+  tenantId        String               @map("tenant_id") @db.Uuid
+  placeId         String?              @map("place_id") @db.VarChar(255)
+  name            String               @db.VarChar(255)
+  category        String?              @db.VarChar(150)
+  address         String?              @db.Text
+  city            String?              @db.VarChar(100)
+  state           String?              @db.VarChar(100)
+  country         String?              @default("Mexico") @db.VarChar(100)
+  latitude        Decimal?             @db.Decimal(10, 7)
+  longitude       Decimal?             @db.Decimal(10, 7)
+  websiteUrl      String?              @map("website_url") @db.Text
+  phone           String?              @db.VarChar(50)
+  rating          Decimal?             @db.Decimal(3, 2)
+  reviewsCount    Int                  @default(0) @map("reviews_count")
+  status          ProspectedLeadStatus @default(DISCOVERED)
+
+  primaryPain     CompanyPainCategory? @map("primary_pain")
+  painConfidence  Decimal?             @map("pain_confidence") @db.Decimal(3, 2)
+  painAnalysis    Json?                @map("pain_analysis")
+  suggestedOffer  String?              @map("suggested_offer") @db.Text
+  salesPitchDraft String?              @map("sales_pitch_draft") @db.Text
+
+  rawGoogleData   Json?                @map("raw_google_data")
+
+  scannedAt       DateTime             @default(now()) @map("scanned_at")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+
+  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, placeId], name: "uq_tenant_place")
+  @@index([tenantId, city, category])
+  @@map("prospected_businesses")
 }

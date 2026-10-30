@@ -10,6 +10,7 @@ import { LiveScrapeProgressComponent } from './features/dispatch/live-scrape-pro
 import { MarketRadarComponent } from './features/radar/market-radar.component';
 import { UserProfileComponent } from './features/profile/user-profile.component';
 import { CustomJobWorkbenchComponent } from './features/workbench/custom-job-workbench.component';
+import { GeoRadarComponent } from './features/radar/geo-radar.component';
 import { ReportService } from './core/services/report.service';
 import { AuthService } from './core/services/auth.service';
 import { RegisterCardComponent } from './features/auth/register-card.component';
@@ -30,6 +31,7 @@ import { RegisterCardComponent } from './features/auth/register-card.component';
     MarketRadarComponent,
     UserProfileComponent,
     CustomJobWorkbenchComponent,
+    GeoRadarComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -65,6 +67,10 @@ import { RegisterCardComponent } from './features/auth/register-card.component';
           } @else if (currentView() === 'WORKBENCH') {
             <main class="flex-1 overflow-y-auto bg-app">
               <app-custom-job-workbench></app-custom-job-workbench>
+            </main>
+          } @else if (currentView() === 'GEO_RADAR') {
+            <main class="flex-1 overflow-hidden bg-[#090d14]">
+              <app-geo-radar class="w-full h-full block"></app-geo-radar>
             </main>
           } @else if (report.jobs().length === 0 && !report.isLoading() && !report.isScrapingInProgress()) {
             <!-- ZERO STATE / GREENFIELD ONBOARDING -->

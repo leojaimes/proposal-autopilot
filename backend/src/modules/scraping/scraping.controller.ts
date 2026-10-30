@@ -7,6 +7,7 @@ import { ScrapingProgressService } from './scraping-progress.service';
 import { ApifyJobAdapter } from './adapters/apify-job.adapter';
 import { LinkedInJobAdapter } from './adapters/linkedin-job.adapter';
 import { ExternalJobExtractorService } from './services/external-job-extractor.service';
+import { CompanyEnricherService } from './services/company-enricher.service';
 import { FitCalculatorService } from '../scoring/services/fit-calculator.service';
 import { ClaudeProposalService } from '../proposals/claude-proposal.service';
 import { TechnicalProposalPdfService } from '../proposals/technical-proposal-pdf.service';
@@ -93,6 +94,7 @@ export class ScrapingController {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     @Optional() private readonly externalJobExtractor?: ExternalJobExtractorService,
+    @Optional() private readonly companyEnricher?: CompanyEnricherService,
   ) {}
 
   /**
@@ -1377,7 +1379,7 @@ isActive: true,
    */
   @Post('custom-job/analyze')
   async analyzeCustomJob(
-    @Body() body: { url?: string; rawText?: string; personaName?: string; lang?: 'en' | 'es' },
+    @Body() body: { url?: string; rawText?: string; personaName?: string; lang?: 'en' | 'es'; companyName?: string },
   ) {
     const tenantId = this.tenantContext.getTenantId();
     if (!body?.url && !body?.rawText) {
@@ -1392,6 +1394,28 @@ isActive: true,
     const extracted = body.url
       ? await this.externalJobExtractor.extractFromUrl(body.url)
       : await this.externalJobExtractor.extractFromRawText(body.rawText!);
+
+    // Si el usuario especificó o corrigió explícitamente el nombre de la empresa, tiene máxima prioridad
+    const safeCompanyName = (body.companyName && body.companyName.trim())
+      ? body.companyName.trim()
+      : (typeof extracted.companyName === 'string' && extracted.companyName.trim()
+          ? extracted.companyName.trim()
+          : 'Hiring Team');
+    extracted.companyName = safeCompanyName;
+
+    // 1.1 Enriquecer inteligencia de la empresa vía Orion Search (SearXNG + Trafilatura) y Gemini
+    let companyProfile: any = undefined;
+    if (this.companyEnricher && safeCompanyName !== 'Hiring Team') {
+      try {
+        companyProfile = await this.companyEnricher.enrichCompany(
+          safeCompanyName,
+          extracted.location,
+          extracted.jobUrl,
+        );
+      } catch (err: any) {
+        this.logger.warn(`Failed to enrich company "${safeCompanyName}": ${err.message}`);
+      }
+    }
 
     // 2. Perfil activo para calibración
     const activeProfile = await this.resolveActiveProfile(body.personaName);
@@ -1423,21 +1447,25 @@ isActive: true,
 
     // 4. Adaptar CV ATS y redactar Carta de Presentación en idioma objetivo (EN / ES)
     const lang = (body.lang === 'es' ? 'es' : 'en') as 'en' | 'es';
-    const safeCompanyName = typeof extracted.companyName === 'string' ? extracted.companyName : 'Litera';
     const storedCv = activeProfile?.baseCv as any;
     const baseCvData = storedCv?.translations?.[lang];
 
     const adaptedResult = await this.cvTailor.adaptCvAndCoverLetter({
       jobDescription: extracted.description,
       companyName: safeCompanyName,
+      companyProfile,
       lang,
       baseCv: baseCvData,
     });
 
     const isEn = lang === 'en';
+    const industryInfo = companyProfile?.industry ? ` (${companyProfile.industry})` : '';
+    const productMission = companyProfile?.coreProduct
+      ? (isEn ? `\n\nTarget architecture and operational alignment for ${companyProfile.coreProduct}.` : `\n\nAlineado a la arquitectura y objetivos de ${companyProfile.coreProduct}.`)
+      : '';
     const techProposal = isEn
-      ? `## Technical Execution Proposal for ${safeCompanyName}\n\nSolution architecture, modular design, and CI/CD strategy for the ${extracted.title} role.`
-      : `## Propuesta de Ejecución Técnica para ${safeCompanyName}\n\nDiseño de solución e integración continua para el rol de ${extracted.title}.`;
+      ? `## Technical Execution Proposal for ${safeCompanyName}${industryInfo}\n\nSolution architecture, modular design, and CI/CD strategy for the ${extracted.title} role.${productMission}`
+      : `## Propuesta de Ejecución Técnica para ${safeCompanyName}${industryInfo}\n\nDiseño de solución e integración continua para el rol de ${extracted.title}.${productMission}`;
 
     const mermaidCode = isEn
       ? 'flowchart TD\n  A[Requirements & Spec Review] --> B[Architecture & Prototype]\n  B --> C[Modular Implementation]\n  C --> D[Deploy & Production Monitoring]'
@@ -1458,6 +1486,7 @@ isActive: true,
         rawApifyPayload: {
           _platform: 'CUSTOM',
           companyName: safeCompanyName,
+          companyProfile,
           skills: extracted.requiredSkills,
           rawPayload: extracted.rawPayload,
         },
@@ -1497,6 +1526,7 @@ isActive: true,
       lang,
       title: extracted.title,
       companyName: safeCompanyName,
+      companyProfile,
       location: extracted.location,
       description: extracted.description,
       requiredSkills: extracted.requiredSkills,

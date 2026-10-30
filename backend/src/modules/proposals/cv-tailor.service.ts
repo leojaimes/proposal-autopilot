@@ -444,6 +444,14 @@ export class CvTailorService {
   public async adaptCvAndCoverLetter(input: {
     jobDescription: string;
     companyName?: string;
+    companyProfile?: {
+      industry?: string;
+      coreProduct?: string;
+      targetAudience?: string;
+      valueProposition?: string;
+      summary?: string;
+      website?: string;
+    };
     lang?: 'en' | 'es';
     baseCv?: BaseCvData;
   }): Promise<AiAdaptationResult> {
@@ -458,26 +466,51 @@ export class CvTailorService {
     // 1. If Gemini API is available, invoke AI
     if (this.geminiApiKey && !this.geminiApiKey.includes('REPLACE_WITH_YOUR')) {
       try {
-        return await this.callGeminiCvAdaptation(input.jobDescription, company, lang, base);
+        return await this.callGeminiCvAdaptation(
+          input.jobDescription,
+          company,
+          lang,
+          base,
+          input.companyProfile,
+        );
       } catch (err: any) {
         this.logger.error(`Error calling Gemini for CV adaptation: ${err.message}. Using calibrated fallback.`);
       }
     }
 
     // 2. Deterministic smart fallback
-    return this.buildFallbackAdaptation(input.jobDescription, company, lang, base);
+    return this.buildFallbackAdaptation(input.jobDescription, company, lang, base, input.companyProfile);
   }
 
   private async callGeminiCvAdaptation(
     jobDescription: string,
     company: string,
     lang: 'en' | 'es',
-    baseData: BaseCvData
+    baseData: BaseCvData,
+    companyProfile?: {
+      industry?: string;
+      coreProduct?: string;
+      targetAudience?: string;
+      valueProposition?: string;
+      summary?: string;
+      website?: string;
+    },
   ): Promise<AiAdaptationResult> {
     const isEn = lang === 'en';
     const targetCompanyInstruction = company !== 'empresa'
       ? `TARGET COMPANY: The target company is "${company}". Ensure the Cover Letter recipient, salutation, body paragraphs, and the adapted CV explicitly address and target "${company}". In the output JSON, set "detected_company": "${company}".`
       : 'Detect the company offering the position from the job description text (or use "empresa" if unspecified).';
+
+    const companyContextSection = companyProfile?.summary
+      ? `\n### VERIFIED COMPANY INTELLIGENCE (FROM OFFICIAL RESEARCH):
+- Company: ${company}
+- Official Website: ${companyProfile.website || 'N/A'}
+- Industry: ${companyProfile.industry || 'Technology'}
+- Core Product / Mission: ${companyProfile.coreProduct || companyProfile.summary}
+- Target Audience: ${companyProfile.targetAudience || 'Enterprises'}
+- Value Proposition: ${companyProfile.valueProposition || ''}
+Use this context to write a hyper-personalized Cover Letter demonstrating authentic domain and product awareness for ${company}.`
+      : '';
 
     const prompt = `You are a professional technical recruiter and resume editor.
 I will provide:
@@ -507,6 +540,7 @@ Your task is to adapt my CV specifically to the job description while keeping it
 * No forced triads (avoid "scalable, robust, and maintainable").
 
 ### COMPANION COVER LETTER GENERATION
+${companyContextSection}
 In addition to the tailored CV, write a compelling, concise, and professional companion Cover Letter:
 * Tone: Professional, direct, humble yet confident, technically credible.
 * Structure: Exactly 3 to 4 focused paragraphs (Opening with 10 years full-stack + 1 year AI agents, technical alignment, operational realism at Spotlight Studio, courteous closing).
@@ -626,19 +660,30 @@ ${JSON.stringify(baseData)}`;
     jobDesc: string,
     company: string,
     lang: 'en' | 'es',
-    base: BaseCvData
+    base: BaseCvData,
+    companyProfile?: {
+      industry?: string;
+      coreProduct?: string;
+      targetAudience?: string;
+      valueProposition?: string;
+      summary?: string;
+      website?: string;
+    },
   ): AiAdaptationResult {
     const isEn = lang === 'en';
     const displayCompany = company !== 'empresa' ? company : (isEn ? 'your team' : 'su equipo');
+    const missionSnippet = companyProfile?.coreProduct
+      ? (isEn ? ` and directly contribute to ${displayCompany}'s ${companyProfile.coreProduct}` : ` y contribuir directamente a sus soluciones de ${companyProfile.coreProduct}`)
+      : '';
 
     const paragraphs = isEn
       ? [
-          `I am writing to express my strong interest in joining ${displayCompany}. With over 10 years of experience in full-stack software development, and having focused deeply over the past year on AI-assisted engineering workflows (working daily with Claude Code, Gemini, and Codex), I deliver clean, production-grade systems rapidly.`,
+          `I am writing to express my strong interest in joining ${displayCompany}${missionSnippet}. With over 10 years of experience in full-stack software development, and having focused deeply over the past year on AI-assisted engineering workflows (working daily with Claude Code, Gemini, and Codex), I deliver clean, production-grade systems rapidly.`,
           `My technical foundation centers around Node.js/NestJS, TypeScript, React, and PostgreSQL. At Spotlight Studio, I led the architecture of multi-tenant SaaS platforms and automated pipelines, ensuring environment parity with Docker and GitHub Actions CI/CD while keeping code maintainable and well-tested.`,
           `I welcome the opportunity to discuss how my hands-on background and delivery speed can directly support ${displayCompany}. Thank you for your time and consideration.`,
         ]
       : [
-          `Me dirijo a ustedes para expresar mi firme interés en integrarme a ${displayCompany}. Con más de 10 años de trayectoria en desarrollo de software full-stack, y habiéndome enfocado profundamente durante el último año en flujos de desarrollo asistido por IA (trabajando diariamente con Claude Code, Gemini y Codex), entrego sistemas limpios y listos para producción con alta velocidad.`,
+          `Me dirijo a ustedes para expresar mi firme interés en integrarme a ${displayCompany}${missionSnippet}. Con más de 10 años de trayectoria en desarrollo de software full-stack, y habiéndome enfocado profundamente durante el último año en flujos de desarrollo asistido por IA (trabajando diariamente con Claude Code, Gemini y Codex), entrego sistemas limpios y listos para producción con alta velocidad.`,
           `Mi base técnica se centra en Node.js/NestJS, TypeScript, Vue/React y PostgreSQL/MongoDB. En Spotlight Studio, diseñé y lideré plataformas SaaS multi-inquilino y pipelines automatizados, garantizando paridad de entornos con Docker y CI/CD en GitHub Actions manteniendo código testeado y robusto.`,
           `Agradezco su consideración y quedo a su entera disposición para conversar sobre cómo mi experiencia práctica puede sumar valor inmediato a ${displayCompany}.`,
         ];

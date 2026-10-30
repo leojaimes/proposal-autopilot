@@ -16,7 +16,8 @@ import {
   LucidePinOff,
   LucideLogOut,
   LucideShield,
-  LucideSparkles
+  LucideSparkles,
+  LucideMapPin
 } from '@lucide/angular';
 
 @Component({
@@ -35,7 +36,8 @@ import {
     LucidePinOff,
     LucideLogOut,
     LucideShield,
-    LucideSparkles
+    LucideSparkles,
+    LucideMapPin
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -158,6 +160,23 @@ import {
               <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">
                 Nuevo
               </span>
+            }
+          </button>
+
+          <!-- GEO-RADAR PROSPECTOR -->
+          <button
+            (click)="viewModeChange.emit('GEO_RADAR')"
+            [ngClass]="activeView() === 'GEO_RADAR' ? 'bg-cyan-500/15 text-cyan-400 border-cyan-400/30 font-bold' : 'text-content-secondary hover:text-content-primary hover:bg-white/[0.05] border-transparent'"
+            class="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-xs transition-all border group relative"
+            title="Geo-Radar de Empresas B2B">
+            <svg lucideMapPin class="w-4 h-4 shrink-0 transition-transform group-hover:scale-110 text-cyan-400"></svg>
+            @if (isExpandedView()) {
+              <span class="truncate flex-1 text-left">Geo-Radar</span>
+              <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">
+                Maps
+              </span>
+            } @else {
+              <span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
             }
           </button>
         </nav>

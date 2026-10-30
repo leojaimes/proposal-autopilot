@@ -8,6 +8,7 @@ import { ScrapingModule } from './modules/scraping/scraping.module';
 import { ScoringModule } from './modules/scoring/scoring.module';
 import { ProposalsModule } from './modules/proposals/proposals.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { ProspectingModule } from './modules/prospecting/prospecting.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { AuthModule } from './modules/auth/auth.module';
     ScrapingModule,
     ScoringModule,
     ProposalsModule,
+    ProspectingModule,
   ],
   providers: [PrismaService, TenantContextService],
   exports: [PrismaService, TenantContextService],
