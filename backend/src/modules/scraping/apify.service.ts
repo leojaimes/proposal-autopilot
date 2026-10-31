@@ -33,31 +33,19 @@ export class ApifyService {
       }
       this.logger.log(`Iniciando scraping en Apify con ${keywords.length} queries: ${keywords.join(' | ')} | Max: ${maxResults}`);
 
-      // Generar queries combinadas con ubicaciones objetivo si están definidas
-      let queriesToRun: string[] = [];
-      const locations = (options?.locations || []).filter(Boolean);
-
-      if (locations.length > 0) {
-        for (const kw of keywords) {
-          for (const loc of locations) {
-            queriesToRun.push(`${kw} ${loc}`.trim());
-          }
-        }
-      }
-      if (queriesToRun.length === 0) {
-        queriesToRun = keywords;
-      }
-
-      // Actor flash_mage/upwork: el schema exige un máximo estricto de 5 items en 'query'
-      const sanitizedQueries = queriesToRun.slice(0, 5);
+      // Sanitizar queries para Upwork: eliminar comillas y paréntesis que rompen el parser básico
+      const sanitizedQueries = keywords
+        .map(kw => kw.replace(/[()"]/g, '').replace(/\s+(AND|OR)\s+/gi, ' ').trim())
+        .filter(Boolean)
+        .slice(0, 5);
 
       this.logger.log(`Enviando ${sanitizedQueries.length} queries a Apify (máx 5 permitido por actor): ${sanitizedQueries.join(' | ')}`);
 
       const run = await this.client.actor('flash_mage/upwork').call({
         query: sanitizedQueries,
         limit: maxResults,
-        sort: options?.sort || 'relevance',
-        experience_level: options?.experienceLevel || ['IntermediateLevel', 'ExpertLevel'],
+        sort: options?.sort || 'recency',
+        experience_level: options?.experienceLevel || ['EntryLevel', 'IntermediateLevel', 'ExpertLevel'],
         hourly: true,
         fixed: true,
         authentication: 'no_authentication',

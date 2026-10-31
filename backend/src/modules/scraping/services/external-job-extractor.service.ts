@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { LambdaLinkedInScraperService } from './lambda-linkedin-scraper.service';
+import { OrionSearchService } from './orion-search.service';
 
 export interface ExtractedJobData {
   title: string;
@@ -17,7 +18,8 @@ export class ExternalJobExtractorService {
   private readonly logger = new Logger(ExternalJobExtractorService.name);
 
   constructor(
-    private readonly lambdaScraper?: LambdaLinkedInScraperService,
+    @Optional() private readonly lambdaScraper?: LambdaLinkedInScraperService,
+    @Optional() private readonly orionSearch?: OrionSearchService,
   ) {}
 
   /**
@@ -36,7 +38,7 @@ export class ExternalJobExtractorService {
       title = roleMatch[1].trim();
     } else {
       const lineWithTech = text.split('\n').find((l) =>
-        /(?:Engineer|Developer|Architect|Lead|Full Stack|Backend|Frontend|Data|DevOps)/i.test(l),
+        /(?:Engineer|Developer|Architect|Lead|Full Stack|Backend|Frontend|Data|DevOps|Manager|Designer)/i.test(l),
       );
       if (lineWithTech) {
         title = lineWithTech.replace(/^[^a-zA-Z0-9]+/, '').trim().slice(0, 100);
@@ -80,7 +82,7 @@ export class ExternalJobExtractorService {
   }
 
   /**
-   * Extrae la vacante desde una URL específica (Workday, LinkedIn o genérica).
+   * Extrae la vacante desde cualquier URL (Workday, LinkedIn, Greenhouse, Lever, Indeed, o web corporativa).
    */
   async extractFromUrl(jobUrl: string): Promise<ExtractedJobData> {
     const url = (jobUrl || '').trim();
@@ -88,15 +90,209 @@ export class ExternalJobExtractorService {
       throw new Error('Job URL cannot be empty');
     }
 
+    // 1. Adaptador nativo Workday
     if (url.includes('myworkdayjobs.com')) {
-      return this.extractFromWorkdayUrl(url);
+      try {
+        return await this.extractFromWorkdayUrl(url);
+      } catch (err: any) {
+        this.logger.warn(`Workday native extraction failed, falling back to universal extractor: ${err.message}`);
+      }
     }
 
+    // 2. Adaptador nativo LinkedIn
     if (url.includes('linkedin.com')) {
-      return this.extractFromLinkedInUrl(url);
+      try {
+        return await this.extractFromLinkedInUrl(url);
+      } catch (err: any) {
+        this.logger.warn(`LinkedIn native extraction failed, falling back to universal extractor: ${err.message}`);
+      }
     }
 
-    throw new Error(`Unsupported URL provider for ${url}`);
+    // 3. Extractor Universal para Cualquier Portal (Greenhouse, Lever, Indeed, Ashby, Web propia)
+    return await this.extractFromUniversalUrl(url);
+  }
+
+  /**
+   * Extractor universal que consume Orion (Trafilatura) o fetch directo para parsear cualquier URL de internet.
+   */
+  private async extractFromUniversalUrl(url: string): Promise<ExtractedJobData> {
+    let cleanText = '';
+
+    // Intento A: Vía Orion Extract (Trafilatura/Readability)
+    if (this.orionSearch && this.orionSearch.isConfigured) {
+      try {
+        const extractedResults = await this.orionSearch.extract([url], 'markdown');
+        if (extractedResults && extractedResults.length > 0 && extractedResults[0].raw_content) {
+          cleanText = extractedResults[0].raw_content.trim();
+        }
+      } catch (err: any) {
+        this.logger.warn(`Orion extract failed for ${url}: ${err.message}`);
+      }
+    }
+
+    // Intento B: Fetch directo de HTML con Headers de Navegador si Orion no trajo contenido
+    if (!cleanText || cleanText.length < 50) {
+      try {
+        const res = await fetch(url, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9,es;q=0.8',
+          },
+        });
+
+        if (res.ok) {
+          const html = await res.text();
+          // Limpieza rápida de HTML a texto plano legible
+          cleanText = html
+            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+            .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+            .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '')
+            .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+      } catch (fetchErr: any) {
+        this.logger.error(`Direct fetch failed for ${url}: ${fetchErr.message}`);
+      }
+    }
+
+    if (!cleanText || cleanText.length < 50) {
+      throw new Error(
+        `No pudimos extraer el texto de la vacante automáticamente desde ${url}. Por favor, copia el texto de la vacante y pégalo en la pestaña "Pegar Descripción".`,
+      );
+    }
+
+    // Validación semántica estricta: asegurar que el contenido extraído sea realmente una vacante de empleo
+    this.assertJobPostingContent(cleanText, url);
+
+    // Estructurar con la lógica de inferencia
+    const structured = await this.extractFromRawText(cleanText);
+
+    // Deducir nombre de empresa del dominio si no se detectó
+    if (structured.companyName === 'Hiring Team') {
+      try {
+        const domain = new URL(url).hostname.replace('www.', '').split('.')[0];
+        if (domain && domain.length > 2 && !['jobs', 'careers', 'boards', 'linkedin', 'indeed'].includes(domain)) {
+          structured.companyName = domain.charAt(0).toUpperCase() + domain.slice(1);
+        }
+      } catch {
+        // Ignored
+      }
+    }
+
+    return {
+      ...structured,
+      jobUrl: url,
+    };
+  }
+
+  /**
+   * Valida heurísticamente que el texto y la URL correspondan a una vacante real de empleo
+   * para evitar gastar tokens de IA procesando sitios web arbitrarios (blogs, tiendas, videos).
+   */
+  private assertJobPostingContent(text: string, url: string): void {
+    const lowerUrl = url.toLowerCase();
+    const lowerText = text.toLowerCase();
+
+    // 1. Si proviene de un ATS reconocido o ruta canónica de empleo, tiene pase rápido
+    const KNOWN_ATS_DOMAINS = [
+      'greenhouse.io',
+      'lever.co',
+      'myworkdayjobs.com',
+      'workdayjobs.com',
+      'ashbyhq.com',
+      'workable.com',
+      'bamboohr.com',
+      'smartrecruiters.com',
+      'jobvite.com',
+      'breezy.hr',
+      'rippling.com',
+      'recruitee.com',
+      'indeed.com',
+      'linkedin.com',
+    ];
+
+    const isFromKnownAts = KNOWN_ATS_DOMAINS.some((domain) => lowerUrl.includes(domain));
+    const hasJobUrlPattern = /(?:\/jobs?\/|\/careers?\/|\/openings?\/|\/positions?\/|\/vacantes?\/|\/apply\/)/.test(
+      lowerUrl,
+    );
+
+    // 2. Grupos de señales de contratación en el cuerpo del texto
+    const SIGNALS = {
+      role: [
+        'responsibilities',
+        'responsabilidades',
+        'what you will do',
+        'lo que haras',
+        'lo que harás',
+        'about the role',
+        'sobre el puesto',
+        'about the job',
+        'key duties',
+        'job overview',
+      ],
+      requirements: [
+        'requirements',
+        'requisitos',
+        'qualifications',
+        'what you need',
+        'what you bring',
+        'skills',
+        'habilidades',
+        'experiencia minima',
+        'experiencia mínima',
+        'years of experience',
+        'años de experiencia',
+        'tech stack',
+      ],
+      compensation_or_type: [
+        'full-time',
+        'part-time',
+        'tiempo completo',
+        'medio tiempo',
+        'remote',
+        'remoto',
+        'hybrid',
+        'hibrido',
+        'híbrido',
+        'salary',
+        'salario',
+        'sueldo',
+        'benefits',
+        'prestaciones',
+        'compensation',
+      ],
+      action: [
+        'apply',
+        'postularse',
+        'apply now',
+        'submit application',
+        'enviar solicitud',
+        'send cv',
+        'enviar cv',
+        'join our team',
+        'unete a nuestro equipo',
+      ],
+    };
+
+    let matchedGroups = 0;
+    if (SIGNALS.role.some((keyword) => lowerText.includes(keyword))) matchedGroups++;
+    if (SIGNALS.requirements.some((keyword) => lowerText.includes(keyword))) matchedGroups++;
+    if (SIGNALS.compensation_or_type.some((keyword) => lowerText.includes(keyword))) matchedGroups++;
+    if (SIGNALS.action.some((keyword) => lowerText.includes(keyword))) matchedGroups++;
+
+    // Si viene de ATS o URL de empleo, basta 1 grupo de señales; si es web general, requiere al menos 2
+    const minRequiredSignals = isFromKnownAts || hasJobUrlPattern ? 1 : 2;
+
+    if (matchedGroups < minRequiredSignals) {
+      this.logger.warn(`Rejected URL "${url}": Only matched ${matchedGroups}/${minRequiredSignals} job signal groups.`);
+      throw new Error(
+        `La URL ingresada no parece corresponder a una vacante de empleo válida (no se detectaron responsabilidades, requisitos técnicos ni opciones de postulación). Si se trata de una página privada, copia el texto y pégalo directamente en la pestaña "Pegar Descripción".`,
+      );
+    }
   }
 
   private async extractFromLinkedInUrl(url: string): Promise<ExtractedJobData> {

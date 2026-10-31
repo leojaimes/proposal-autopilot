@@ -57,6 +57,23 @@ export interface GeocodeCityResponse {
   displayName: string;
 }
 
+export interface GeoPresetDto {
+  id: string;
+  slug: string;
+  countryCode: string;
+  countryName: string;
+  flag: string;
+  state: string;
+  stateCode?: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+  zoom: number;
+  isTactical: boolean;
+  category?: string;
+  polygonCoordinates?: [number, number][];
+}
+
 export interface ScanAreaResponse {
   message: string;
   scannedSector: string;
@@ -83,6 +100,12 @@ export class ProspectingService {
 
   geocodeCity(city: string, state?: string, country: string = 'Mexico'): Observable<GeocodeCityResponse> {
     return this.http.post<GeocodeCityResponse>(`${this.baseUrl}/geocode-city`, { city, state, country });
+  }
+
+  getGeoPresets(countryCode?: string): Observable<GeoPresetDto[]> {
+    let params: Record<string, string> = {};
+    if (countryCode) params['country'] = countryCode;
+    return this.http.get<GeoPresetDto[]>(`${this.baseUrl}/geo-presets`, { params });
   }
 
   scanArea(payload: {

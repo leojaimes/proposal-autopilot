@@ -8,6 +8,7 @@ import { ApifyJobAdapter } from './adapters/apify-job.adapter';
 import { LinkedInJobAdapter } from './adapters/linkedin-job.adapter';
 import { ExternalJobExtractorService } from './services/external-job-extractor.service';
 import { CompanyEnricherService } from './services/company-enricher.service';
+import { LambdaUpworkScraperService } from './services/lambda-upwork-scraper.service';
 import { FitCalculatorService } from '../scoring/services/fit-calculator.service';
 import { ClaudeProposalService } from '../proposals/claude-proposal.service';
 import { TechnicalProposalPdfService } from '../proposals/technical-proposal-pdf.service';
@@ -95,6 +96,7 @@ export class ScrapingController {
     private readonly tenantContext: TenantContextService,
     @Optional() private readonly externalJobExtractor?: ExternalJobExtractorService,
     @Optional() private readonly companyEnricher?: CompanyEnricherService,
+    @Optional() private readonly lambdaUpworkScraper?: LambdaUpworkScraperService,
   ) {}
 
   /**
@@ -316,10 +318,28 @@ isActive: true,
       []
     );
 
-    const rawJobs = isLinkedIn
-      ? await this.apifyService.runLinkedInScraper(keywords, maxResults, targetLocations)
-      : await this.apifyService.runUpworkScraper(keywords, maxResults);
-    this.logger.log(`[Batch ${batchRunId}] Se recibieron ${rawJobs.length} empleos desde Apify (${platform})`);
+    let rawJobs: any[] = [];
+    const upworkProvider = (process.env.SCRAPING_PROVIDER_UPWORK || 'LAMBDA').toUpperCase();
+
+    if (isLinkedIn) {
+      rawJobs = await this.apifyService.runLinkedInScraper(keywords, maxResults, targetLocations);
+    } else if (upworkProvider === 'LAMBDA' && this.lambdaUpworkScraper) {
+      try {
+        this.logger.log(`[Batch ${batchRunId}] Ejecutando Upwork Scraper vía AWS Lambda nativa (0 cost)...`);
+        rawJobs = await this.lambdaUpworkScraper.scrapeJobs({
+          keywords,
+          limit: maxResults,
+          sort: 'recency',
+        });
+      } catch (lambdaErr: any) {
+        this.logger.warn(`[Batch ${batchRunId}] Falló Lambda Upwork Scraper (${lambdaErr.message}). Activando fallback automático a Apify...`);
+        rawJobs = await this.apifyService.runUpworkScraper(keywords, maxResults);
+      }
+    } else {
+      rawJobs = await this.apifyService.runUpworkScraper(keywords, maxResults);
+    }
+
+    this.logger.log(`[Batch ${batchRunId}] Se recibieron ${rawJobs.length} empleos para ${platform}`);
 
     if (!rawJobs || rawJobs.length === 0) {
       await this.prisma.batchRun.update({

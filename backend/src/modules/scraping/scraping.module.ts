@@ -10,6 +10,7 @@ import { ApifyJobAdapter } from './adapters/apify-job.adapter';
 import { OfficialUpworkApiAdapter } from './adapters/official-upwork.adapter';
 import { LinkedInJobAdapter } from './adapters/linkedin-job.adapter';
 import { LambdaLinkedInScraperService } from './services/lambda-linkedin-scraper.service';
+import { LambdaUpworkScraperService } from './services/lambda-upwork-scraper.service';
 import { ExternalJobExtractorService } from './services/external-job-extractor.service';
 import { OrionSearchService } from './services/orion-search.service';
 import { CompanyEnricherService } from './services/company-enricher.service';
@@ -32,6 +33,7 @@ import { TaxonomyClassificationWorkService } from './services/taxonomy-classific
     OfficialUpworkApiAdapter,
     LinkedInJobAdapter,
     LambdaLinkedInScraperService,
+    LambdaUpworkScraperService,
     ExternalJobExtractorService,
     OrionSearchService,
     CompanyEnricherService,
@@ -52,6 +54,7 @@ import { TaxonomyClassificationWorkService } from './services/taxonomy-classific
     OfficialUpworkApiAdapter,
     LinkedInJobAdapter,
     LambdaLinkedInScraperService,
+    LambdaUpworkScraperService,
     ExternalJobExtractorService,
     OrionSearchService,
     CompanyEnricherService,

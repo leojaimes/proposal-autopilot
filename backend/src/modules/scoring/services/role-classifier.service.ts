@@ -177,8 +177,10 @@ export class RoleClassifierService {
       if (/ai\s*product\s*design/.test(clean)) return /\b(?:ai\s+product\s+design|product\s+designer\s*\(?ai\)?|ai\s+(?:ux|ui))\b/i;
       if (/ai\s*prototyp/.test(clean)) return /\bai\s+prototyp(?:e|ing|er)\b/i;
       if (clean === 'figma') return /\bfigma\b/i;
-      const words = clean.split(/\s+/).filter(w => w.length >= 2);
-      const pattern = words.map(w => '\\b' + w).join('\\s+');
+      const stripped = clean.replace(/[()"]/g, '').replace(/\b(and|or|not)\b/gi, ' ').trim();
+      const words = stripped.split(/\s+/).filter(w => w.length >= 2);
+      if (words.length === 0) return /$^/;
+      const pattern = words.map(w => '\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+');
       return new RegExp(pattern, 'i');
     };
 
