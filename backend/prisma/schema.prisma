@@ -123,6 +123,8 @@ model Tenant {
   profileOpportunitySnapshots ProfileOpportunitySnapshot[]
   marketRadarDecisions        MarketRadarDecision[]
   prospectedBusinesses        ProspectedBusiness[]
+  prospectedBusinessPains     ProspectedBusinessPain[]
+  prospectContactLogs         ProspectContactLog[]
 
   @@map("tenants")
 }
@@ -175,10 +177,10 @@ model PositioningProfile {
   targetRegions       String[] @default([]) @map("target_regions")
   excludedCountries   String[] @default([]) @map("excluded_countries")
   geoFilterMode       String   @default("WEIGHTED_PREFERENCE") @map("geo_filter_mode") @db.VarChar(30)
-  coreRoles           String[] @default(["UI/UX design", "UX research", "design system", "usability testing"]) @map("core_roles")
-  hybridRoles         String[] @default(["AI product design", "agentic workflow design", "AI prototyping"]) @map("hybrid_roles")
-  tangentialRoles     String[] @default(["Product manager", "Web designer", "Graphic designer"]) @map("tangential_roles")
-  excludedRoles       String[] @default(["Full Stack", "Backend", "React Developer", "Software Engineer", "Assistant", "Telemarketing"]) @map("excluded_roles")
+  coreRoles           String[] @default([]) @map("core_roles")
+  hybridRoles         String[] @default([]) @map("hybrid_roles")
+  tangentialRoles     String[] @default([]) @map("tangential_roles")
+  excludedRoles       String[] @default([]) @map("excluded_roles")
   baseCv              Json?    @map("base_cv")
   isActive            Boolean  @default(true) @map("is_active")
   createdAt           DateTime @default(now()) @map("created_at")
@@ -563,6 +565,7 @@ model Proposal {
 
 enum CompanyPainCategory {
   NO_WEBSITE
+  WEBSITE_DOWN_OR_EXPIRED
   OUTDATED_OR_SLOW_WEB
   NO_ONLINE_BOOKING
   UNRESPONSIVE_CUSTOMER_SERVICE
@@ -578,39 +581,280 @@ enum ProspectedLeadStatus {
   DISQUALIFIED
 }
 
+enum BusinessOwnershipType {
+  INDEPENDENT
+  CHAIN_BRANCH
+  CORPORATE_HQ
+}
+
+enum BusinessOperationalStatus {
+  OPERATIONAL
+  CLOSED_TEMPORARILY
+  CLOSED_PERMANENTLY
+  STALE_OR_INACTIVE
+}
+
+enum PhoneLineType {
+  MOBILE
+  LANDLINE
+  VOIP
+  INVALID
+  UNKNOWN
+}
+
+enum EmailDeliverabilityStatus {
+  UNVERIFIED
+  VERIFIED
+  CATCH_ALL
+  INVALID_BOUNCE
+}
+
+enum BusinessPainLifecycleStatus {
+  DETECTED
+  VERIFIED
+  PITCHED
+  FALSE_POSITIVE
+  DISMISSED
+  RESOLVED_BY_US
+  RESOLVED_EXTERNALLY
+}
+
+enum ContactChannel {
+  WHATSAPP
+  PHONE_CALL
+  EMAIL
+  LINKEDIN
+  IN_PERSON
+}
+
+enum RecipientRole {
+  BUSINESS_OWNER
+  GATEKEEPER_RECEPTION
+  CORPORATE_DECISION_MAKER
+  UNKNOWN
+}
+
+enum ContactOutcome {
+  CONNECTED_PITCHED
+  GATEKEEPER_BLOCKED
+  NO_ANSWER
+  VOICEMAIL
+  EMAIL_SENT
+  NOT_INTERESTED
+  MEETING_SCHEDULED
+  CLOSED_WON
+  OPT_OUT_BLACKLIST
+}
+
+enum EmailDeliveryEvent {
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  REPLIED
+  BOUNCED
+  SPAM_COMPLAINT
+}
+
+model CorporateBrand {
+  id                   String               @id @default(uuid()) @db.Uuid
+  slug                 String               @unique @db.VarChar(150)
+  name                 String               @unique @db.VarChar(150)
+  rootDomain           String?              @unique @map("root_domain") @db.VarChar(180)
+  industry             String?              @db.VarChar(100)
+  countryScope         String[]             @default([]) @map("country_scope")
+  headquartersCity     String?              @map("headquarters_city") @db.VarChar(100)
+  corporateWebsite     String?              @map("corporate_website") @db.Text
+  corporateLinkedin    String?              @map("corporate_linkedin") @db.Text
+  isKnownFranchise     Boolean              @default(false) @map("is_known_franchise")
+  totalBranchesTracked Int                  @default(0) @map("total_branches_tracked")
+  createdAt            DateTime             @default(now()) @map("created_at")
+  updatedAt            DateTime             @updatedAt @map("updated_at")
+
+  branches             ProspectedBusiness[]
+
+  @@index([rootDomain])
+  @@index([industry])
+  @@map("corporate_brands")
+}
+
+model CompanyPainCatalog {
+  id                      String                   @id @default(uuid()) @db.Uuid
+  code                    String                   @unique @db.VarChar(80)
+  categoryEnum            CompanyPainCategory?     @map("category_enum")
+  name                    String                   @db.VarChar(150)
+  description             String?                  @db.Text
+  suggestedOffer          String                   @map("suggested_offer") @db.Text
+  baseTicketUsd           Decimal                  @default(500.00) @map("base_ticket_usd") @db.Decimal(10, 2)
+  monthlyRetainerUsd      Decimal?                 @map("monthly_retainer_usd") @db.Decimal(10, 2)
+  priorityWeight          Int                      @default(50) @map("priority_weight")
+  pitchTemplateOwner      String                   @map("pitch_template_owner") @db.Text
+  pitchTemplateGatekeeper String                   @map("pitch_template_gatekeeper") @db.Text
+  pitchTemplateEnterprise String                   @map("pitch_template_enterprise") @db.Text
+  detectionRules          Json                     @default("{}") @map("detection_rules")
+  isActive                Boolean                  @default(true) @map("is_active")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+
+  businessPains           ProspectedBusinessPain[]
+  contactLogs             ProspectContactLog[]
+
+  @@index([isActive, priorityWeight])
+  @@map("company_pain_catalog")
+}
+
 model ProspectedBusiness {
-  id              String               @id @default(uuid()) @db.Uuid
-  tenantId        String               @map("tenant_id") @db.Uuid
-  placeId         String?              @map("place_id") @db.VarChar(255)
-  name            String               @db.VarChar(255)
-  category        String?              @db.VarChar(150)
-  address         String?              @db.Text
-  city            String?              @db.VarChar(100)
-  state           String?              @db.VarChar(100)
-  country         String?              @default("Mexico") @db.VarChar(100)
-  latitude        Decimal?             @db.Decimal(10, 7)
-  longitude       Decimal?             @db.Decimal(10, 7)
-  websiteUrl      String?              @map("website_url") @db.Text
-  phone           String?              @db.VarChar(50)
-  rating          Decimal?             @db.Decimal(3, 2)
-  reviewsCount    Int                  @default(0) @map("reviews_count")
-  status          ProspectedLeadStatus @default(DISCOVERED)
+  id                   String                    @id @default(uuid()) @db.Uuid
+  tenantId             String                    @map("tenant_id") @db.Uuid
+  corporateBrandId     String?                   @map("corporate_brand_id") @db.Uuid
+  placeId              String?                   @map("place_id") @db.VarChar(255)
+  name                 String                    @db.VarChar(255)
+  branchIdentifier     String?                   @map("branch_identifier") @db.VarChar(120)
+  rootDomain           String?                   @map("root_domain") @db.VarChar(180)
+  ownershipType        BusinessOwnershipType     @default(INDEPENDENT) @map("ownership_type")
+  operationalStatus    BusinessOperationalStatus @default(OPERATIONAL) @map("operational_status")
+  category             String?                   @db.VarChar(150)
+  address              String?                   @db.Text
+  city                 String?                   @db.VarChar(100)
+  state                String?                   @db.VarChar(100)
+  country              String?                   @default("Mexico") @db.VarChar(100)
+  latitude             Decimal?                  @db.Decimal(10, 7)
+  longitude            Decimal?                  @db.Decimal(10, 7)
+  websiteUrl           String?                   @map("website_url") @db.Text
+  websiteHttpStatus    Int?                      @map("website_http_status")
+  websiteCheckedAt     DateTime?                 @map("website_checked_at")
+  enrichmentStatus     String                    @default("PENDING") @map("enrichment_status") @db.VarChar(30)
+  phone                String?                   @db.VarChar(50)
+  phoneE164            String?                   @map("phone_e164") @db.VarChar(30)
+  phoneType            PhoneLineType             @default(UNKNOWN) @map("phone_type")
+  email                String?                   @db.VarChar(180)
+  emailType            String?                   @map("email_type") @db.VarChar(30)
+  emailDeliverability  EmailDeliverabilityStatus @default(UNVERIFIED) @map("email_deliverability")
+  rating               Decimal?                  @db.Decimal(3, 2)
+  reviewsCount         Int                       @default(0) @map("reviews_count")
+  lastGoogleReviewAt   DateTime?                 @map("last_google_review_at")
+  priceLevel           Int?                      @map("price_level")
+  estimatedTicketUsd   Decimal?                  @map("estimated_ticket_usd") @db.Decimal(10, 2)
+  status               ProspectedLeadStatus      @default(DISCOVERED)
 
-  primaryPain     CompanyPainCategory? @map("primary_pain")
-  painConfidence  Decimal?             @map("pain_confidence") @db.Decimal(3, 2)
-  painAnalysis    Json?                @map("pain_analysis")
-  suggestedOffer  String?              @map("suggested_offer") @db.Text
-  salesPitchDraft String?              @map("sales_pitch_draft") @db.Text
+  // Denormalized primary pain projection (kept synchronized for fast map rendering & backward compatibility)
+  primaryPain          CompanyPainCategory?      @map("primary_pain")
+  painConfidence       Decimal?                  @map("pain_confidence") @db.Decimal(3, 2)
+  painAnalysis         Json?                     @map("pain_analysis")
+  suggestedOffer       String?                   @map("suggested_offer") @db.Text
+  salesPitchDraft      String?                   @map("sales_pitch_draft") @db.Text
 
-  rawGoogleData   Json?                @map("raw_google_data")
+  // Anti-spam & contact cooldown fields
+  lastContactedAt      DateTime?                 @map("last_contacted_at")
+  contactCooldownUntil DateTime?                 @map("contact_cooldown_until")
+  contactAttemptsCount Int                       @default(0) @map("contact_attempts_count")
+  doNotContact         Boolean                   @default(false) @map("do_not_contact")
+  doNotContactReason   String?                   @map("do_not_contact_reason") @db.Text
 
-  scannedAt       DateTime             @default(now()) @map("scanned_at")
-  createdAt       DateTime             @default(now()) @map("created_at")
-  updatedAt       DateTime             @updatedAt @map("updated_at")
+  rawGoogleData        Json?                     @map("raw_google_data")
 
-  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  scannedAt            DateTime                  @default(now()) @map("scanned_at")
+  createdAt            DateTime                  @default(now()) @map("created_at")
+  updatedAt            DateTime                  @updatedAt @map("updated_at")
+
+  tenant               Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  corporateBrand       CorporateBrand?           @relation(fields: [corporateBrandId], references: [id], onDelete: SetNull)
+  detectedPains        ProspectedBusinessPain[]
+  contactLogs          ProspectContactLog[]
 
   @@unique([tenantId, placeId], name: "uq_tenant_place")
   @@index([tenantId, city, category])
+  @@index([tenantId, ownershipType, status])
+  @@index([tenantId, rootDomain])
+  @@index([tenantId, phoneType])
+  @@index([tenantId, doNotContact, contactCooldownUntil])
   @@map("prospected_businesses")
 }
+
+model ProspectedBusinessPain {
+  id                    String                      @id @default(uuid()) @db.Uuid
+  tenantId              String                      @map("tenant_id") @db.Uuid
+  businessId            String                      @map("business_id") @db.Uuid
+  painCatalogId         String                      @map("pain_catalog_id") @db.Uuid
+  status                BusinessPainLifecycleStatus @default(DETECTED)
+  isPrimary             Boolean                     @default(false) @map("is_primary")
+  confidence            Decimal                     @default(0.50) @db.Decimal(3, 2)
+  adjustedTicketUsd     Decimal?                    @map("adjusted_ticket_usd") @db.Decimal(10, 2)
+  evidence              Json?
+  customPitchOwner      String?                     @map("custom_pitch_owner") @db.Text
+  customPitchGatekeeper String?                     @map("custom_pitch_gatekeeper") @db.Text
+  customPitchEnterprise String?                     @map("custom_pitch_enterprise") @db.Text
+  dismissReason         String?                     @map("dismiss_reason") @db.Text
+  verifiedBy            String?                     @map("verified_by") @db.VarChar(150)
+  detectedAt            DateTime                    @default(now()) @map("detected_at")
+  resolvedAt            DateTime?                   @map("resolved_at")
+  updatedAt             DateTime                    @updatedAt @map("updated_at")
+
+  tenant                Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  business              ProspectedBusiness          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  painCatalog           CompanyPainCatalog          @relation(fields: [painCatalogId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, painCatalogId], name: "uq_business_pain_catalog")
+  @@index([tenantId, status])
+  @@index([businessId, isPrimary])
+  @@map("prospected_business_pains")
+}
+
+model ProspectContactLog {
+  id               String              @id @default(uuid()) @db.Uuid
+  tenantId         String              @map("tenant_id") @db.Uuid
+  businessId       String              @map("business_id") @db.Uuid
+  painCatalogId    String?             @map("pain_catalog_id") @db.Uuid
+  contactedBy      String?             @map("contacted_by") @db.VarChar(150)
+  channel          ContactChannel
+  recipientRole    RecipientRole       @default(UNKNOWN) @map("recipient_role")
+  pitchToneUsed    String?             @map("pitch_tone_used") @db.VarChar(30)
+  outcome          ContactOutcome
+  notes            String?             @db.Text
+  nextFollowupDate DateTime?           @map("next_followup_date")
+
+  // Cold email telemetry fields
+  emailSubject     String?             @map("email_subject") @db.VarChar(255)
+  emailMessageId   String?             @unique @map("email_message_id") @db.VarChar(255)
+  emailEvent       EmailDeliveryEvent? @map("email_event")
+  openedAt         DateTime?           @map("opened_at")
+  clickedAt        DateTime?           @map("clicked_at")
+  repliedAt        DateTime?           @map("replied_at")
+  bouncedAt        DateTime?           @map("bounced_at")
+
+  contactedAt      DateTime            @default(now()) @map("contacted_at")
+
+  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  business         ProspectedBusiness  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  painCatalog      CompanyPainCatalog? @relation(fields: [painCatalogId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, businessId, contactedAt])
+  @@index([tenantId, channel, outcome])
+  @@index([emailMessageId])
+  @@map("prospect_contact_logs")
+}
+
+model GeoPreset {
+  id                 String   @id @default(uuid()) @db.Uuid
+  slug               String   @unique @db.VarChar(120)
+  countryCode        String   @map("country_code") @db.VarChar(5)
+  countryName        String   @map("country_name") @db.VarChar(100)
+  flag               String   @db.VarChar(10)
+  state              String   @db.VarChar(100)
+  stateCode          String?  @map("state_code") @db.VarChar(10)
+  city               String   @db.VarChar(120)
+  latitude           Decimal  @db.Decimal(10, 7)
+  longitude          Decimal  @db.Decimal(10, 7)
+  zoom               Int      @default(13)
+  isTactical         Boolean  @default(false) @map("is_tactical")
+  category           String?  @db.VarChar(50) // "Industrial", "Comercial", "Financiero", "Tech"
+  polygonCoordinates Json?    @map("polygon_coordinates") // Array de [lat, lng] para polígonos tácticos
+
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([countryCode, state])
+  @@index([isTactical])
+  @@map("geo_presets")
+}
+

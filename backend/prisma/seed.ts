@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client';
+import { seedCompanyPainCatalog } from './seed-pains';
+import { seedCorporateBrands } from './seed-corporate-brands';
 
 const prisma = new PrismaClient();
 
@@ -72,14 +74,14 @@ async function main() {
     await prisma.scrapeConfig.create({
       data: {
         tenantId: tenant.id,
-        searchKeywords: ['UI/UX Designer', 'UX/UI Design', 'UX Research', 'Design Systems', 'AI Product Design', 'Figma', 'Usability Testing', 'AI Prototyping'],
+        searchKeywords: ['Full Stack Developer', 'Backend Engineer', 'Node.js Developer', 'NestJS', 'AI Agent Architect', 'SaaS Platform'],
         minBudgetFixed: 1000.00,
         minHourlyRate: 40.00,
         recencyDays: 30,
         verifiedPaymentOnly: true,
       },
     });
-    console.log('✅ ScrapeConfig base creado.');
+    console.log('✅ ScrapeConfig base creado con stack técnico.');
   }
 
   // The catalog is shared, versioned reference data. Profile-specific choices
@@ -140,10 +142,10 @@ async function main() {
         minHourlyRate: 40.00,
         targetCountries: ['United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'Ireland'],
         targetRegions: ['North America', 'Western Europe'],
-        isActive: !hadExistingProfiles,
+        isActive: false, // Plantilla secundaria de ejemplo
       },
     });
-    console.log('✅ PositioningProfile base de Armando creado.');
+    console.log('✅ PositioningProfile base de Armando creado (inactivo / plantilla).');
   }
 
   // 4. Proof Stories de Autoridad verificadas
@@ -225,10 +227,10 @@ async function main() {
         hybridRoles: ['AI Agent Architect', 'Automation Engineer', 'Multi-Tenant SaaS Architect', 'Prompt Engineer', 'Spec-Driven Developer', 'Workflow Orchestration Specialist'],
         tangentialRoles: ['Frontend Lead', 'Mobile Developer (Flutter)', 'REST API Designer', 'Technical Lead'],
         excludedRoles: ['UI/UX Designer', 'Graphic Designer', 'Manual QA Tester', 'Data Entry Specialist', 'Virtual Assistant', 'Telemarketing', 'WordPress Developer', 'Shopify Developer'],
-        isActive: false,
+        isActive: true, // Perfil titular activo por defecto
       },
     });
-    console.log('✅ PositioningProfile de Leonardo creado.');
+    console.log('✅ PositioningProfile de Leonardo creado (activo).');
   }
 
     await prisma.tenant.update({
@@ -239,6 +241,24 @@ async function main() {
   } else {
     console.log('ℹ️ Catálogo de perfiles ya inicializado; se preservan cambios del usuario.');
   }
+
+  // 4. Catálogo de Ubicaciones y Polígonos Tácticos (GeoPresets)
+  console.log('🌍 Verificando presets geográficos (GeoPresets)...');
+  const existingPresetsCount = await prisma.geoPreset.count();
+  if (existingPresetsCount === 0) {
+    console.log('🚀 Base de datos vacía de GeoPresets. Ejecutando seed automático...');
+    // Ejecuta el seed determinístico de ubicaciones
+    require('./seed-geo');
+  } else {
+    console.log(`ℹ️ GeoPresets ya inicializados (${existingPresetsCount} registros activos en BD).`);
+  }
+
+  // 5. Catálogo Dinámico de Dolencias B2B y Marcas Corporativas (Parent-Child)
+  const seededPainsCount = await seedCompanyPainCatalog(prisma);
+  console.log(`✅ CompanyPainCatalog sincronizado (${seededPainsCount} dolencias activas).`);
+
+  const seededBrandsCount = await seedCorporateBrands(prisma);
+  console.log(`✅ CorporateBrands sincronizado (${seededBrandsCount} franquicias/cadenas registradas).`);
 
   console.log('🎉 Seed de estado seguro completado exitosamente.');
 }
