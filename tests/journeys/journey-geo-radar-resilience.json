@@ -54,7 +54,7 @@
       "id": "03-mock-orion-network-failure-http-500",
       "description": "Simular falla catastrófica de red (HTTP 500 Internal Error) en el endpoint de enriquecimiento Orion",
       "action": "mockRoute",
-      "pattern": "**/api/prospecting/leads/*/enrich-deep",
+      "pattern": "**/api/prospecting/leads/*/enrich-deep*",
       "status": 500,
       "body": {
         "statusCode": 500,
@@ -76,7 +76,7 @@
       "id": "05-unmock-orion-and-recover-route",
       "description": "Restablecer la ruta original de Orion eliminando el mock de falla",
       "action": "unmockRoute",
-      "pattern": "**/api/prospecting/leads/*/enrich-deep",
+      "pattern": "**/api/prospecting/leads/*/enrich-deep*",
       "postWaitMs": 100,
       "capture": false
     },

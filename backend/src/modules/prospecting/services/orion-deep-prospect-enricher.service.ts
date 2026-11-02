@@ -15,9 +15,28 @@ export interface DecisionMakerData {
   sourceUrl?: string;
 }
 
+export interface HighTicketServiceData {
+  category: string;
+  summary: string;
+  keywordsFound: string[];
+}
+
+export interface GoogleKnowledgePanelSummary {
+  title?: string;
+  subtitle?: string;
+  address?: string;
+  phone?: string;
+  rating?: number;
+  reviewsCount?: number;
+  hours?: string;
+  officialWebsiteUrl?: string;
+}
+
 export interface DeepIntelligenceResult {
   businessId: string;
   enrichedAt: string;
+  knowledgePanel?: GoogleKnowledgePanelSummary;
+  servicesCatalog?: HighTicketServiceData[];
   foundChannels: {
     whatsappUrl?: string;
     phone?: string;
@@ -54,7 +73,7 @@ export class OrionDeepProspectEnricherService {
    * Enforces truth hierarchy (protects SDR manual overrides, promotes mobile/WhatsApp, validates DNS MX),
    * and transactionally persists contacts and social profiles in 3NF relational models.
    */
-  async enrichLeadDeeply(businessId: string): Promise<DeepIntelligenceResult> {
+  async enrichLeadDeeply(businessId: string, force = false): Promise<DeepIntelligenceResult> {
     const lead = await this.prisma.prospectedBusiness.findUnique({
       where: { id: businessId },
       include: {
@@ -71,7 +90,7 @@ export class OrionDeepProspectEnricherService {
     const existingIntelligence = rawData.deepIntelligence as DeepIntelligenceResult | undefined;
 
     // Cache guard: 7-day validity for zero wasted compute unless forced
-    if (existingIntelligence?.enrichedAt && lead.contacts.length > 0) {
+    if (!force && existingIntelligence?.enrichedAt && lead.contacts.length > 0) {
       const ageMs = Date.now() - new Date(existingIntelligence.enrichedAt).getTime();
       if (ageMs < 7 * 24 * 60 * 60 * 1000) {
         this.logger.log(`Serving cached deep intelligence for ${lead.name} (${businessId})`);
@@ -79,7 +98,7 @@ export class OrionDeepProspectEnricherService {
       }
     }
 
-    this.logger.log(`Executing real-time Orion deep search for: ${lead.name} in ${lead.city || lead.state}`);
+    this.logger.log(`Executing real-time deep search for: ${lead.name} in ${lead.city || lead.state}`);
 
     const cityContext = lead.city ? `${lead.city} ${lead.country || ''}` : lead.country || '';
     const query = `"${lead.name}" ${cityContext} telefono whatsapp correo email facebook instagram doctoralia`;
@@ -88,13 +107,15 @@ export class OrionDeepProspectEnricherService {
       searchDepth: 'advanced',
       maxResults: 6,
     }).catch((err) => {
-      this.logger.warn(`Orion search error: ${err.message}`);
+      this.logger.warn(`Orion search fallback: ${err.message}`);
       return [];
     });
 
     const parsedChannels = this.extractContactChannels(searchResults, lead.country || 'Mexico');
     let decisionMakers = this.extractDecisionMakers(searchResults);
     let verifiedPlatforms = this.detectPlatforms(searchResults);
+    let lambdaServicesCatalog: HighTicketServiceData[] = [];
+    let lambdaKnowledgePanel: GoogleKnowledgePanelSummary | undefined;
 
     // Candidate URLs for parallel Lambda Fast-Path + Chromium Stealth scan
     const candidateUrlsToDeepScan = [
@@ -103,14 +124,23 @@ export class OrionDeepProspectEnricherService {
       ...searchResults.map((r) => r.url),
     ].filter((u): u is string => Boolean(u) && u.startsWith('http'));
 
-    if (this.lambdaProspecting && candidateUrlsToDeepScan.length > 0) {
+    if (this.lambdaProspecting) {
       try {
         const lambdaResult = await this.lambdaProspecting.deepEnrichBusiness({
           businessName: lead.name,
           urls: Array.from(new Set(candidateUrlsToDeepScan)).slice(0, 4),
+          city: lead.city || undefined,
+          state: lead.state || undefined,
           country: lead.country || 'Mexico',
+          address: lead.address || undefined,
         });
 
+        if (lambdaResult?.servicesCatalog) {
+          lambdaServicesCatalog = lambdaResult.servicesCatalog;
+        }
+        if (lambdaResult?.knowledgePanel) {
+          lambdaKnowledgePanel = lambdaResult.knowledgePanel;
+        }
         if (lambdaResult?.channels?.whatsappUrl && !parsedChannels.whatsappUrl) {
           parsedChannels.whatsappUrl = lambdaResult.channels.whatsappUrl;
         }
@@ -209,6 +239,8 @@ export class OrionDeepProspectEnricherService {
     const deepIntelligence: DeepIntelligenceResult = {
       businessId: lead.id,
       enrichedAt: new Date().toISOString(),
+      knowledgePanel: lambdaKnowledgePanel,
+      servicesCatalog: lambdaServicesCatalog,
       foundChannels: parsedChannels,
       decisionMakers,
       digitalFootprint: {

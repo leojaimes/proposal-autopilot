@@ -1407,10 +1407,10 @@ export class ProspectingService {
       });
   }
 
-  async enrichLeadDeeply(leadId: string): Promise<DeepIntelligenceResult> {
+  async enrichLeadDeeply(leadId: string, force = false): Promise<DeepIntelligenceResult> {
     if (!this.deepEnricher) {
       throw new BadRequestException('Orion Deep Prospect Enricher is not initialized');
     }
-    return this.deepEnricher.enrichLeadDeeply(leadId);
+    return this.deepEnricher.enrichLeadDeeply(leadId, force);
   }
 }

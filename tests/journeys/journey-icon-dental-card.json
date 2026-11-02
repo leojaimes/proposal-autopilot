@@ -1,0 +1,119 @@
+{
+  "journey": "journey-icon-dental-card",
+  "title": "Verificación Visual Ficha Ejecutiva ChatGPT de Icon Dental en Geo-Radar",
+  "description": "Valida la presentación ejecutiva tipo ChatGPT para el negocio enriquecido: foto/header, calificación, dirección, teléfono verificado, horario, tomadores de decisión (Dra. Maya Eydelman y asociados), catálogo de servicios de alto ticket y canales de contacto directo.",
+  "baseUrl": "http://localhost:7001",
+  "backendApiUrl": "http://localhost:7000/api",
+  "auth": {
+    "ephemeralTenant": true,
+    "companyName": "Spotlight Icon Dental Showcase QA"
+  },
+  "fixtures": {
+    "prospectingLeads": [
+      {
+        "placeId": "af_icon_dental_sf_showcase",
+        "name": "Icon Dental",
+        "category": "Dentistas",
+        "city": "San Francisco",
+        "state": "California",
+        "country": "United States",
+        "address": "101 Montgomery, 101 Montgomery St, Suite D, San Francisco, CA 94104",
+        "latitude": 37.7901,
+        "longitude": -122.4018,
+        "rating": 4.6,
+        "reviewsCount": 180,
+        "priceLevel": 3,
+        "phone": "+1 415-248-5300",
+        "phoneE164": "+14152485300",
+        "phoneType": "MOBILE",
+        "email": "info@icondentalsf.com",
+        "emailDeliverability": "VERIFIED",
+        "websiteUrl": "http://icondentalsf.com/",
+        "websiteHttpStatus": 200,
+        "rawGoogleData": {
+          "deepIntelligence": {
+            "businessId": "af_icon_dental_sf_showcase",
+            "enrichedAt": "2026-11-02T23:21:53.922Z",
+            "knowledgePanel": {
+              "title": "Icon Dental — San Francisco",
+              "subtitle": "Financial District · San Francisco, California",
+              "address": "101 Montgomery Street, Suite D, San Francisco, CA 94104",
+              "phone": "+1 415-248-5300",
+              "hours": "Lunes a Viernes, de 9:00 a.m. a 5:00 p.m.",
+              "officialWebsiteUrl": "http://icondentalsf.com/"
+            },
+            "servicesCatalog": [
+              {
+                "category": "Estética dental",
+                "summary": "Carillas, blanqueamiento, bonding y transformaciones de sonrisa.",
+                "keywordsFound": ["veneer", "cosmetic", "whitening", "bonding", "smile makeover"]
+              },
+              {
+                "category": "Implantes y restauraciones",
+                "summary": "Implantes dentales, coronas, puentes y rehabilitación dental extensa.",
+                "keywordsFound": ["implant", "restoration", "crown"]
+              },
+              {
+                "category": "Ortodoncia avanzada",
+                "summary": "Alineadores invisibles Invisalign, brackets estéticos y corrección de mordida.",
+                "keywordsFound": ["invisalign"]
+              }
+            ],
+            "foundChannels": {
+              "phone": "+1 415-248-5300",
+              "email": "info@icondentalsf.com",
+              "facebookUrl": "https://www.facebook.com/IconDentalSF",
+              "instagramUrl": "https://www.instagram.com/icondental101",
+              "websiteUrl": "http://icondentalsf.com/"
+            },
+            "decisionMakers": [
+              {
+                "name": "Maya Eydelman",
+                "honorific": "Dr.",
+                "role": "Doctor Especialista / Director Clínico",
+                "sourceUrl": "http://icondentalsf.com/"
+              },
+              {
+                "name": "Theresa Bui",
+                "honorific": "Dr.",
+                "role": "Doctor Especialista / Director Clínico",
+                "sourceUrl": "http://icondentalsf.com/"
+              },
+              {
+                "name": "Tin Tran",
+                "honorific": "Dr.",
+                "role": "Doctor Especialista / Director Clínico",
+                "sourceUrl": "http://icondentalsf.com/"
+              }
+            ],
+            "digitalFootprint": {
+              "verifiedPlatforms": ["FACEBOOK", "INSTAGRAM"],
+              "hasDigitalPresence": true
+            },
+            "suggestedAngle": "Presencia omnicanal detectada en FACEBOOK, INSTAGRAM. Enfoque: 'Unificación de agenda digital y aceleración de conversión móvil'."
+          }
+        }
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "01-open-radar-and-view-icon-dental",
+      "description": "Navegar a Geo-Radar y verificar que Icon Dental aparece listado",
+      "action": "click",
+      "target": "button[title='Geo-Radar de Empresas B2B']",
+      "waitFor": "text=Icon Dental",
+      "postWaitMs": 500,
+      "capture": true
+    },
+    {
+      "id": "02-open-inspector-and-verify-chatgpt-card",
+      "description": "Abrir el Inspector CRM con tecla 'j' y capturar la Ficha Ejecutiva estilo ChatGPT",
+      "action": "press",
+      "key": "j",
+      "waitFor": "[data-testid='geo-crm-inspector']",
+      "postWaitMs": 800,
+      "capture": true
+    }
+  ]
+}

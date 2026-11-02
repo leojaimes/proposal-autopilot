@@ -99,7 +99,10 @@ export class LambdaGoogleProspectingService {
   async deepEnrichBusiness(options: {
     businessName: string;
     urls: string[];
+    city?: string;
+    state?: string;
     country?: string;
+    address?: string;
   }): Promise<{
     channels: {
       whatsappUrl?: string;
@@ -113,21 +116,37 @@ export class LambdaGoogleProspectingService {
       websiteUrl?: string;
     };
     decisionMakers: Array<{ name: string; role?: string; sourceUrl?: string }>;
+    servicesCatalog?: Array<{ category: string; summary: string; keywordsFound: string[] }>;
+    knowledgePanel?: {
+      title?: string;
+      subtitle?: string;
+      address?: string;
+      phone?: string;
+      rating?: number;
+      reviewsCount?: number;
+      hours?: string;
+      officialWebsiteUrl?: string;
+    };
     verifiedPlatforms: string[];
     fastPathSuccess: boolean;
     slowPathTriggered: boolean;
   }> {
-    const { businessName, urls, country = 'Mexico' } = options;
+    const { businessName, urls, city, state, country = 'Mexico', address } = options;
 
     const payload = {
       action: 'DEEP_ENRICH_BUSINESS',
       businessName,
       urls,
+      city,
+      state,
       country,
+      address,
       proxyServer: process.env.SCRAPER_RESIDENTIAL_PROXY,
     };
 
-    this.logger.log(`Invocando Lambda "${this.functionName}" para DEEP_ENRICH_BUSINESS en ${businessName} (${urls.length} URLs)`);
+    this.logger.log(
+      `Invocando Lambda "${this.functionName}" para DEEP_ENRICH_BUSINESS en ${businessName} (${urls.length} URLs, ${city || ''})`,
+    );
 
     const command = new InvokeCommand({
       FunctionName: this.functionName,
@@ -149,6 +168,8 @@ export class LambdaGoogleProspectingService {
       return {
         channels: body?.channels || {},
         decisionMakers: body?.decisionMakers || [],
+        servicesCatalog: body?.servicesCatalog || [],
+        knowledgePanel: body?.knowledgePanel,
         verifiedPlatforms: body?.verifiedPlatforms || [],
         fastPathSuccess: Boolean(body?.fastPathSuccess),
         slowPathTriggered: Boolean(body?.slowPathTriggered),

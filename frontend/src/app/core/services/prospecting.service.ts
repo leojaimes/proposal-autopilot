@@ -63,9 +63,28 @@ export type ContactOutcome =
 
 export type PitchToneKey = 'OWNER' | 'GATEKEEPER' | 'ENTERPRISE';
 
+export interface HighTicketServiceItem {
+  category: string;
+  summary: string;
+  keywordsFound: string[];
+}
+
+export interface GoogleKnowledgePanelSummary {
+  title?: string;
+  subtitle?: string;
+  address?: string;
+  phone?: string;
+  rating?: number;
+  reviewsCount?: number;
+  hours?: string;
+  officialWebsiteUrl?: string;
+}
+
 export interface DeepIntelligenceResult {
   businessId: string;
   enrichedAt: string;
+  knowledgePanel?: GoogleKnowledgePanelSummary;
+  servicesCatalog?: HighTicketServiceItem[];
   foundChannels: {
     whatsappUrl?: string;
     phone?: string;
@@ -664,9 +683,10 @@ export class ProspectingService {
       .pipe(tap((res) => this.funnelAnalytics.set(res)));
   }
 
-  enrichLeadDeeply(businessId: string): Observable<DeepIntelligenceResult> {
+  enrichLeadDeeply(businessId: string, force = false): Observable<DeepIntelligenceResult> {
+    const params = force ? '?force=true' : '';
     return this.http
-      .post<DeepIntelligenceResult>(`${this.baseUrl}/leads/${businessId}/enrich-deep`, {})
+      .post<DeepIntelligenceResult>(`${this.baseUrl}/leads/${businessId}/enrich-deep${params}`, {})
       .pipe(
         tap((intelligence) => {
           this.leads.update((current) =>
@@ -677,6 +697,7 @@ export class ProspectingService {
                 ...l,
                 phone: ch.phone || l.phone,
                 phoneType: ch.phoneType || l.phoneType,
+                email: ch.email || l.email,
                 websiteUrl: ch.websiteUrl || l.websiteUrl,
                 rawGoogleData: {
                   ...(l.rawGoogleData || {}),
@@ -692,6 +713,7 @@ export class ProspectingService {
               ...currentSelected,
               phone: ch.phone || currentSelected.phone,
               phoneType: ch.phoneType || currentSelected.phoneType,
+              email: ch.email || currentSelected.email,
               websiteUrl: ch.websiteUrl || currentSelected.websiteUrl,
               rawGoogleData: {
                 ...(currentSelected.rawGoogleData || {}),

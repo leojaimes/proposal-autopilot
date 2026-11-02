@@ -151,7 +151,10 @@ export class ProspectingController {
 
   @Post('leads/:id/enrich-deep')
   @HttpCode(HttpStatus.OK)
-  async enrichLeadDeeply(@Param('id', ParseUUIDPipe) id: string) {
-    return this.prospectingService.enrichLeadDeeply(id);
+  async enrichLeadDeeply(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('force') force?: string,
+  ) {
+    return this.prospectingService.enrichLeadDeeply(id, force === 'true' || force === '1');
   }
 }

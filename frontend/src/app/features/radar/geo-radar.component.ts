@@ -460,7 +460,7 @@ function escapeHtml(raw: string): string {
           (painDismissed)="dismissPainAsFalsePositive(activeLead, $event.pain, $event.event)"
           (pitchToneChanged)="selectedPitchTone.set($event)"
           (copyRequested)="copyPitch(currentPitchText(activeLead))"
-          (enrichRequested)="triggerDeepEnrichment(activeLead)"
+          (enrichRequested)="triggerDeepEnrichment(activeLead, true)"
           (channelChanged)="contactChannelInput.set($event)"
           (outcomeChanged)="contactOutcomeInput.set($event)"
           (notesChanged)="contactNotesInput.set($event)"
@@ -1013,7 +1013,7 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
       this.copyPitch(this.currentPitchText(activeLead));
     } else if (event.key === 'i' || event.key === 'I') {
       event.preventDefault();
-      this.triggerDeepEnrichment(activeLead);
+      this.triggerDeepEnrichment(activeLead, true);
     } else if (event.key === 'w' || event.key === 'W') {
       if (activeLead.phoneType === 'MOBILE' && (activeLead.phoneE164 || activeLead.phone)) {
         event.preventDefault();
@@ -1583,23 +1583,24 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
     this.renderLeadMarkers(this.prospecting.leads());
   }
 
-  triggerDeepEnrichment(lead: ProspectedBusiness): void {
+  triggerDeepEnrichment(lead: ProspectedBusiness, force = false): void {
     if (this.isEnrichingDeep()) return;
+    const shouldForce = force || Boolean(lead.rawGoogleData?.deepIntelligence);
     this.isEnrichingDeep.set(true);
     this.crmFeedbackMessage.set(null);
     this.contactErrorMessage.set(null);
 
     this.prospecting
-      .enrichLeadDeeply(lead.id)
+      .enrichLeadDeeply(lead.id, shouldForce)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
           this.isEnrichingDeep.set(false);
-          this.crmFeedbackMessage.set('Inteligencia profunda Orion Search completada');
+          this.crmFeedbackMessage.set('Inteligencia ejecutiva y catálogo completados');
         },
         error: (err) => {
           this.isEnrichingDeep.set(false);
-          const msg = err?.error?.message || 'Error al enriquecer prospecto con Orion Search.';
+          const msg = err?.error?.message || 'Error al enriquecer prospecto.';
           this.contactErrorMessage.set(Array.isArray(msg) ? msg.join(', ') : msg);
         },
       });

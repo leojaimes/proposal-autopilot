@@ -204,13 +204,13 @@ import {
           }
         </section>
 
-        <!-- SECTION 1.5: ORION SEARCH DEEP INTELLIGENCE & CONTACT RESOLUTION -->
+        <!-- SECTION 1.5: GOOGLE SERP & CHATGPT-STYLE EXECUTIVE INTELLIGENCE -->
         <section class="p-3 rounded-xl bg-surface-elevated/70 border border-cyan-500/30 space-y-2.5">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-1.5">
               <svg lucideSparkles class="w-3.5 h-3.5 text-cyan-400"></svg>
               <span class="text-[10px] font-bold uppercase tracking-wider text-cyan-300">
-                Inteligencia Profunda (Orion Search)
+                Inteligencia Ejecutiva (Web & Google SERP)
               </span>
             </div>
             <button
@@ -219,7 +219,7 @@ import {
               (click)="enrichRequested.emit()"
               [disabled]="isEnrichingDeep()"
               class="press-scale px-2 py-0.5 rounded-md bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/40 text-[10px] font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50"
-              title="Buscar teléfonos, redes sociales y titulares con Orion Search (I)"
+              title="Actualizar datos con Chromium Stealth y Google SERP (I)"
             >
               @if (isEnrichingDeep()) {
                 <span class="w-2.5 h-2.5 border-2 border-cyan-300 border-t-transparent rounded-full animate-spin"></span>
@@ -240,7 +240,106 @@ import {
           }
 
           @if (deepIntelligence(); as intel) {
-            <div class="space-y-2 text-[11px]">
+            <div class="space-y-2.5 text-[11px]">
+
+              <!-- CHATGPT-STYLE KNOWLEDGE CARD -->
+              <div class="p-2.5 rounded-lg bg-black/40 border border-cyan-500/20 space-y-1.5">
+                <div class="flex items-start justify-between gap-2">
+                  <div>
+                    <h4 class="font-bold text-white text-[12px] leading-tight">
+                      {{ intel.knowledgePanel?.title || lead().name }}
+                    </h4>
+                    <p class="text-[10px] text-content-muted">
+                      {{ intel.knowledgePanel?.subtitle || (lead().city + ', ' + lead().country) }}
+                    </p>
+                  </div>
+                  @if (lead().rating) {
+                    <div class="flex items-center gap-1 text-[10px] text-amber-400 font-mono font-bold shrink-0">
+                      <span>⭐ {{ lead().rating }}</span>
+                      <span class="text-content-muted text-[9px]">({{ lead().reviewsCount }} reseñas)</span>
+                    </div>
+                  }
+                </div>
+
+                <div class="space-y-0.5 text-[10px] text-content-secondary">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-content-muted">Dirección:</span>
+                    <span class="text-content-primary truncate">{{ intel.knowledgePanel?.address || lead().address }}</span>
+                  </div>
+                  @if (intel.knowledgePanel?.phone || lead().phone) {
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-content-muted">Teléfono:</span>
+                      <span class="font-mono text-cyan-300 font-semibold">{{ intel.knowledgePanel?.phone || lead().phone }}</span>
+                    </div>
+                  }
+                  @if (intel.knowledgePanel?.hours) {
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-content-muted">Horario:</span>
+                      <span class="text-emerald-400 font-medium">{{ intel.knowledgePanel?.hours }}</span>
+                    </div>
+                  }
+                </div>
+
+                @if (lead().websiteUrl || intel.foundChannels.websiteUrl) {
+                  <div class="pt-1 border-t border-border-subtle/40 flex items-center justify-between">
+                    <a
+                      [href]="lead().websiteUrl || intel.foundChannels.websiteUrl"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="text-[10px] text-cyan-300 hover:text-cyan-200 font-semibold flex items-center gap-1"
+                    >
+                      <span>Sitio web oficial</span>
+                      <svg lucideExternalLink class="w-2.5 h-2.5"></svg>
+                    </a>
+                  </div>
+                }
+              </div>
+
+              <!-- DECISION MAKER (DIRECTOR CLÍNICO) CHATGPT PILL -->
+              @if (verifiedContacts().length > 0) {
+                <div class="p-2 rounded-lg bg-surface/80 border border-border-subtle/80 space-y-1.5">
+                  <div class="flex items-center gap-1.5 text-content-secondary leading-snug">
+                    <svg lucideUserCheck class="w-3.5 h-3.5 text-cyan-400 shrink-0"></svg>
+                    <span>La clínica está dirigida por:</span>
+                    <span class="font-bold text-cyan-300">
+                      {{ verifiedContacts()[0].honorific ? verifiedContacts()[0].honorific + ' ' : '' }}{{ verifiedContacts()[0].name }}
+                    </span>
+                  </div>
+                  @if (verifiedContacts().length > 1) {
+                    <div class="flex flex-wrap gap-1 items-center">
+                      <span class="text-[9px] text-content-muted">Equipo asociado:</span>
+                      @for (dm of verifiedContacts().slice(1); track dm.id || dm.name) {
+                        <span class="text-[9px] px-1.5 py-0.2 rounded bg-app border border-border-subtle text-content-secondary">
+                          {{ dm.name }} ({{ dm.role || 'Especialista' }})
+                        </span>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+
+              <!-- HIGH-TICKET SERVICES CATALOG (¿Qué servicios ofrece?) -->
+              @if (intel.servicesCatalog && intel.servicesCatalog.length > 0) {
+                <div class="space-y-1.5">
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-cyan-300">
+                    ¿Qué servicios ofrece?
+                  </span>
+                  <div class="space-y-1.5">
+                    @for (srv of intel.servicesCatalog; track srv.category) {
+                      <div class="p-2 rounded-lg bg-surface-elevated border border-border-subtle flex items-start gap-2">
+                        <span class="text-base leading-none shrink-0 mt-0.5">
+                          {{ srv.category.includes('Estética') ? '✨' : srv.category.includes('Implantes') ? '🦷' : srv.category.includes('Ortodoncia') ? '💎' : '🩺' }}
+                        </span>
+                        <div class="min-w-0">
+                          <p class="font-bold text-white text-[11px] leading-tight">{{ srv.category }}</p>
+                          <p class="text-[10px] text-content-secondary leading-snug">{{ srv.summary }}</p>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+
               <!-- Canales Rescatados (WhatsApp, Redes, Email, Titular) -->
               <div class="grid grid-cols-2 gap-1.5 font-mono text-[10px]">
                 @if (intel.foundChannels.whatsappUrl) {
@@ -304,31 +403,6 @@ import {
                 }
               </div>
 
-              <!-- Tomadores de Decisión Hallados -->
-              @if (verifiedContacts().length > 0) {
-                <div class="space-y-1">
-                  <span class="text-[9px] font-bold uppercase tracking-wider text-content-muted">
-                    Tomadores de Decisión Detectados:
-                  </span>
-                  @for (dm of verifiedContacts(); track dm.name) {
-                    <div class="flex items-center justify-between p-1.5 rounded bg-app border border-border-subtle">
-                      <div class="flex items-center gap-1.5 truncate">
-                        <svg lucideUserCheck class="w-3 h-3 text-cyan-400 shrink-0"></svg>
-                        <span class="font-semibold text-content-primary truncate">
-                          {{ dm.honorific ? dm.honorific + ' ' : '' }}{{ dm.name }}
-                        </span>
-                        <span class="text-[9px] text-content-muted">({{ dm.role }})</span>
-                      </div>
-                      @if (dm.sourceUrl) {
-                        <a [href]="dm.sourceUrl" target="_blank" rel="noopener noreferrer" class="text-content-muted hover:text-cyan-300 shrink-0">
-                          <svg lucideExternalLink class="w-2.5 h-2.5"></svg>
-                        </a>
-                      }
-                    </div>
-                  }
-                </div>
-              }
-
               <!-- Ángulo Sugerido -->
               <p class="text-[10px] text-content-secondary leading-snug bg-app/80 p-2 rounded border border-border-subtle/60 italic">
                 "{{ intel.suggestedAngle }}"
@@ -336,7 +410,7 @@ import {
             </div>
           } @else {
             <p class="text-[10px] text-content-muted leading-relaxed">
-              ¿Sin teléfono o sin web en Google Maps? Pulsa <strong>Investigar a Fondo</strong> para rastrear redes sociales, tomadores de decisión y canales de WhatsApp en tiempo real.
+              ¿Sin teléfono o sin web en Google Maps? Pulsa <strong>Investigar a Fondo</strong> para rastrear Google SERP, Knowledge Panel, directores clínicos y catálogo de servicios con Chromium Stealth.
             </p>
           }
         </section>
