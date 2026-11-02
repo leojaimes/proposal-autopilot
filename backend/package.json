@@ -16,7 +16,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:drift": "prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code",
     "prisma:studio": "prisma studio",
-    "test": "node --test -r ts-node/register/transpile-only src/modules/scoring/services/fit-calculator.spec.ts src/modules/prospecting/prospecting-enterprise.spec.ts",
+    "test": "node --test -r ts-node/register/transpile-only src/modules/scoring/services/fit-calculator.spec.ts src/modules/prospecting/prospecting-enterprise.spec.ts src/modules/prospecting/services/email-validation.service.spec.ts src/modules/prospecting/services/orion-deep-prospect-enricher.service.spec.ts",
     "prisma:seed": "ts-node prisma/seed.ts"
   },
   "prisma": {

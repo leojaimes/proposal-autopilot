@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { PipelineStateService } from '../../core/services/pipeline-state.service';
 import { ReportService } from '../../core/services/report.service';
+import { ProspectingService } from '../../core/services/prospecting.service';
 
 import {
   LucideUser,
@@ -25,6 +26,9 @@ import {
   LucideCompass,
   LucideGlobe,
   LucideLogOut,
+  LucideMapPin,
+  LucideSmartphone,
+  LucideStore,
 } from '@lucide/angular';
 
 import { I18nPipe } from '../../core/pipes/i18n.pipe';
@@ -59,6 +63,9 @@ export type AppViewMode = 'TERMINAL' | 'EXPLORER' | 'RADAR' | 'PROFILE' | 'WORKB
     LucideCompass,
     LucideGlobe,
     LucideLogOut,
+    LucideMapPin,
+    LucideSmartphone,
+    LucideStore,
   ],
   templateUrl: './dispatch-header.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -67,6 +74,7 @@ export class DispatchHeaderComponent {
   public readonly auth = inject(AuthService);
   public readonly pipeline = inject(PipelineStateService);
   public readonly report = inject(ReportService);
+  public readonly prospecting = inject(ProspectingService);
   public readonly i18n = inject(I18nService);
   private readonly http = inject(HttpClient);
 
@@ -80,6 +88,33 @@ export class DispatchHeaderComponent {
 
   public readonly lowFitCount = computed(() => {
     return this.report.jobs().filter(j => j.fitLabel === 'Low' || j.fitScore < 50).length;
+  });
+
+  // Contextual Geo-Radar B2B Funnel KPIs
+  public readonly geoTotalCount = computed(() => {
+    return this.prospecting.funnelAnalytics()?.overview.totalBusinesses ?? this.prospecting.leads().length;
+  });
+
+  public readonly geoIndependentCount = computed(() => {
+    return (
+      this.prospecting.funnelAnalytics()?.overview.independentCount ??
+      this.prospecting.leads().filter(l => l.ownershipType !== 'CHAIN_BRANCH' && l.ownershipType !== 'CORPORATE_HQ').length
+    );
+  });
+
+  public readonly geoMobileCount = computed(() => {
+    return this.prospecting.leads().filter(l => l.phoneType === 'MOBILE').length;
+  });
+
+  public readonly geoContactedCount = computed(() => {
+    return (
+      this.prospecting.funnelAnalytics()?.overview.contactedCount ??
+      this.prospecting.leads().filter(l => l.status === 'CONTACTED' || Boolean(l.contactCooldownUntil)).length
+    );
+  });
+
+  public readonly geoPipelineUsd = computed(() => {
+    return this.prospecting.leads().reduce((sum, l) => sum + (Number(l.estimatedTicketUsd) || 450), 0);
   });
 
   // Profile Switcher Dropdown & Modal State

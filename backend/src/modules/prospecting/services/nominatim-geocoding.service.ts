@@ -112,15 +112,34 @@ export class NominatimGeocodingService {
         if (geojson?.features && geojson.features.length > 0) {
           const feature = geojson.features[0];
           const coords = feature.geometry?.coordinates;
-          const [lng, lat] = feature.properties?.lat && feature.properties?.lon
-            ? [Number(feature.properties.lon), Number(feature.properties.lat)]
-            : [feature.bbox?.[0] || 0, feature.bbox?.[1] || 0];
+          let lat = 0;
+          let lng = 0;
+
+          if (feature.geometry?.type === 'Point' && Array.isArray(feature.geometry.coordinates)) {
+            lng = Number(feature.geometry.coordinates[0]);
+            lat = Number(feature.geometry.coordinates[1]);
+          } else if (feature.properties?.lat && feature.properties?.lon) {
+            lat = Number(feature.properties.lat);
+            lng = Number(feature.properties.lon);
+          } else if (feature.bbox && feature.bbox.length >= 4) {
+            const cityClean = city.trim().toLowerCase();
+            const cityBase = cityClean.split(/[-–(]/)[0].trim();
+            const known = FALLBACK_CITIES[cityClean] || FALLBACK_CITIES[cityBase];
+            if (known) {
+              lat = known.lat;
+              lng = known.lng;
+            } else {
+              // bbox in GeoJSON is [minLng, minLat, maxLng, maxLat] -> compute midpoint
+              lng = (Number(feature.bbox[0]) + Number(feature.bbox[2])) / 2;
+              lat = (Number(feature.bbox[1]) + Number(feature.bbox[3])) / 2;
+            }
+          }
 
           const result: GeocodedCityResult = {
             city: city.trim(),
             state: state?.trim() || feature.properties?.address?.state,
             country: country.trim(),
-            center: { lat: lat || Number(feature.properties?.lat), lng: lng || Number(feature.properties?.lon) },
+            center: { lat, lng },
             boundingBox: feature.bbox ? [feature.bbox[1], feature.bbox[3], feature.bbox[0], feature.bbox[2]] : undefined,
             geojsonPolygon: feature.geometry,
             displayName: feature.properties?.display_name || query,

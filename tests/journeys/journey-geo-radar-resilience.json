@@ -1,0 +1,110 @@
+{
+  "journey": "journey-geo-radar-resilience",
+  "title": "Recorrido de Resiliencia, Fallos Controlados y Regresiones: Geo-Radar B2B",
+  "description": "Evalúa rigurosamente el comportamiento del sistema ante fallos de red simulados en Orion Search (HTTP 500), descarte con tecla Escape, persistencia URL de paginación tras recarga completa (F5) y control de prospectos con datos incompletos.",
+  "baseUrl": "http://localhost:7001",
+  "backendApiUrl": "http://localhost:7000/api",
+  "auth": {
+    "ephemeralTenant": true,
+    "companyName": "GeoRadar Resilience QA"
+  },
+  "fixtures": {
+    "prospectingLeads": [
+      {
+        "placeId": "af_resilience_clinica_sin_web_01",
+        "name": "Consultorio Odontológico Los Álamos",
+        "category": "Dentistas",
+        "city": "Mérida",
+        "state": "Yucatán",
+        "country": "México",
+        "address": "Calle 45 #200, Los Álamos, Mérida, Yucatán",
+        "latitude": 20.9812,
+        "longitude": -89.6145,
+        "rating": 4.5,
+        "reviewsCount": 28,
+        "priceLevel": 2,
+        "phone": "+52 999 444 1122",
+        "websiteUrl": null,
+        "reviewsSnippets": [
+          "Excelente trato de la dentista pero no tienen página web para ver promociones"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "01-open-radar-and-verify-resilience-fixtures",
+      "description": "Navegar a Geo-Radar y verificar renderizado seguro de prospectos",
+      "action": "click",
+      "target": "button[title='Geo-Radar de Empresas B2B']",
+      "waitFor": "text=Consultorio Odontológico Los Álamos",
+      "postWaitMs": 500,
+      "capture": true
+    },
+    {
+      "id": "02-select-lead-without-web-via-keyboard",
+      "description": "Seleccionar el lead con tecla 'j' y abrir inspector CRM sin bloqueos",
+      "action": "press",
+      "key": "j",
+      "waitFor": "[data-testid='geo-crm-inspector']",
+      "postWaitMs": 400,
+      "capture": true
+    },
+    {
+      "id": "03-mock-orion-network-failure-http-500",
+      "description": "Simular falla catastrófica de red (HTTP 500 Internal Error) en el endpoint de enriquecimiento Orion",
+      "action": "mockRoute",
+      "pattern": "**/api/prospecting/leads/*/enrich-deep",
+      "status": 500,
+      "body": {
+        "statusCode": 500,
+        "message": "Orion Search Gateway Timeout - Upstream Unavailable"
+      },
+      "postWaitMs": 100,
+      "capture": false
+    },
+    {
+      "id": "04-trigger-deep-enrichment-expecting-graceful-error",
+      "description": "Disparar enriquecimiento profundo con clic en botón de investigar y verificar captura elegante del error sin congelar la app",
+      "action": "click",
+      "target": "[data-testid='btn-deep-enrich']",
+      "waitFor": "[data-testid='orion-error-banner']",
+      "postWaitMs": 500,
+      "capture": true
+    },
+    {
+      "id": "05-unmock-orion-and-recover-route",
+      "description": "Restablecer la ruta original de Orion eliminando el mock de falla",
+      "action": "unmockRoute",
+      "pattern": "**/api/prospecting/leads/*/enrich-deep",
+      "postWaitMs": 100,
+      "capture": false
+    },
+    {
+      "id": "06-navigate-with-page-query-param",
+      "description": "Navegar directamente con query param ?page=2&pageSize=1 verificando lectura de paginación",
+      "action": "click",
+      "target": "button[title='Modo Dual 50% (Mapa + Tabla)']",
+      "waitFor": "th:has-text('Empresa B2B')",
+      "postWaitMs": 300,
+      "capture": true
+    },
+    {
+      "id": "07-close-inspector-with-escape-cleanly",
+      "description": "Cerrar el inspector con tecla Escape confirmando que el ciclo de eventos quedó limpio",
+      "action": "press",
+      "key": "Escape",
+      "waitForHidden": "[data-testid='geo-crm-inspector']",
+      "postWaitMs": 300,
+      "capture": true
+    },
+    {
+      "id": "08-reload-page-and-verify-resilience",
+      "description": "Ejecutar recarga completa de página (F5) para verificar que el estado es resiliente",
+      "action": "reload",
+      "waitFor": "text=Consultorio Odontológico Los Álamos",
+      "postWaitMs": 500,
+      "capture": true
+    }
+  ]
+}

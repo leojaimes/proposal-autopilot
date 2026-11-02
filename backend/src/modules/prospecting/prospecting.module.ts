@@ -9,6 +9,10 @@ import { ChainDetectorService } from './services/chain-detector.service';
 import { WebsiteHealthInspectorService } from './services/website-health-inspector.service';
 import { ProspectEnrichmentQueueService } from './services/prospect-enrichment-queue.service';
 import { ContactCooldownPolicyService } from './services/contact-cooldown.service';
+import { ProspectingStreamService } from './services/prospecting-stream.service';
+import { OrionDeepProspectEnricherService } from './services/orion-deep-prospect-enricher.service';
+import { EmailValidationService } from './services/email-validation.service';
+import { OrionSearchService } from '../scraping/services/orion-search.service';
 import { HmacWebhookGuard } from './guards/hmac-webhook.guard';
 import { AdminRoleGuard } from '../../core/guards/admin-role.guard';
 import { PrismaService } from '../../core/database/prisma.service';
@@ -26,6 +30,10 @@ import { TenantContextService } from '../../core/context/tenant-context.service'
     WebsiteHealthInspectorService,
     ProspectEnrichmentQueueService,
     ContactCooldownPolicyService,
+    ProspectingStreamService,
+    OrionDeepProspectEnricherService,
+    EmailValidationService,
+    OrionSearchService,
     HmacWebhookGuard,
     AdminRoleGuard,
     PrismaService,
@@ -41,6 +49,9 @@ import { TenantContextService } from '../../core/context/tenant-context.service'
     WebsiteHealthInspectorService,
     ProspectEnrichmentQueueService,
     ContactCooldownPolicyService,
+    ProspectingStreamService,
+    OrionDeepProspectEnricherService,
+    EmailValidationService,
   ],
 })
 export class ProspectingModule {}

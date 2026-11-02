@@ -166,7 +166,7 @@ import {
           <!-- GEO-RADAR PROSPECTOR (Oculto según directiva del usuario) -->
           @if (showGeoRadar()) {
             <button
-              (click)="viewModeChange.emit('GEO_RADAR')"
+              (click)="selectNav('GEO_RADAR')"
               [ngClass]="activeView() === 'GEO_RADAR' ? 'bg-cyan-500/15 text-cyan-400 border-cyan-400/30 font-bold' : 'text-content-secondary hover:text-content-primary hover:bg-white/[0.05] border-transparent'"
               class="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-xs transition-all border group relative"
               title="Geo-Radar de Empresas B2B">
@@ -292,7 +292,13 @@ export class AppSidebarComponent {
 
   public readonly isHovered = signal<boolean>(false);
   public readonly isPinned = signal<boolean>(false);
-  public readonly showGeoRadar = signal<boolean>(false);
+  public readonly showGeoRadar = computed<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const explicitFlag = window.localStorage.getItem('pa_enable_georadar');
+    if (explicitFlag === 'false') return false;
+    if (explicitFlag === 'true') return true;
+    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  });
 
   private hoverTimeout: any = null;
 
@@ -329,6 +335,17 @@ export class AppSidebarComponent {
   }
 
   public onMouseLeave(): void {
+    if (this.hoverTimeout) {
+      clearTimeout(this.hoverTimeout);
+      this.hoverTimeout = null;
+    }
+    if (!this.isPinned()) {
+      this.isHovered.set(false);
+    }
+  }
+
+  public selectNav(view: AppViewMode): void {
+    this.viewModeChange.emit(view);
     if (this.hoverTimeout) {
       clearTimeout(this.hoverTimeout);
       this.hoverTimeout = null;

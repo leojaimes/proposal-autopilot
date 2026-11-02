@@ -125,6 +125,8 @@ model Tenant {
   prospectedBusinesses        ProspectedBusiness[]
   prospectedBusinessPains     ProspectedBusinessPain[]
   prospectContactLogs         ProspectContactLog[]
+  businessContacts            ProspectedBusinessContact[]
+  businessSocials             ProspectedBusinessSocial[]
 
   @@map("tenants")
 }
@@ -761,6 +763,8 @@ model ProspectedBusiness {
   corporateBrand       CorporateBrand?           @relation(fields: [corporateBrandId], references: [id], onDelete: SetNull)
   detectedPains        ProspectedBusinessPain[]
   contactLogs          ProspectContactLog[]
+  contacts             ProspectedBusinessContact[]
+  socialProfiles       ProspectedBusinessSocial[]
 
   @@unique([tenantId, placeId], name: "uq_tenant_place")
   @@index([tenantId, city, category])
@@ -858,3 +862,51 @@ model GeoPreset {
   @@map("geo_presets")
 }
 
+
+
+model ProspectedBusinessContact {
+  id                 String   @id @default(uuid()) @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  businessId         String   @map("business_id") @db.Uuid
+  fullName           String   @map("full_name") @db.VarChar(150)
+  honorific          String?  @db.VarChar(50)
+  titleRole          String?  @map("title_role") @db.VarChar(150)
+  email              String?  @db.VarChar(180)
+  phone              String?  @db.VarChar(50)
+  phoneE164          String?  @map("phone_e164") @db.VarChar(30)
+  isPrimary          Boolean  @default(false) @map("is_primary")
+  confidence         Decimal  @default(0.80) @db.Decimal(3, 2)
+  sourceUrl          String?  @map("source_url") @db.Text
+  sourceProvenance   String   @default("ENRICHMENT_LAMBDA") @map("source_provenance") @db.VarChar(50)
+  isManuallyVerified Boolean  @default(false) @map("is_manually_verified")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  business ProspectedBusiness @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, fullName], name: "uq_business_contact_name")
+  @@index([tenantId, businessId])
+  @@index([businessId, isPrimary])
+  @@map("prospected_business_contacts")
+}
+
+model ProspectedBusinessSocial {
+  id               String   @id @default(uuid()) @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  businessId       String   @map("business_id") @db.Uuid
+  platform         String   @db.VarChar(50)
+  url              String   @db.Text
+  username         String?  @db.VarChar(100)
+  isVerified       Boolean  @default(true) @map("is_verified")
+  sourceProvenance String   @default("ENRICHMENT_LAMBDA") @map("source_provenance") @db.VarChar(50)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  business ProspectedBusiness @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, platform], name: "uq_business_social_platform")
+  @@index([businessId])
+  @@map("prospected_business_socials")
+}

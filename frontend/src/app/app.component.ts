@@ -1,16 +1,12 @@
 import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterOutlet, Router, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs/operators';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AppSidebarComponent } from './features/navigation/app-sidebar.component';
 import { DispatchHeaderComponent, AppViewMode } from './features/dispatch/dispatch-header.component';
-import { DispatchTerminalComponent } from './features/dispatch/dispatch-terminal.component';
-import { JobExplorerComponent } from './features/explorer/job-explorer.component';
 import { EngineSettingsDrawerComponent } from './features/dispatch/engine-settings-drawer.component';
-import { ZeroStateOnboardingComponent } from './features/onboarding/zero-state-onboarding.component';
 import { LiveScrapeProgressComponent } from './features/dispatch/live-scrape-progress.component';
-import { MarketRadarComponent } from './features/radar/market-radar.component';
-import { UserProfileComponent } from './features/profile/user-profile.component';
-import { CustomJobWorkbenchComponent } from './features/workbench/custom-job-workbench.component';
-import { GeoRadarComponent } from './features/radar/geo-radar.component';
 import { ReportService } from './core/services/report.service';
 import { AuthService } from './core/services/auth.service';
 import { RegisterCardComponent } from './features/auth/register-card.component';
@@ -20,18 +16,12 @@ import { RegisterCardComponent } from './features/auth/register-card.component';
   standalone: true,
   imports: [
     CommonModule,
+    RouterOutlet,
     RegisterCardComponent,
     AppSidebarComponent,
     DispatchHeaderComponent,
-    DispatchTerminalComponent,
-    JobExplorerComponent,
     EngineSettingsDrawerComponent,
-    ZeroStateOnboardingComponent,
     LiveScrapeProgressComponent,
-    MarketRadarComponent,
-    UserProfileComponent,
-    CustomJobWorkbenchComponent,
-    GeoRadarComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -42,56 +32,26 @@ import { RegisterCardComponent } from './features/auth/register-card.component';
         <!-- Collapsible Rail Sidebar -->
         <app-sidebar
           [activeView]="currentView()"
-          (viewModeChange)="currentView.set($event)"
+          (viewModeChange)="navigateByViewMode($event)"
           (openSettings)="isSettingsOpen.set(true)">
         </app-sidebar>
 
-        <!-- Main Viewport (Header + Live Progress + Content) -->
+        <!-- Main Viewport (Header + Live Progress + Routed Content) -->
         <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
           <!-- Top Bar with Streamlined Controls -->
           <app-dispatch-header
             [activeView]="currentView()"
-            (viewModeChange)="currentView.set($event)"
+            (viewModeChange)="navigateByViewMode($event)"
             (openSettings)="isSettingsOpen.set(true)">
           </app-dispatch-header>
 
           <!-- Live SSE Scraping Activity Banner -->
           <app-live-scrape-progress></app-live-scrape-progress>
 
-          <!-- Main Body: Conditional on Empty State vs Active Data -->
-          <div class="flex-1 overflow-hidden flex">
-          @if (currentView() === 'PROFILE') {
-            <main class="flex-1 overflow-y-auto bg-app">
-              <app-user-profile></app-user-profile>
-            </main>
-          } @else if (currentView() === 'WORKBENCH') {
-            <main class="flex-1 overflow-y-auto bg-app">
-              <app-custom-job-workbench></app-custom-job-workbench>
-            </main>
-          } @else if (currentView() === 'GEO_RADAR') {
-            <main class="flex-1 overflow-hidden bg-[#090d14]">
-              <app-geo-radar class="w-full h-full block"></app-geo-radar>
-            </main>
-          } @else if (report.jobs().length === 0 && !report.isLoading() && !report.isScrapingInProgress()) {
-            <!-- ZERO STATE / GREENFIELD ONBOARDING -->
-            <main class="flex-1 overflow-y-auto bg-app">
-              <app-zero-state-onboarding></app-zero-state-onboarding>
-            </main>
-          } @else {
-            <!-- ACTIVE APPLICATION -->
-            @if (currentView() === 'TERMINAL') {
-              <app-dispatch-terminal class="flex-1 flex overflow-hidden"></app-dispatch-terminal>
-            } @else if (currentView() === 'EXPLORER') {
-              <main class="flex-1 overflow-y-auto bg-app">
-                <app-job-explorer></app-job-explorer>
-              </main>
-            } @else if (currentView() === 'RADAR') {
-              <main class="flex-1 overflow-y-auto bg-app">
-                <app-market-radar></app-market-radar>
-              </main>
-            }
-          }
-        </div>
+          <!-- Primary Routed Viewport -->
+          <main class="flex-1 overflow-hidden flex relative w-full h-full">
+            <router-outlet></router-outlet>
+          </main>
         </div>
 
         <!-- Calibration Settings Drawer -->
@@ -106,6 +66,61 @@ import { RegisterCardComponent } from './features/auth/register-card.component';
 export class AppComponent {
   public readonly auth = inject(AuthService);
   public readonly report = inject(ReportService);
+  private readonly router = inject(Router);
+
   public readonly currentView = signal<AppViewMode>('TERMINAL');
   public readonly isSettingsOpen = signal<boolean>(false);
+
+  constructor() {
+    this.syncCurrentView(this.router.url);
+
+    this.router.events
+      .pipe(
+        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+        takeUntilDestroyed()
+      )
+      .subscribe((event) => {
+        this.syncCurrentView(event.urlAfterRedirects || event.url);
+      });
+  }
+
+  public navigateByViewMode(mode: AppViewMode): void {
+    switch (mode) {
+      case 'TERMINAL':
+        this.router.navigate(['/dispatch']);
+        break;
+      case 'EXPLORER':
+        this.router.navigate(['/explorer']);
+        break;
+      case 'RADAR':
+        this.router.navigate(['/radar/market']);
+        break;
+      case 'GEO_RADAR':
+        this.router.navigate(['/radar/geo']);
+        break;
+      case 'WORKBENCH':
+        this.router.navigate(['/workbench']);
+        break;
+      case 'PROFILE':
+        this.router.navigate(['/profile']);
+        break;
+    }
+  }
+
+  private syncCurrentView(url: string): void {
+    const cleanUrl = url.split('?')[0].split('#')[0];
+    if (cleanUrl.startsWith('/radar/geo')) {
+      this.currentView.set('GEO_RADAR');
+    } else if (cleanUrl.startsWith('/radar/market')) {
+      this.currentView.set('RADAR');
+    } else if (cleanUrl.startsWith('/explorer')) {
+      this.currentView.set('EXPLORER');
+    } else if (cleanUrl.startsWith('/workbench')) {
+      this.currentView.set('WORKBENCH');
+    } else if (cleanUrl.startsWith('/profile')) {
+      this.currentView.set('PROFILE');
+    } else if (cleanUrl.startsWith('/dispatch') || cleanUrl === '/' || cleanUrl === '') {
+      this.currentView.set('TERMINAL');
+    }
+  }
 }

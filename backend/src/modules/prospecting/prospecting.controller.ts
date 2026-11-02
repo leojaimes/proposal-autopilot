@@ -9,9 +9,11 @@ import {
   Patch,
   Post,
   Query,
+  Sse,
   UseGuards,
 } from '@nestjs/common';
 import { ProspectingService } from './prospecting.service';
+import { ProspectingStreamService } from './services/prospecting-stream.service';
 import { GeocodeCityDto } from './dto/geocode-city.dto';
 import { ScanAreaDto } from './dto/scan-area.dto';
 import { ProspectingWebhookPayloadDto } from './dto/prospecting-webhook.dto';
@@ -29,7 +31,10 @@ import { AdminRoleGuard } from '../../core/guards/admin-role.guard';
 
 @Controller('api/prospecting')
 export class ProspectingController {
-  constructor(private readonly prospectingService: ProspectingService) {}
+  constructor(
+    private readonly prospectingService: ProspectingService,
+    private readonly prospectingStreamService: ProspectingStreamService,
+  ) {}
 
   @Post('webhook/progress')
   @UseGuards(HmacWebhookGuard)
@@ -72,6 +77,11 @@ export class ProspectingController {
   @Post('scan-area')
   async scanArea(@Body() dto: ScanAreaDto) {
     return this.prospectingService.scanArea(dto);
+  }
+
+  @Sse('scan-stream/:scanId')
+  streamScanEvents(@Param('scanId') scanId: string) {
+    return this.prospectingStreamService.getScanStream(scanId);
   }
 
   @Get('leads')
@@ -137,5 +147,11 @@ export class ProspectingController {
   @Get('analytics/funnel')
   async getProspectingFunnelAnalytics() {
     return this.prospectingService.getProspectingFunnelAnalytics();
+  }
+
+  @Post('leads/:id/enrich-deep')
+  @HttpCode(HttpStatus.OK)
+  async enrichLeadDeeply(@Param('id', ParseUUIDPipe) id: string) {
+    return this.prospectingService.enrichLeadDeeply(id);
   }
 }

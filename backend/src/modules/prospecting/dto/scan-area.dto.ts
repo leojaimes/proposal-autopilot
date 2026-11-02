@@ -1,12 +1,14 @@
 import { IsString, IsNotEmpty, IsNumber, IsOptional, ValidateNested, IsArray, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 export class CenterCoordinatesDto {
+  @Transform(({ value }) => (typeof value === 'string' ? parseFloat(value) : Number(value)))
   @IsNumber()
   @Min(-90)
   @Max(90)
   lat!: number;
 
+  @Transform(({ value }) => (typeof value === 'string' ? parseFloat(value) : Number(value)))
   @IsNumber()
   @Min(-180)
   @Max(180)
@@ -42,5 +44,12 @@ export class ScanAreaDto {
   @IsArray()
   @IsOptional()
   polygon?: [number, number][]; // Optional custom polygon coords [[lat, lng], ...]
+
+  @IsString()
+  @IsOptional()
+  scanId?: string;
+
+  @IsOptional()
+  forceRefresh?: boolean;
 }
 

@@ -18,6 +18,8 @@ import { PhoneNormalizerService } from './services/phone-normalizer.service';
 import { ChainDetectorService } from './services/chain-detector.service';
 import { ProspectEnrichmentQueueService } from './services/prospect-enrichment-queue.service';
 import { ContactCooldownPolicyService } from './services/contact-cooldown.service';
+import { ProspectingStreamService } from './services/prospecting-stream.service';
+import { OrionDeepProspectEnricherService, DeepIntelligenceResult } from './services/orion-deep-prospect-enricher.service';
 import { ScanAreaDto } from './dto/scan-area.dto';
 import { ProspectingWebhookPayloadDto } from './dto/prospecting-webhook.dto';
 import {
@@ -87,6 +89,8 @@ export class ProspectingService {
     @Optional() private readonly enrichmentQueue?: ProspectEnrichmentQueueService,
     @Optional() private readonly contactCooldown?: ContactCooldownPolicyService,
     @Optional() private readonly lambdaGoogle?: LambdaGoogleProspectingService,
+    @Optional() private readonly streamService?: ProspectingStreamService,
+    @Optional() private readonly deepEnricher?: OrionDeepProspectEnricherService,
   ) {}
 
   async geocodeCity(
@@ -174,7 +178,70 @@ export class ProspectingService {
       state = 'Querétaro',
       country = 'Mexico',
       polygon,
+      scanId,
+      forceRefresh = false,
     } = dto;
+
+    // Cache Guard: Evitar scrapings innecesarios si ya hay prospectos recientes (< 7 días)
+    if (!forceRefresh) {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const cachedLeads = await this.prisma.prospectedBusiness.findMany({
+        where: {
+          tenantId,
+          city: { equals: city, mode: 'insensitive' },
+          category: { contains: sector, mode: 'insensitive' },
+          scannedAt: { gte: sevenDaysAgo },
+        },
+        include: {
+          corporateBrand: true,
+          detectedPains: {
+            where: { status: { in: ACTIVE_PAIN_STATUSES } },
+            include: { painCatalog: true },
+          },
+        },
+        orderBy: [{ estimatedTicketUsd: 'desc' }, { rating: 'desc' }],
+        take: 30,
+      });
+
+      if (cachedLeads.length >= 3) {
+        this.logger.log(
+          `Cache Guard: Retornando ${cachedLeads.length} leads locales de ${city} para "${sector}" (escaneados < 7 días).`,
+        );
+
+        if (scanId && this.streamService) {
+          this.streamService.emitEvent({
+            scanId,
+            tenantId,
+            type: 'CACHE_BURST',
+            message: `⚡ ${cachedLeads.length} prospectos recuperados de caché local (< 7 días)`,
+            progressPct: 100,
+            leads: cachedLeads,
+            totalLeads: cachedLeads.length,
+            fromCache: true,
+          });
+        }
+
+        return {
+          message: `Local cache hit. Found ${cachedLeads.length} fresh leads in ${city}.`,
+          scannedSector: sector,
+          center,
+          radiusKm,
+          city,
+          leads: cachedLeads,
+          fromCache: true,
+        };
+      }
+    }
+
+    if (scanId && this.streamService) {
+      this.streamService.emitEvent({
+        scanId,
+        tenantId,
+        type: 'RADAR_HEARTBEAT',
+        message: `🛰️ Iniciando radar en Google Maps para ${sector} en ${city}...`,
+        progressPct: 15,
+      });
+    }
 
     const hasPolygon = Boolean(polygon && polygon.length >= 3);
     const normalizedPolygon = hasPolygon ? normalizePolygonCoordinates(polygon!) : null;
@@ -200,6 +267,16 @@ export class ProspectingService {
 
     if (provider === 'LAMBDA' && this.lambdaGoogle) {
       try {
+        if (scanId && this.streamService) {
+          this.streamService.emitEvent({
+            scanId,
+            tenantId,
+            type: 'RADAR_HEARTBEAT',
+            message: `🤖 Navegando Google Maps con Chromium Stealth en [${effectiveCenter.lat}, ${effectiveCenter.lng}]...`,
+            progressPct: 35,
+          });
+        }
+
         const polygonCoords = normalizedPolygon
           ? normalizedPolygon.map((p) => ({ lat: p[0], lng: p[1] }))
           : undefined;
@@ -212,6 +289,21 @@ export class ProspectingService {
           location: city,
           limit: 20,
         });
+
+        if (!rawCandidates || rawCandidates.length === 0) {
+          this.logger.warn(
+            `Lambda Google scraper returned 0 results for "${sector}" in ${city}. Activating area candidate generator fallback.`,
+          );
+          rawCandidates = this.generateAreaCandidates(
+            sector,
+            effectiveCenter,
+            radiusKm,
+            city,
+            state,
+            country,
+            normalizedPolygon && normalizedPolygon.length >= 3 ? normalizedPolygon : undefined,
+          );
+        }
       } catch (err: any) {
         this.logger.warn(
           `Lambda Google scraping failed (${err?.message}). Activating local simulation fallback.`,
@@ -238,8 +330,19 @@ export class ProspectingService {
       );
     }
 
+    if (scanId && this.streamService) {
+      this.streamService.emitEvent({
+        scanId,
+        tenantId,
+        type: 'RADAR_HEARTBEAT',
+        message: `🔍 Analizando dolencias, líneas E.164 y estimando tickets para ${rawCandidates.length} negocios...`,
+        progressPct: 65,
+      });
+    }
+
     const savedLeads = [];
     const idsToEnrich: string[] = [];
+    let leadIndex = 0;
 
     for (const candidate of rawCandidates) {
       const persisted = await this.ingestCandidateIdempotently(tenantId, {
@@ -249,6 +352,21 @@ export class ProspectingService {
         country: candidate.country || country,
       });
       savedLeads.push(persisted);
+      leadIndex++;
+
+      if (scanId && this.streamService) {
+        this.streamService.emitEvent({
+          scanId,
+          tenantId,
+          type: 'LEAD_ARRIVED',
+          message: `✓ Prospecto: ${persisted.name} (~$${persisted.estimatedTicketUsd || 450} USD)`,
+          progressPct: Math.min(95, Math.round(65 + (leadIndex / Math.max(1, rawCandidates.length)) * 30)),
+          lead: persisted,
+          leadIndex,
+          totalLeads: rawCandidates.length,
+        });
+      }
+
       if (persisted.websiteUrl) {
         idsToEnrich.push(persisted.id);
       }
@@ -256,6 +374,21 @@ export class ProspectingService {
 
     if (idsToEnrich.length > 0 && this.enrichmentQueue) {
       this.enrichmentQueue.enqueueBusinessIds(idsToEnrich);
+    }
+
+    const totalPipeline = savedLeads.reduce((sum, l) => sum + (l.estimatedTicketUsd || 450), 0);
+
+    if (scanId && this.streamService) {
+      this.streamService.emitEvent({
+        scanId,
+        tenantId,
+        type: 'SCAN_FINISHED',
+        message: `🎯 Barrido completado: ${savedLeads.length} prospectos (~$${totalPipeline.toLocaleString()} USD en pipeline)`,
+        progressPct: 100,
+        leads: savedLeads,
+        totalLeads: savedLeads.length,
+        pipelineUsd: totalPipeline,
+      });
     }
 
     return {
@@ -390,6 +523,10 @@ export class ProspectingService {
             },
           },
         },
+        contacts: {
+          orderBy: [{ isPrimary: 'desc' }, { confidence: 'desc' }],
+        },
+        socialProfiles: true,
       },
       orderBy: [{ scannedAt: 'desc' }, { reviewsCount: 'desc' }],
       skip,
@@ -596,9 +733,21 @@ export class ProspectingService {
       orderBy: { contactedAt: 'desc' },
     });
 
+    const decisionMakers = await this.prisma.prospectedBusinessContact.findMany({
+      where: { businessId, tenantId },
+      orderBy: [{ isPrimary: 'desc' }, { confidence: 'desc' }],
+    });
+
+    const socialProfiles = await this.prisma.prospectedBusinessSocial.findMany({
+      where: { businessId, tenantId },
+      orderBy: { createdAt: 'asc' },
+    });
+
     return {
       business,
       contacts,
+      decisionMakers,
+      socialProfiles,
     };
   }
 
@@ -1010,10 +1159,68 @@ export class ProspectingService {
               ? top.customPitchOwner ?? diagnosis.salesPitchDraft
               : top.customPitchEnterprise ?? diagnosis.salesPitchDraft,
         },
+        include: {
+          corporateBrand: {
+            select: {
+              id: true,
+              slug: true,
+              name: true,
+              rootDomain: true,
+              headquartersCity: true,
+              totalBranchesTracked: true,
+            },
+          },
+          detectedPains: {
+            where: { status: { in: ACTIVE_PAIN_STATUSES } },
+            orderBy: [{ isPrimary: 'desc' }, { confidence: 'desc' }],
+            include: {
+              painCatalog: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  suggestedOffer: true,
+                  baseTicketUsd: true,
+                  monthlyRetainerUsd: true,
+                },
+              },
+            },
+          },
+        },
       });
     }
 
-    return upsertedBusiness;
+    return this.prisma.prospectedBusiness.findUniqueOrThrow({
+      where: { id: upsertedBusiness.id },
+      include: {
+        corporateBrand: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+            rootDomain: true,
+            headquartersCity: true,
+            totalBranchesTracked: true,
+          },
+        },
+        detectedPains: {
+          where: { status: { in: ACTIVE_PAIN_STATUSES } },
+          orderBy: [{ isPrimary: 'desc' }, { confidence: 'desc' }],
+          include: {
+            painCatalog: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                suggestedOffer: true,
+                baseTicketUsd: true,
+                monthlyRetainerUsd: true,
+              },
+            },
+          },
+        },
+      },
+    });
   }
 
   private evaluateOperationalStatus(
@@ -1198,5 +1405,12 @@ export class ProspectingService {
         }
         return true;
       });
+  }
+
+  async enrichLeadDeeply(leadId: string): Promise<DeepIntelligenceResult> {
+    if (!this.deepEnricher) {
+      throw new BadRequestException('Orion Deep Prospect Enricher is not initialized');
+    }
+    return this.deepEnricher.enrichLeadDeeply(leadId);
   }
 }

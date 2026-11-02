@@ -91,5 +91,72 @@ export class LambdaGoogleProspectingService {
       throw error;
     }
   }
+
+  /**
+   * Invoca la AWS Lambda para realizar enriquecimiento profundo de contacto y tomadores de decisión
+   * mediante arquitectura en cascada (Fast-Path HTTP + Slow-Path Chromium Stealth).
+   */
+  async deepEnrichBusiness(options: {
+    businessName: string;
+    urls: string[];
+    country?: string;
+  }): Promise<{
+    channels: {
+      whatsappUrl?: string;
+      phone?: string;
+      phoneE164?: string;
+      phoneType?: 'MOBILE' | 'LANDLINE' | 'TOLL_FREE';
+      email?: string;
+      facebookUrl?: string;
+      instagramUrl?: string;
+      linkedinUrl?: string;
+      websiteUrl?: string;
+    };
+    decisionMakers: Array<{ name: string; role?: string; sourceUrl?: string }>;
+    verifiedPlatforms: string[];
+    fastPathSuccess: boolean;
+    slowPathTriggered: boolean;
+  }> {
+    const { businessName, urls, country = 'Mexico' } = options;
+
+    const payload = {
+      action: 'DEEP_ENRICH_BUSINESS',
+      businessName,
+      urls,
+      country,
+      proxyServer: process.env.SCRAPER_RESIDENTIAL_PROXY,
+    };
+
+    this.logger.log(`Invocando Lambda "${this.functionName}" para DEEP_ENRICH_BUSINESS en ${businessName} (${urls.length} URLs)`);
+
+    const command = new InvokeCommand({
+      FunctionName: this.functionName,
+      InvocationType: 'RequestResponse',
+      Payload: Buffer.from(JSON.stringify(payload)),
+    });
+
+    try {
+      const response = await this.lambdaClient.send(command);
+
+      if (response.FunctionError) {
+        throw new Error(`Lambda deep enrich error: ${response.FunctionError}`);
+      }
+
+      const responseString = Buffer.from(response.Payload || []).toString('utf-8');
+      const parsed = JSON.parse(responseString);
+      const body = typeof parsed.body === 'string' ? JSON.parse(parsed.body) : parsed;
+
+      return {
+        channels: body?.channels || {},
+        decisionMakers: body?.decisionMakers || [],
+        verifiedPlatforms: body?.verifiedPlatforms || [],
+        fastPathSuccess: Boolean(body?.fastPathSuccess),
+        slowPathTriggered: Boolean(body?.slowPathTriggered),
+      };
+    } catch (error: any) {
+      this.logger.error(`Error invocando Lambda deep enrich: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
 }
 

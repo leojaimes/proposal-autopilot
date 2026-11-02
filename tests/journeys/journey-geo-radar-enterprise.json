@@ -1,0 +1,281 @@
+{
+  "journey": "journey-geo-radar-enterprise",
+  "title": "Recorrido E2E Enterprise: Geo-Radar B2B 3NF, Polígonos DB, Tabla Telescópica y Mini-CRM",
+  "description": "Valida extremo a extremo la integración Angular 19 + NestJS + PostgreSQL 3NF: 9,342 GeoPresets dinámicos, cascada País/Depto/Municipio con WAI-ARIA Combobox, polígonos tácticos desde BD, DataGrid telescópico GPU, Mini-CRM M:N con descarte de falsos positivos, 3 tonos de pitch, atajos de teclado J/K/1/2/3/Escape, cooldown anti-spam de 30 días y filtro anti-franquicias.",
+  "baseUrl": "http://localhost:7001",
+  "backendApiUrl": "http://localhost:7000/api",
+  "auth": {
+    "ephemeralTenant": true,
+    "companyName": "Spotlight GeoRadar Enterprise QA"
+  },
+  "fixtures": {
+    "prospectingLeads": [
+      {
+        "placeId": "af_georadar_montejo_boutique_01",
+        "name": "Clínica Dental Montejo Boutique",
+        "category": "Dentistas",
+        "city": "Mérida",
+        "state": "Yucatán",
+        "country": "México",
+        "address": "Paseo de Montejo 482, Centro, Mérida, Yucatán",
+        "latitude": 20.9852,
+        "longitude": -89.6177,
+        "rating": 4.9,
+        "reviewsCount": 86,
+        "priceLevel": 3,
+        "phone": "+52 1 (999) 234-5678",
+        "websiteUrl": "https://www.facebook.com/clinicamontejoboutique",
+        "reviewsSnippets": [
+          "Excelente atención dental pero tardan bastante en contestar mensajes para agendar cita"
+        ]
+      },
+      {
+        "placeId": "af_georadar_dentalia_altabrisa_02",
+        "name": "Dentalia Plaza Altabrisa Mérida",
+        "category": "Dentistas",
+        "city": "Mérida",
+        "state": "Yucatán",
+        "country": "México",
+        "address": "Calle 7 #451 Plaza Altabrisa, Mérida, Yucatán",
+        "latitude": 21.0168,
+        "longitude": -89.5844,
+        "rating": 3.8,
+        "reviewsCount": 142,
+        "priceLevel": 2,
+        "phone": "800 003 3682",
+        "websiteUrl": "https://dentalia.com/clinicas/merida-altabrisa",
+        "reviewsSnippets": [
+          "Nunca contestan el teléfono fijo de recepción y tardan mucho en confirmar cita"
+        ]
+      },
+      {
+        "placeId": "af_georadar_notaria_merida_03",
+        "name": "Notaría Pública 42 Mérida",
+        "category": "Notarías",
+        "city": "Mérida",
+        "state": "Yucatán",
+        "country": "México",
+        "address": "Calle 60 #380, Centro, Mérida, Yucatán",
+        "latitude": 20.9712,
+        "longitude": -89.6231,
+        "rating": 4.8,
+        "reviewsCount": 54,
+        "priceLevel": 3,
+        "phone": "+52 999 912 3456",
+        "websiteUrl": "https://www.notaria42merida.com",
+        "reviewsSnippets": [
+          "Trámites notariales excelentes pero se debe cotizar todo de forma manual"
+        ]
+      },
+      {
+        "placeId": "af_georadar_oralsmile_04",
+        "name": "OralSmile Odontología Especializada",
+        "category": "Dentistas",
+        "city": "Mérida",
+        "state": "Yucatán",
+        "country": "México",
+        "address": "Av. García Lavín 210, San Ramón Norte, Mérida, Yucatán",
+        "latitude": 21.0289,
+        "longitude": -89.5932,
+        "rating": 4.7,
+        "reviewsCount": 42,
+        "priceLevel": 2,
+        "phone": "+52 1 999 555 7890",
+        "websiteUrl": "https://oralsmile-merida.com.mx/down",
+        "reviewsSnippets": [
+          "El sitio web está caído y nunca pude ver los paquetes de limpieza dental"
+        ]
+      },
+      {
+        "placeId": "af_georadar_laboratorio_peninsular_05",
+        "name": "Laboratorio Clínico Peninsular",
+        "category": "Clínicas",
+        "city": "Mérida",
+        "state": "Yucatán",
+        "country": "México",
+        "address": "Calle 59 #512, Barrio de Santiago, Mérida, Yucatán",
+        "latitude": 20.9678,
+        "longitude": -89.6301,
+        "rating": 4.6,
+        "reviewsCount": 78,
+        "priceLevel": 2,
+        "phone": "999 924 8899",
+        "websiteUrl": "https://labpeninsular.com",
+        "reviewsSnippets": [
+          "Tienen muy buenos estudios pero no hay entrega digital automática ni tienda online"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "01-open-geo-radar-enterprise",
+      "description": "Abrir vista Geo-Radar Enterprise, verificar carga de 5 prospectos en tarjeta scannable y validar ausencia de fuga de UI",
+      "action": "click",
+      "target": "button[title='Geo-Radar de Empresas B2B']",
+      "waitFor": "text=GEO-RADAR",
+      "assertMinVisibleCount": {
+        "selector": "[data-testid='geo-lead-card']",
+        "min": 4
+      },
+      "assertNoText": [
+        "ENTERPRISE 3NF",
+        "zonas DB",
+        "Cargando perfiles…"
+      ],
+      "postWaitMs": 1000,
+      "capture": true
+    },
+    {
+      "id": "02-expand-zone-configuration",
+      "description": "Expandir panel colapsable de configuración de territorio y giro comercial",
+      "action": "click",
+      "target": "button:has-text('Cambiar zona')",
+      "waitFor": "text=Territorio",
+      "postWaitMs": 400,
+      "capture": true
+    },
+    {
+      "id": "03-select-colombia-territory",
+      "description": "Seleccionar territorio Colombia (CO) desde selector segmentado con tokens",
+      "action": "click",
+      "target": "button[data-testid='country-pill-CO']",
+      "waitFor": "text=CO",
+      "postWaitMs": 400,
+      "capture": true
+    },
+    {
+      "id": "04-search-envigado-combobox",
+      "description": "Filtrar municipio en WAI-ARIA Combobox y seleccionarlo",
+      "action": "fill",
+      "target": "input[role='combobox']",
+      "value": "Envigado",
+      "postWaitMs": 400,
+      "capture": true
+    },
+    {
+      "id": "05-pick-envigado-option",
+      "description": "Elegir municipio de Envigado desde el listbox reactivo",
+      "action": "click",
+      "target": "li[role='option']:has-text('Envigado')",
+      "postWaitMs": 600,
+      "capture": true
+    },
+    {
+      "id": "06-open-tactical-polygons-modal",
+      "description": "Abrir modal de Corredores Tácticos B2B desde PostgreSQL",
+      "action": "click",
+      "target": "[data-testid='btn-corredores-tacticos']",
+      "waitFor": "text=Corredores & Polígonos Tácticos B2B",
+      "postWaitMs": 400,
+      "capture": true
+    },
+    {
+      "id": "07-apply-poblado-tactical-polygon",
+      "description": "Delimitar corredor táctico El Poblado & Milla de Oro sobre el mapa Leaflet",
+      "action": "click",
+      "target": "button:has-text('El Poblado & Milla de Oro')",
+      "waitFor": "text=vértices",
+      "postWaitMs": 1000,
+      "capture": true
+    },
+    {
+      "id": "08-expand-telescopic-b2b-table-split",
+      "description": "Expandir Dock Telescópico GPU al 50% (Mapa + Tabla de Prospectos B2B)",
+      "action": "click",
+      "target": "button[title='Modo Dual 50% (Mapa + Tabla)']",
+      "waitFor": "th:has-text('Empresa B2B')",
+      "postWaitMs": 500,
+      "capture": true
+    },
+    {
+      "id": "09-collapse-dock-to-peek",
+      "description": "Minimizar tabla telescópica a modo Peek para preparar navegación sin mouse",
+      "action": "click",
+      "target": "button[title='Minimizar (Modo Peek)']",
+      "postWaitMs": 300,
+      "capture": true
+    },
+    {
+      "id": "10-zero-mouse-sdr-select-lead",
+      "description": "Presionar tecla 'j' para seleccionar primer prospecto (Clínica Montejo) y abrir Master-Detail CRM Inspector",
+      "action": "press",
+      "key": "j",
+      "waitFor": "[data-testid='geo-crm-inspector']",
+      "postWaitMs": 500,
+      "capture": true
+    },
+    {
+      "id": "11-switch-gatekeeper-pitch-tone-keyboard",
+      "description": "Presionar tecla '2' para conmutar instantáneamente a tono Recepción / Gatekeeper",
+      "action": "press",
+      "key": "2",
+      "waitFor": "text=Tono: Recepción / Gatekeeper",
+      "postWaitMs": 300,
+      "capture": true
+    },
+    {
+      "id": "12-dismiss-false-positive-pain",
+      "description": "Descartar dolencia como Falso Positivo vía PATCH /pains/:painId/status",
+      "action": "click",
+      "target": "button[title*='Falso Positivo']",
+      "waitFor": "text=descartad",
+      "postWaitMs": 500,
+      "capture": true
+    },
+    {
+      "id": "13-fill-crm-contact-note",
+      "description": "Capturar nota ejecutiva en bitácora omnicanal CRM",
+      "action": "fill",
+      "target": "input[placeholder*='Nota rápida']",
+      "value": "Propuesta enviada por WhatsApp directo al titular de la clínica",
+      "capture": false
+    },
+    {
+      "id": "14-log-contact-and-cooldown-guard",
+      "description": "Registrar toque omnicanal vía POST /contacts y activar ventana anti-spam de 30 días",
+      "action": "click",
+      "target": "button:has-text('Registrar')",
+      "waitFor": "text=En enfriamiento anti-spam",
+      "postWaitMs": 600,
+      "capture": true
+    },
+    {
+      "id": "15-test-blacklist-dialog-and-escape-cancel",
+      "description": "Validar modal de confirmación en dos pasos de Lista Negra y cancelar con tecla Escape",
+      "action": "click",
+      "target": "button:has-text('No Contactar (Lista Negra)')",
+      "waitFor": "text=¿Confirmar bloqueo permanente?",
+      "postWaitMs": 300,
+      "capture": true
+    },
+    {
+      "id": "16-cancel-blacklist-with-escape",
+      "description": "Presionar Escape para cancelar diálogo de Lista Negra sin cerrar el inspector",
+      "action": "press",
+      "key": "Escape",
+      "waitForHidden": "text=¿Confirmar bloqueo permanente?",
+      "postWaitMs": 200,
+      "capture": false
+    },
+    {
+      "id": "17-close-crm-inspector-with-escape",
+      "description": "Presionar Escape nuevamente para cerrar Master-Detail Inspector y recuperar espacio del mapa",
+      "action": "press",
+      "key": "Escape",
+      "waitForHidden": "[data-testid='geo-crm-inspector']",
+      "postWaitMs": 400,
+      "capture": true
+    },
+    {
+      "id": "18-filter-exclude-franchises",
+      "description": "Activar filtro Ocultar Franquicias (excludeChains=true) ocultando Dentalia y conservando negocios independientes",
+      "action": "click",
+      "target": "button[data-testid='filter-exclude-chains']",
+      "waitFor": "text=Solo Independientes",
+      "waitForHidden": "text=Dentalia Plaza Altabrisa Mérida",
+      "postWaitMs": 600,
+      "capture": true
+    }
+  ]
+}

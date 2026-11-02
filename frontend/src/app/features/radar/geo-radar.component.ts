@@ -1,548 +1,97 @@
 import {
-  Component,
+  AfterViewInit,
   ChangeDetectionStrategy,
-  signal,
+  Component,
+  DestroyRef,
+  ElementRef,
+  HostListener,
+  OnDestroy,
+  OnInit,
   computed,
   inject,
-  OnInit,
-  AfterViewInit,
-  OnDestroy,
-  ElementRef,
+  input,
+  signal,
   viewChild,
 } from '@angular/core';
+import { Router } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
-  ProspectingService,
-  ProspectedBusiness,
-  CompanyPainCategory,
-} from '../../core/services/prospecting.service';
-import {
-  LucideMapPin,
-  LucideSearch,
-  LucideCrosshair,
-  LucideSliders,
-  LucideSparkles,
-  LucideCopy,
-  LucideCheck,
-  LucidePhone,
-  LucideGlobe,
+  LucideAlertCircle,
+  LucideBuilding2,
+  LucideChevronDown,
+  LucideClock,
+  LucideFilter,
   LucideLayers,
-  LucideTrash2,
+  LucideMapPin,
+  LucidePhone,
+  LucideRefreshCw,
+  LucideSmartphone,
+  LucideStore,
+  LucideX,
 } from '@lucide/angular';
-
-import * as L from 'leaflet';
+import * as LeafletESM from 'leaflet';
 import '@geoman-io/leaflet-geoman-free';
 
-export interface StatePreset {
-  name: string;
-  cities: { name: string; lat: number; lng: number }[];
+import {
+  CompanyPainCategory,
+  ContactChannel,
+  ContactOutcome,
+  GeoPresetDto,
+  PhoneLineType,
+  PitchToneKey,
+  ProspectedBusiness,
+  ProspectedBusinessPainItem,
+  ProspectingService,
+} from '../../core/services/prospecting.service';
+import {
+  CityOption,
+  CountryOption,
+  DockViewMode,
+  TacticalPolygonOption,
+  cleanPhoneDigits,
+  formatPainTitle,
+  formatPriceTier,
+  getCooldownDaysLeft,
+  getPainBadgeClass,
+  getPainDotClass,
+  getPinModifierClass,
+  isChainLead,
+  isLeadInCooldown,
+  normalizeGeoText,
+} from './components/geo-radar.models';
+import { GeoLocationComboboxComponent } from './components/geo-location-combobox.component';
+import { GeoLeadInspectorComponent } from './components/geo-lead-inspector.component';
+import { GeoProspectsDockComponent } from './components/geo-prospects-dock.component';
+
+type LeafletNamespace = typeof LeafletESM;
+const L: LeafletNamespace =
+  (globalThis as unknown as { L?: LeafletNamespace }).L ?? LeafletESM;
+
+const INITIAL_BOOT_PRESET: GeoPresetDto = {
+  id: 'boot-us-ca-san-francisco',
+  slug: 'us-ca-san-francisco',
+  countryCode: 'US',
+  countryName: 'United States',
+  flag: 'US',
+  state: 'California',
+  stateCode: 'CA',
+  city: 'San Francisco',
+  latitude: 37.77493,
+  longitude: -122.41942,
+  zoom: 13,
+  isTactical: false,
+};
+
+function escapeHtml(raw: string): string {
+  return raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
-
-export interface TacticalPolygonPreset {
-  name: string;
-  city: string;
-  country: string;
-  flag: string;
-  category: 'Industrial' | 'Comercial' | 'Financiero';
-  polygon: [number, number][];
-}
-
-export interface CountryData {
-  countryCode: 'MX' | 'US' | 'CO';
-  countryName: string;
-  flag: string;
-  states: StatePreset[];
-}
-
-export const COUNTRIES_CONFIG: CountryData[] = [
-  {
-    countryCode: 'MX',
-    countryName: 'Mexico',
-    flag: '🇲🇽',
-    states: [
-      {
-        name: 'Yucatán',
-        cities: [
-          { name: 'Mérida', lat: 20.9674, lng: -89.5926 },
-          { name: 'Progreso', lat: 21.2833, lng: -89.6667 },
-          { name: 'Valladolid', lat: 20.6897, lng: -88.2025 },
-          { name: 'Kanasín', lat: 20.9333, lng: -89.5667 },
-        ],
-      },
-      {
-        name: 'Querétaro',
-        cities: [
-          { name: 'Querétaro', lat: 20.5888, lng: -100.3899 },
-          { name: 'San Juan del Río', lat: 20.3889, lng: -99.9961 },
-          { name: 'Corregidora', lat: 20.5317, lng: -100.4439 },
-          { name: 'El Marqués', lat: 20.6667, lng: -100.3000 },
-        ],
-      },
-      {
-        name: 'Jalisco',
-        cities: [
-          { name: 'Guadalajara', lat: 20.6597, lng: -103.3496 },
-          { name: 'Zapopan', lat: 20.7167, lng: -103.4000 },
-          { name: 'Tlaquepaque', lat: 20.6394, lng: -103.3134 },
-        ],
-      },
-      {
-        name: 'Ciudad de México',
-        cities: [
-          { name: 'Cuauhtémoc (Centro)', lat: 19.4326, lng: -99.1332 },
-          { name: 'Benito Juárez', lat: 19.3800, lng: -99.1600 },
-          { name: 'Miguel Hidalgo', lat: 19.4200, lng: -99.1900 },
-        ],
-      },
-      {
-        name: 'Nuevo León',
-        cities: [
-          { name: 'Monterrey', lat: 25.6866, lng: -100.3161 },
-          { name: 'San Pedro Garza García', lat: 25.6600, lng: -100.4000 },
-          { name: 'Apodaca', lat: 25.7800, lng: -100.1900 },
-        ],
-      },
-      {
-        name: 'Quintana Roo',
-        cities: [
-          { name: 'Cancún', lat: 21.1619, lng: -86.8515 },
-          { name: 'Playa del Carmen', lat: 20.6274, lng: -87.0799 },
-          { name: 'Tulum', lat: 20.2114, lng: -87.4654 },
-        ],
-      },
-    ],
-  },
-  {
-    countryCode: 'CO',
-    countryName: 'Colombia',
-    flag: '🇨🇴',
-    states: [
-      {
-        name: 'Bogotá D.C. / Cundinamarca',
-        cities: [
-          { name: 'Bogotá (Distrito Capital)', lat: 4.7110, lng: -74.0721 },
-          { name: 'Chía', lat: 4.8633, lng: -74.0583 },
-          { name: 'Soacha', lat: 4.5794, lng: -74.2169 },
-          { name: 'Zipaquirá', lat: 5.0264, lng: -74.0040 },
-        ],
-      },
-      {
-        name: 'Antioquia',
-        cities: [
-          { name: 'Medellín', lat: 6.2442, lng: -75.5812 },
-          { name: 'Envigado', lat: 6.1759, lng: -75.5917 },
-          { name: 'Itagüí', lat: 6.1846, lng: -75.5991 },
-          { name: 'Bello', lat: 6.3373, lng: -75.5579 },
-          { name: 'Rionegro (Oriente)', lat: 6.1552, lng: -75.3737 },
-          { name: 'Sabaneta', lat: 6.1514, lng: -75.6164 },
-        ],
-      },
-      {
-        name: 'Santander',
-        cities: [
-          { name: 'Bucaramanga', lat: 7.1193, lng: -73.1227 },
-          { name: 'Floridablanca', lat: 7.0622, lng: -73.0864 },
-          { name: 'Girón', lat: 7.0682, lng: -73.1698 },
-          { name: 'Piedecuesta', lat: 6.9880, lng: -73.0498 },
-          { name: 'Barrancabermeja', lat: 7.0653, lng: -73.8547 },
-        ],
-      },
-      {
-        name: 'Valle del Cauca',
-        cities: [
-          { name: 'Cali', lat: 3.4516, lng: -76.5320 },
-          { name: 'Palmira', lat: 3.5394, lng: -76.3036 },
-          { name: 'Yumbo (Industrial)', lat: 3.5822, lng: -76.4947 },
-        ],
-      },
-      {
-        name: 'Atlántico',
-        cities: [
-          { name: 'Barranquilla', lat: 10.9685, lng: -74.7813 },
-          { name: 'Soledad', lat: 10.9184, lng: -74.7646 },
-          { name: 'Puerto Colombia', lat: 10.9878, lng: -74.9547 },
-        ],
-      },
-    ],
-  },
-  {
-    countryCode: 'US',
-    countryName: 'United States',
-    flag: '🇺🇸',
-    states: [
-      {
-        name: 'California',
-        cities: [
-          // A. San Francisco Proper (SF)
-          { name: 'San Francisco - SoMa & Financial District', lat: 37.7879, lng: -122.3998 },
-          { name: 'San Francisco - Mission & Design District', lat: 37.7600, lng: -122.4180 },
-          { name: 'San Francisco - Mission Bay & Potrero Hill', lat: 37.7670, lng: -122.3920 },
-          { name: 'San Francisco - Pacific Heights / Marina / Presidio', lat: 37.7950, lng: -122.4350 },
-          // B. Silicon Valley & Bay Area
-          { name: 'Palo Alto (Stanford & Sand Hill Road)', lat: 37.4419, lng: -122.1430 },
-          { name: 'Mountain View (Google & Y Combinator)', lat: 37.3861, lng: -122.0839 },
-          { name: 'Sunnyvale & Santa Clara (Nvidia, Intel & Cloud)', lat: 37.3600, lng: -121.9950 },
-          { name: 'San Jose (Silicon Valley Capital)', lat: 37.3382, lng: -121.8863 },
-          { name: 'Oakland & Berkeley (Deep-Tech & Campus Hub)', lat: 37.8300, lng: -122.2700 },
-          { name: 'San Mateo & Redwood City (Enterprise SaaS)', lat: 37.5200, lng: -122.2800 },
-          // C. Southern California (SoCal)
-          { name: 'Los Angeles (Silicon Beach - Santa Monica & Venice)', lat: 34.0195, lng: -118.4912 },
-          { name: 'Irvine (Orange County - Biomed & Gaming)', lat: 33.6846, lng: -117.8265 },
-          { name: 'San Diego (La Jolla & Sorrento Valley Biotech)', lat: 32.8750, lng: -117.2200 },
-        ],
-      },
-      {
-        name: 'Texas',
-        cities: [
-          { name: 'Austin', lat: 30.2672, lng: -97.7431 },
-          { name: 'Houston', lat: 29.7604, lng: -95.3698 },
-          { name: 'Dallas', lat: 32.7767, lng: -96.7970 },
-          { name: 'San Antonio', lat: 29.4241, lng: -98.4936 },
-        ],
-      },
-      {
-        name: 'Florida',
-        cities: [
-          { name: 'Miami', lat: 25.7617, lng: -80.1918 },
-          { name: 'Orlando', lat: 28.5383, lng: -81.3792 },
-          { name: 'Tampa', lat: 27.9506, lng: -82.4572 },
-          { name: 'Fort Lauderdale', lat: 26.1224, lng: -80.1373 },
-        ],
-      },
-      {
-        name: 'New York',
-        cities: [
-          { name: 'New York City (Manhattan)', lat: 40.7128, lng: -74.0060 },
-          { name: 'Brooklyn', lat: 40.6782, lng: -73.9442 },
-          { name: 'Queens', lat: 40.7282, lng: -73.7949 },
-        ],
-      },
-      {
-        name: 'Illinois',
-        cities: [
-          { name: 'Chicago', lat: 41.8781, lng: -87.6298 },
-          { name: 'Naperville', lat: 41.7508, lng: -88.1535 },
-        ],
-      },
-    ],
-  },
-];
-
-export const TACTICAL_POLYGONS: TacticalPolygonPreset[] = [
-  {
-    name: 'Corredor Industrial Mérida - Progreso',
-    city: 'Mérida',
-    country: 'Mexico',
-    flag: '🇲🇽',
-    category: 'Industrial',
-    polygon: [
-      [21.0100, -89.6500],
-      [21.0550, -89.6500],
-      [21.0550, -89.5950],
-      [21.0100, -89.5950],
-    ],
-  },
-  {
-    name: 'Paseo de Montejo & Zona Hotelera',
-    city: 'Mérida',
-    country: 'Mexico',
-    flag: '🇲🇽',
-    category: 'Comercial',
-    polygon: [
-      [20.9700, -89.6250],
-      [21.0020, -89.6250],
-      [21.0020, -89.6100],
-      [20.9700, -89.6100],
-    ],
-  },
-  {
-    name: 'Zona Industrial Benito Juárez',
-    city: 'Querétaro',
-    country: 'Mexico',
-    flag: '🇲🇽',
-    category: 'Industrial',
-    polygon: [
-      [20.6150, -100.4400],
-      [20.6350, -100.4400],
-      [20.6350, -100.4100],
-      [20.6150, -100.4100],
-    ],
-  },
-  {
-    name: 'Corredor Comercial Bernardo Quintana',
-    city: 'Querétaro',
-    country: 'Mexico',
-    flag: '🇲🇽',
-    category: 'Comercial',
-    polygon: [
-      [20.5900, -100.3850],
-      [20.6300, -100.3850],
-      [20.6300, -100.3650],
-      [20.5900, -100.3650],
-    ],
-  },
-  {
-    name: 'Centro Histórico & Comercial',
-    city: 'Querétaro',
-    country: 'Mexico',
-    flag: '🇲🇽',
-    category: 'Comercial',
-    polygon: [
-      [20.5850, -100.4050],
-      [20.6020, -100.4050],
-      [20.6020, -100.3800],
-      [20.5850, -100.3800],
-    ],
-  },
-  {
-    name: 'Distrito Providencia / Américas',
-    city: 'Guadalajara',
-    country: 'Mexico',
-    flag: '🇲🇽',
-    category: 'Financiero',
-    polygon: [
-      [20.6900, -103.3900],
-      [20.7150, -103.3900],
-      [20.7150, -103.3650],
-      [20.6900, -103.3650],
-    ],
-  },
-  {
-    name: 'Brickell Financial District',
-    city: 'Miami',
-    country: 'United States',
-    flag: '🇺🇸',
-    category: 'Financiero',
-    polygon: [
-      [25.7550, -80.1980],
-      [25.7720, -80.1980],
-      [25.7720, -80.1850],
-      [25.7550, -80.1850],
-    ],
-  },
-  {
-    name: 'Austin Downtown Tech Corridor',
-    city: 'Austin',
-    country: 'United States',
-    flag: '🇺🇸',
-    category: 'Financiero',
-    polygon: [
-      [30.2600, -97.7550],
-      [30.2780, -97.7550],
-      [30.2780, -97.7350],
-      [30.2600, -97.7350],
-    ],
-  },
-  {
-    name: 'Silicon Valley Innovation Hub',
-    city: 'San Jose (Silicon Valley)',
-    country: 'United States',
-    flag: '🇺🇸',
-    category: 'Industrial',
-    polygon: [
-      [37.3600, -121.9500],
-      [37.4200, -121.9500],
-      [37.4200, -121.8800],
-      [37.3600, -121.8800],
-    ],
-  },
-  {
-    name: 'Corredor Corporativo Santa Fe',
-    city: 'Ciudad de México',
-    country: 'Mexico',
-    flag: '🇲🇽',
-    category: 'Financiero',
-    polygon: [
-      [19.3550, -99.2700],
-      [19.3780, -99.2700],
-      [19.3780, -99.2450],
-      [19.3550, -99.2450],
-    ],
-  },
-  {
-    name: 'Milla de Oro & El Poblado',
-    city: 'Medellín',
-    country: 'Colombia',
-    flag: '🇨🇴',
-    category: 'Financiero',
-    polygon: [
-      [6.2020, -75.5780],
-      [6.2160, -75.5780],
-      [6.2160, -75.5670],
-      [6.2020, -75.5670],
-    ],
-  },
-  {
-    name: 'Distrito Financiero Calle 72 / Chicó',
-    city: 'Bogotá (Distrito Capital)',
-    country: 'Colombia',
-    flag: '🇨🇴',
-    category: 'Financiero',
-    polygon: [
-      [4.6530, -74.0620],
-      [4.6750, -74.0620],
-      [4.6750, -74.0480],
-      [4.6530, -74.0480],
-    ],
-  },
-  {
-    name: 'Cabecera del Llano & Cra 33',
-    city: 'Bucaramanga',
-    country: 'Colombia',
-    flag: '🇨🇴',
-    category: 'Comercial',
-    polygon: [
-      [7.1120, -73.1180],
-      [7.1260, -73.1180],
-      [7.1260, -73.1060],
-      [7.1120, -73.1060],
-    ],
-  },
-  {
-    name: 'SoMa & Financial District (AI & VC Hub)',
-    city: 'San Francisco - SoMa & Financial District',
-    country: 'United States',
-    flag: '🇺🇸',
-    category: 'Financiero',
-    polygon: [
-      [37.7810, -122.4080],
-      [37.7980, -122.4080],
-      [37.7980, -122.3920],
-      [37.7810, -122.3920],
-    ],
-  },
-  {
-    name: 'Mission District & Design District',
-    city: 'San Francisco - Mission & Design District',
-    country: 'United States',
-    flag: '🇺🇸',
-    category: 'Comercial',
-    polygon: [
-      [37.7520, -122.4240],
-      [37.7720, -122.4240],
-      [37.7720, -122.4040],
-      [37.7520, -122.4040],
-    ],
-  },
-  {
-    name: 'Mission Bay & Potrero Hill (Biotech)',
-    city: 'San Francisco - Mission Bay & Potrero Hill',
-    country: 'United States',
-    flag: '🇺🇸',
-    category: 'Industrial',
-    polygon: [
-      [37.7580, -122.3980],
-      [37.7770, -122.3980],
-      [37.7770, -122.3830],
-      [37.7580, -122.3830],
-    ],
-  },
-  {
-    name: 'Pacific Heights / Marina (Luxury Clinics)',
-    city: 'San Francisco - Pacific Heights / Marina / Presidio',
-    country: 'United States',
-    flag: '🇺🇸',
-    category: 'Comercial',
-    polygon: [
-      [37.7880, -122.4460],
-      [37.8050, -122.4460],
-      [37.8050, -122.4260],
-      [37.7880, -122.4260],
-    ],
-  },
-  {
-    name: 'Sand Hill Road VC Alley & Stanford',
-    city: 'Palo Alto (Stanford & Sand Hill Road)',
-    country: 'United States',
-    flag: '🇺🇸',
-    category: 'Financiero',
-    polygon: [
-      [37.4080, -122.1850],
-      [37.4280, -122.1850],
-      [37.4280, -122.1480],
-      [37.4080, -122.1480],
-    ],
-  },
-  {
-    name: 'Mountain View Tech Core (Google & YC)',
-    city: 'Mountain View (Google & Y Combinator)',
-    country: 'United States',
-    flag: '🇺🇸',
-    category: 'Industrial',
-    polygon: [
-      [37.3820, -122.1000],
-      [37.4220, -122.1000],
-      [37.4220, -122.0650],
-      [37.3820, -122.0650],
-    ],
-  },
-  {
-    name: 'Santa Clara AI Silicon Strip (Nvidia & Intel)',
-    city: 'Sunnyvale & Santa Clara (Nvidia, Intel & Cloud)',
-    country: 'United States',
-    flag: '🇺🇸',
-    category: 'Industrial',
-    polygon: [
-      [37.3600, -121.9850],
-      [37.4050, -121.9850],
-      [37.4050, -121.9350],
-      [37.3600, -121.9350],
-    ],
-  },
-  {
-    name: 'Silicon Beach (Santa Monica & Venice)',
-    city: 'Los Angeles (Silicon Beach - Santa Monica & Venice)',
-    country: 'United States',
-    flag: '🇺🇸',
-    category: 'Comercial',
-    polygon: [
-      [33.9800, -118.4950],
-      [34.0250, -118.4950],
-      [34.0250, -118.4550],
-      [33.9800, -118.4550],
-    ],
-  },
-  {
-    name: 'La Jolla & Sorrento Valley Biotech',
-    city: 'San Diego (La Jolla & Sorrento Valley Biotech)',
-    country: 'United States',
-    flag: '🇺🇸',
-    category: 'Industrial',
-    polygon: [
-      [32.8600, -117.2400],
-      [32.9150, -117.2400],
-      [32.9150, -117.1850],
-      [32.8600, -117.1850],
-    ],
-  },
-  {
-    name: 'Irvine Spectrum (Biomed & Gaming Hub)',
-    city: 'Irvine (Orange County - Biomed & Gaming)',
-    country: 'United States',
-    flag: '🇺🇸',
-    category: 'Financiero',
-    polygon: [
-      [33.6400, -117.7700],
-      [33.6800, -117.7700],
-      [33.6800, -117.7200],
-      [33.6400, -117.7200],
-    ],
-  },
-  {
-    name: 'Parque Industrial Apodaca',
-    city: 'Monterrey',
-    country: 'Mexico',
-    flag: '🇲🇽',
-    category: 'Industrial',
-    polygon: [
-      [25.7500, -100.2250],
-      [25.7950, -100.2250],
-      [25.7950, -100.1700],
-      [25.7500, -100.1700],
-    ],
-  },
-];
 
 @Component({
   selector: 'app-geo-radar',
@@ -550,472 +99,482 @@ export const TACTICAL_POLYGONS: TacticalPolygonPreset[] = [
   imports: [
     CommonModule,
     FormsModule,
-    LucideMapPin,
-    LucideSearch,
-    LucideCrosshair,
-    LucideSliders,
-    LucideSparkles,
-    LucideCopy,
-    LucideCheck,
+    GeoLocationComboboxComponent,
+    GeoLeadInspectorComponent,
+    GeoProspectsDockComponent,
+    LucideBuilding2,
+    LucideStore,
+    LucideSmartphone,
     LucidePhone,
-    LucideGlobe,
+    LucideClock,
+    LucideFilter,
+    LucideChevronDown,
     LucideLayers,
-    LucideTrash2,
+    LucideRefreshCw,
+    LucideMapPin,
+    LucideAlertCircle,
+    LucideX,
   ],
+  host: {
+    class: 'w-full h-full flex flex-1 overflow-hidden'
+  },
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="flex h-full w-full overflow-hidden bg-[#090d14] text-slate-100">
-      <!-- PANEL LATERAL: CONTROLES & LEADS DISCOVERY (430px) -->
-      <aside class="w-[430px] border-r border-slate-800/80 bg-[#0c111a]/95 flex flex-col z-20 shrink-0 shadow-2xl backdrop-blur-md">
-        <!-- TOP: HEADER DE BÚSQUEDA & RADAR -->
-        <div class="p-4 border-b border-slate-800 space-y-3.5">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <div class="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.3)]">
-                <svg lucideCrosshair class="w-4 h-4 animate-spin-slow"></svg>
-              </div>
-              <h2 class="font-bold text-sm tracking-wide text-white flex items-center gap-1.5">
-                GEO-RADAR <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800">B2B Intel</span>
-              </h2>
-            </div>
-            <span class="text-xs text-slate-400 font-mono">
-              {{ prospecting.leads().length }} leads en zona
-            </span>
+    <div class="flex h-full w-full overflow-hidden bg-app text-content-primary">
+      <!-- =====================================================================
+           COLUMN 1 (LEFT): COLLAPSIBLE ZONE COMBOBOX + FILTERS + HIGH-DENSITY CARDS
+           ===================================================================== -->
+      <aside class="w-[396px] border-r border-border-subtle bg-surface flex flex-col z-20 shrink-0">
+        <app-geo-location-combobox
+          [countries]="countries()"
+          [countryCities]="countryCities()"
+          [selectedCountry]="selectedCountry()"
+          [selectedState]="selectedState()"
+          [selectedCity]="selectedCity()"
+          [activeCountryCode]="activeCountryCode()"
+          [totalPresetsCount]="totalPresetsCount()"
+          [tacticalPolygonsCount]="tacticalPolygons().length"
+          [leadsCount]="prospecting.leads().length"
+          [selectedSector]="selectedSector()"
+          [popularSectors]="popularSectors"
+          [scanMode]="scanMode()"
+          [radiusKm]="radiusKm()"
+          [polygonVerticesCount]="customPolygon()?.length || 0"
+          [polygonAreaKm2]="polygonAreaKm2()"
+          [isScanning]="prospecting.isScanning()"
+          [streamState]="prospecting.streamState()"
+          [isCollapsed]="isZoneCollapsed()"
+          (countrySelected)="onCountrySelected($event)"
+          (cityOptionSelected)="onCityOptionSelected($event)"
+          (sectorChange)="selectedSector.set($event)"
+          (scanModeChange)="setScanMode($event)"
+          (radiusChange)="onRadiusChange($event)"
+          (openPolygonModal)="isPolygonModalOpen.set(true)"
+          (clearPolygonRequested)="clearPolygon()"
+          (scanRequested)="triggerScan()"
+          (toggleCollapse)="toggleZoneCollapse()"
+        />
+
+        <!-- ENTERPRISE QUALIFICATION FILTERS (PURE VECTOR, ZERO NATIVE OS SELECTS) -->
+        <div class="px-3 py-2 border-b border-border-subtle bg-surface-elevated/40 space-y-1.5">
+          <div class="flex flex-wrap items-center gap-1">
+            <button
+              type="button"
+              data-testid="filter-exclude-chains"
+              (click)="toggleExcludeChains()"
+              class="press-scale inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold border cursor-pointer"
+              [ngClass]="excludeChains()
+                ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40'
+                : 'bg-app text-content-secondary border-border-subtle hover:text-content-primary'"
+              title="Excluir franquicias corporativas y cadenas multi-sede"
+            >
+              <svg lucideBuilding2 class="w-3 h-3"></svg>
+              <span>{{ excludeChains() ? 'Solo Independientes' : 'Ocultar Franquicias' }}</span>
+            </button>
+
+            <button
+              type="button"
+              data-testid="filter-exclude-cooldown"
+              (click)="toggleExcludeCooldown()"
+              class="press-scale inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold border cursor-pointer"
+              [ngClass]="excludeCooldown()
+                ? 'bg-amber-500/15 text-badge-med-text border-amber-500/40'
+                : 'bg-app text-content-secondary border-border-subtle hover:text-content-primary'"
+              title="Ocultar prospectos contactados recientemente en enfriamiento"
+            >
+              <svg lucideClock class="w-3 h-3"></svg>
+              <span>Sin Cooldown (30d)</span>
+            </button>
+
+            <button
+              type="button"
+              data-testid="filter-only-mobile"
+              (click)="toggleOnlyMobile()"
+              class="press-scale inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold border cursor-pointer"
+              [ngClass]="onlyMobileWhatsapp()
+                ? 'bg-badge-high-bg text-badge-high-text border-emerald-500/40'
+                : 'bg-app text-content-secondary border-border-subtle hover:text-content-primary'"
+              title="Mostrar únicamente prospectos con línea móvil para WhatsApp directo"
+            >
+              <svg lucideSmartphone class="w-3 h-3"></svg>
+              <span>Solo Móvil WA</span>
+            </button>
           </div>
 
-          <!-- SECTOR SELECTION -->
-          <div class="space-y-1.5">
-            <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-              <span>Sector / Giro</span>
-              <span class="text-cyan-400 text-[10px]">Especialidad</span>
-            </label>
-            <div class="relative">
-              <input
-                type="text"
-                [(ngModel)]="selectedSector"
-                placeholder="ej: Dentistas, Talleres Mecánicos, Notarías..."
-                class="w-full bg-[#131b29] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
-              />
-            </div>
-            <!-- Quick Sector Chips -->
-            <div class="flex flex-wrap gap-1 pt-1">
-              @for (chip of popularSectors; track chip) {
+          <!-- CUSTOM PAIN FILTER POPOVER + RESET -->
+          <div class="flex items-center gap-1.5 relative">
+            <button
+              type="button"
+              (click)="togglePainDropdown()"
+              class="flex-1 px-2.5 py-1 rounded-md bg-app hover:bg-surface-hover border border-border-subtle text-[10px] text-content-secondary flex items-center justify-between gap-1.5 cursor-pointer"
+            >
+              <span class="inline-flex items-center gap-1.5 truncate">
+                <svg lucideFilter class="w-3 h-3 text-cyan-400 shrink-0"></svg>
+                <span class="truncate">{{ activePainFilterLabel() }}</span>
+              </span>
+              <svg lucideChevronDown class="w-3 h-3 text-content-muted shrink-0"></svg>
+            </button>
+
+            @if (hasActiveFilters()) {
+              <button
+                type="button"
+                (click)="resetFilters()"
+                class="press-scale px-2 py-1 rounded-md bg-surface-elevated hover:bg-surface-hover border border-border-subtle text-[10px] font-semibold text-cyan-300 shrink-0 cursor-pointer"
+              >
+                Limpiar
+              </button>
+            }
+
+            @if (isPainDropdownOpen()) {
+              <div class="absolute left-0 right-0 top-full mt-1 z-40 rounded-xl bg-surface-elevated border border-border-subtle shadow-2xl p-1 max-h-48 overflow-y-auto space-y-0.5">
                 <button
                   type="button"
-                  (click)="selectedSector = chip"
-                  class="text-[10px] px-2 py-0.5 rounded-full border transition-all"
-                  [ngClass]="selectedSector === chip ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-sm' : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:border-slate-700'"
+                  (click)="selectPainFilter('')"
+                  class="w-full px-2.5 py-1.5 rounded-lg text-left text-[11px] flex items-center justify-between cursor-pointer"
+                  [ngClass]="!selectedPainFilter()
+                    ? 'bg-cyan-500/15 text-cyan-300 font-semibold'
+                    : 'text-content-secondary hover:bg-surface-hover hover:text-content-primary'"
                 >
-                  {{ chip }}
+                  <span>Todas las dolencias B2B</span>
                 </button>
-              }
-            </div>
-          </div>
-
-          <!-- LOCATION CONTROLS (PAÍS, ESTADO & CIUDAD) -->
-          <div class="grid grid-cols-3 gap-2 pt-1">
-            <div>
-              <label class="text-[10px] font-semibold text-slate-400 uppercase">País</label>
-              <select
-                [(ngModel)]="selectedCountry"
-                (change)="onCountryChange()"
-                class="w-full mt-1 bg-[#131b29] border border-slate-700/80 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 cursor-pointer"
-              >
-                @for (country of countries; track country.countryCode) {
-                  <option [value]="country.countryName">{{ country.flag }} {{ country.countryCode === 'MX' ? 'México' : (country.countryCode === 'CO' ? 'Colombia' : 'USA') }}</option>
-                }
-              </select>
-            </div>
-            <div>
-              <label class="text-[10px] font-semibold text-slate-400 uppercase">Estado</label>
-              <select
-                [(ngModel)]="selectedState"
-                (change)="onStateChange()"
-                class="w-full mt-1 bg-[#131b29] border border-slate-700/80 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 cursor-pointer"
-              >
-                @for (state of currentStates(); track state.name) {
-                  <option [value]="state.name">{{ state.name }}</option>
-                }
-              </select>
-            </div>
-            <div>
-              <label class="text-[10px] font-semibold text-slate-400 uppercase">Ciudad</label>
-              <select
-                [(ngModel)]="selectedCity"
-                (change)="onCityChange()"
-                class="w-full mt-1 bg-[#131b29] border border-slate-700/80 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 cursor-pointer"
-              >
-                @for (city of currentCities(); track city.name) {
-                  <option [value]="city.name">{{ city.name }}</option>
-                }
-              </select>
-            </div>
-          </div>
-
-          <!-- MODO DE DELIMITACIÓN: RADIO VS POLÍGONO -->
-          <div class="space-y-1.5 pt-1">
-            <label class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-              <span>Modo de Delimitación</span>
-              <span class="text-[10px] font-mono" [ngClass]="scanMode() === 'POLYGON' ? 'text-cyan-400 font-bold' : 'text-slate-500'">
-                {{ scanMode() === 'POLYGON' ? 'Polígono Activo' : 'Radio Circular' }}
-              </span>
-            </label>
-            <div class="grid grid-cols-2 gap-1.5 p-1 bg-[#131b29] rounded-lg border border-slate-800">
-              <button
-                type="button"
-                (click)="setScanMode('RADIUS')"
-                class="py-1.5 px-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                [ngClass]="scanMode() === 'RADIUS' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm' : 'text-slate-400 hover:text-white'"
-              >
-                <svg lucideSliders class="w-3.5 h-3.5"></svg>
-                <span>Radio Circular</span>
-              </button>
-              <button
-                type="button"
-                (click)="setScanMode('POLYGON')"
-                class="py-1.5 px-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                [ngClass]="scanMode() === 'POLYGON' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm' : 'text-slate-400 hover:text-white'"
-              >
-                <svg lucideLayers class="w-3.5 h-3.5"></svg>
-                <span>Polígono Táctico</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- CONTENIDO DEL MODO: RADIO SLIDER O POLÍGONO CONTROLS -->
-          @if (scanMode() === 'RADIUS') {
-            <!-- RADAR RADIUS SLIDER -->
-            <div class="space-y-1.5 pt-1 animate-in fade-in duration-150">
-              <div class="flex justify-between items-center text-xs">
-                <span class="text-slate-400 flex items-center gap-1.5 text-[11px] font-semibold uppercase">
-                  <svg lucideSliders class="w-3.5 h-3.5 text-cyan-400"></svg> Radio de Cobertura
-                </span>
-                <span class="font-mono text-cyan-400 font-bold text-xs bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/60">
-                  {{ radiusKm }} km
-                </span>
-              </div>
-              <input
-                type="range"
-                min="1"
-                max="20"
-                step="0.5"
-                [(ngModel)]="radiusKm"
-                (input)="updateRadarCircle()"
-                class="w-full accent-cyan-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer"
-              />
-              <div class="flex justify-between text-[10px] text-slate-500 font-mono">
-                <span>1 km (Colonia)</span>
-                <span>5 km (Distrito)</span>
-                <span>20 km (Metrópoli)</span>
-              </div>
-            </div>
-          } @else {
-            <!-- POLYGON CONTROLS & STATUS -->
-            <div class="space-y-2 pt-1 animate-in fade-in duration-150">
-              @if (customPolygon(); as poly) {
-                <!-- Active Polygon Summary Card -->
-                <div class="p-2.5 rounded-lg bg-cyan-950/40 border border-cyan-500/40 space-y-1.5">
-                  <div class="flex items-center justify-between">
-                    <span class="text-[11px] font-bold text-cyan-300 flex items-center gap-1.5">
-                      <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-                      Polígono Táctico Delimitado
-                    </span>
-                    <button
-                      type="button"
-                      (click)="clearPolygon()"
-                      class="text-[10px] text-rose-400 hover:text-rose-300 flex items-center gap-1 hover:underline cursor-pointer"
-                    >
-                      <svg lucideTrash2 class="w-3 h-3"></svg> Limpiar
-                    </button>
-                  </div>
-                  <div class="flex items-center justify-between text-[10px] font-mono text-slate-400">
-                    <span>{{ poly.length }} vértices trazados</span>
-                    <span class="text-cyan-400 font-bold">~{{ polygonAreaKm2() }} km²</span>
-                  </div>
+                @for (pain of prospecting.painCatalog(); track pain.code) {
                   <button
                     type="button"
-                    (click)="isPolygonModalOpen.set(true)"
-                    class="w-full mt-1 py-1 text-[10px] text-center text-cyan-400 hover:text-cyan-300 bg-cyan-950/60 hover:bg-cyan-900/60 rounded border border-cyan-800/60 transition-colors"
+                    (click)="selectPainFilter(pain.code)"
+                    class="w-full px-2.5 py-1.5 rounded-lg text-left text-[11px] flex items-center justify-between cursor-pointer"
+                    [ngClass]="selectedPainFilter() === pain.code
+                      ? 'bg-cyan-500/15 text-cyan-300 font-semibold'
+                      : 'text-content-secondary hover:bg-surface-hover hover:text-content-primary'"
                   >
-                    Editar coordenadas / cambiar zona
+                    <span class="truncate">{{ pain.name }}</span>
                   </button>
-                </div>
-              } @else {
-                <!-- Empty Polygon State -->
-                <div class="p-3 rounded-lg bg-slate-900/60 border border-dashed border-slate-700/80 text-center space-y-2">
-                  <p class="text-[11px] text-slate-400 leading-tight">
-                    Dibuja un polígono con la barra <span class="text-cyan-400 font-semibold">Geoman</span> en la esquina superior del mapa o importa uno personalizado.
-                  </p>
-                  <button
-                    type="button"
-                    (click)="isPolygonModalOpen.set(true)"
-                    class="w-full py-1.5 px-3 rounded-md bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    <svg lucideLayers class="w-3.5 h-3.5"></svg>
-                    <span>Ingresar Polígono (GeoJSON / Coords)</span>
-                  </button>
-                </div>
-              }
-            </div>
-          }
-
-          <!-- ACTION BUTTON -->
-          <button
-            type="button"
-            (click)="triggerScan()"
-            [disabled]="prospecting.isScanning()"
-            class="w-full mt-2 py-2.5 px-4 rounded-lg font-bold text-xs tracking-wide uppercase transition-all duration-200 flex items-center justify-center gap-2 shadow-lg cursor-pointer"
-            [ngClass]="prospecting.isScanning() ? 'bg-cyan-950 text-cyan-300 border border-cyan-700 cursor-not-allowed' : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-cyan-950/50 hover:shadow-cyan-500/20 active:scale-[0.99]'"
-          >
-            @if (prospecting.isScanning()) {
-              <div class="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
-              <span>Analizando Google Maps & Dolencias...</span>
-            } @else {
-              <svg lucideSparkles class="w-4 h-4"></svg>
-              <span>{{ scanMode() === 'POLYGON' ? 'Escanear Dentro del Polígono' : 'Escanear Negocios en Radar' }}</span>
+                }
+              </div>
             }
-          </button>
+          </div>
         </div>
 
-        <!-- LISTA DE LEADS ENCONTRADOS -->
-        <div class="flex-1 overflow-y-auto p-3 space-y-2.5 custom-scrollbar">
+        <!-- CONTEXTUAL GEOGRAPHIC MISMATCH BANNER (SAVED LEADS IN ANOTHER CITY) -->
+        @if (mismatchLeadsCity(); as savedCity) {
+          <div class="px-3 py-1.5 border-b border-border-subtle bg-cyan-500/[0.06] flex items-center justify-between gap-2 text-[10px]">
+            <span class="inline-flex items-center gap-1.5 text-content-secondary truncate">
+              <svg lucideMapPin class="w-3 h-3 text-cyan-400 shrink-0"></svg>
+              <span class="truncate">
+                Mostrando <strong class="text-content-primary font-semibold">{{ prospecting.leads().length }}</strong> guardados en <strong class="text-cyan-300 font-semibold">{{ savedCity }}</strong>
+              </span>
+            </span>
+            <button
+              type="button"
+              (click)="focusMapOnSavedLeads()"
+              class="text-cyan-300 hover:underline font-semibold shrink-0 cursor-pointer"
+            >
+              Enfocar pines
+            </button>
+          </div>
+        }
+
+        <!-- HIGH-DENSITY SCANNABLE LEAD CARDS (>= 4 FULL CARDS ABOVE THE FOLD AT 1440x900) -->
+        <div
+          #leadListContainer
+          class="flex-1 overflow-y-auto p-2.5 space-y-2"
+        >
           @if (prospecting.leads().length === 0 && !prospecting.isScanning()) {
-            <div class="text-center py-12 px-4 space-y-3">
-              <div class="w-12 h-12 rounded-2xl bg-slate-800/60 border border-slate-700/80 mx-auto flex items-center justify-center text-slate-500">
-                <svg lucideMapPin class="w-6 h-6"></svg>
+            <div class="h-full flex flex-col items-center justify-center text-center px-5 py-8 space-y-2.5">
+              <div class="w-10 h-10 rounded-xl bg-surface-elevated border border-border-subtle flex items-center justify-center text-content-muted">
+                <svg lucideMapPin class="w-5 h-5"></svg>
               </div>
-              <h3 class="text-xs font-semibold text-slate-300">Zona lista para explorar</h3>
-              <p class="text-[11px] text-slate-500 leading-relaxed max-w-[260px] mx-auto">
-                Selecciona tu sector y haz clic en <span class="text-cyan-400 font-medium">Escanear</span> para identificar negocios y sus necesidades de software.
-              </p>
+              <div class="space-y-1">
+                <p class="text-xs font-semibold text-content-primary">Sin prospectos en esta vista</p>
+                <p class="text-[11px] text-content-muted leading-relaxed">
+                  Selecciona un municipio o corredor táctico y ejecuta el barrido para detectar oportunidades comerciales verificadas.
+                </p>
+              </div>
             </div>
           }
 
           @for (lead of prospecting.leads(); track lead.id) {
-            <div
+            <article
+              data-testid="geo-lead-card"
+              [attr.data-lead-id]="lead.id"
               (click)="selectLead(lead)"
-              class="p-3 rounded-xl border transition-all duration-150 cursor-pointer text-left relative overflow-hidden group"
+              (mouseenter)="highlightMapMarker(lead)"
+              (mouseleave)="resetMapMarkerHighlight()"
+              class="p-2.5 rounded-xl border transition-colors cursor-pointer space-y-1.5 select-none"
               [ngClass]="prospecting.selectedLead()?.id === lead.id
-                ? 'bg-[#152033] border-cyan-500/80 shadow-[0_0_15px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/50'
-                : 'bg-[#101724]/80 border-slate-800 hover:border-slate-700 hover:bg-[#131c2c]'"
+                ? 'bg-surface-elevated border-cyan-400/70 shadow-sm'
+                : 'bg-app/70 border-border-subtle hover:bg-surface-elevated/70 hover:border-border-focus'"
             >
-              <!-- Pain Indicator Badge Top -->
-              <div class="flex items-center justify-between mb-2">
+              <!-- ROW 1: BUSINESS NAME + RATING + ESTIMATED TICKET -->
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="font-bold text-xs text-content-primary truncate">
+                  {{ lead.name }}
+                </h3>
+                <div class="flex items-center gap-1.5 shrink-0 font-mono text-[11px] tabular-nums">
+                  <span class="text-amber-400 font-semibold">{{ lead.rating || '—' }} ★</span>
+                  @if (lead.estimatedTicketUsd) {
+                    <span class="px-1.5 py-0.2 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-bold text-[10px]">
+                      ~&#36;{{ lead.estimatedTicketUsd }}
+                    </span>
+                  }
+                </div>
+              </div>
+
+              <!-- ROW 2: OWNERSHIP + DIRECT CHANNEL + COOLDOWN + CITY -->
+              <div class="flex items-center justify-between gap-1.5 text-[10px]">
+                <div class="flex items-center gap-1 min-w-0">
+                  @if (checkChain(lead)) {
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 font-semibold shrink-0">
+                      <svg lucideBuilding2 class="w-2.5 h-2.5"></svg>
+                      <span class="truncate max-w-[105px]">{{ lead.corporateBrand?.name || 'Franquicia' }}</span>
+                    </span>
+                  } @else {
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-badge-high-bg text-badge-high-text border border-emerald-500/30 font-semibold shrink-0">
+                      <svg lucideStore class="w-2.5 h-2.5"></svg>
+                      <span>Independiente</span>
+                    </span>
+                  }
+
+                  @if (lead.phoneType === 'MOBILE') {
+                    <span class="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-surface-elevated text-badge-high-text border border-border-subtle font-medium shrink-0">
+                      <svg lucideSmartphone class="w-2.5 h-2.5"></svg>
+                      <span>WA</span>
+                    </span>
+                  } @else if (lead.phone) {
+                    <span class="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-surface-elevated text-content-secondary border border-border-subtle font-medium shrink-0">
+                      <svg lucidePhone class="w-2.5 h-2.5"></svg>
+                      <span>Fijo</span>
+                    </span>
+                  }
+
+                  @if (checkCooldown(lead)) {
+                    <span class="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-badge-med-bg text-badge-med-text border border-amber-500/30 font-mono tabular-nums shrink-0">
+                      <svg lucideClock class="w-2.5 h-2.5"></svg>
+                      <span>{{ cooldownDays(lead) }}d</span>
+                    </span>
+                  }
+                </div>
+
+                <span class="text-content-muted truncate max-w-[95px]">
+                  {{ lead.city }}
+                </span>
+              </div>
+
+              <!-- ROW 3: PRIMARY PAIN BADGE + SUGGESTED COMMERCIAL OFFER -->
+              <div class="flex items-center justify-between gap-2">
                 <span
-                  class="text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1"
-                  [ngClass]="getPainBadgeClass(lead.primaryPain)"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-semibold shrink-0"
+                  [ngClass]="painBadge(lead.primaryPain)"
                 >
-                  <span class="w-1.5 h-1.5 rounded-full" [ngClass]="getPainDotClass(lead.primaryPain)"></span>
-                  {{ formatPainTitle(lead.primaryPain) }}
+                  <span class="w-1.5 h-1.5 rounded-full" [ngClass]="painDot(lead.primaryPain)"></span>
+                  <span>{{ painTitle(lead.primaryPain) }}</span>
                 </span>
-                <span class="text-[11px] font-mono text-amber-400 flex items-center gap-1">
-                  ★ {{ lead.rating }} <span class="text-slate-500">({{ lead.reviewsCount }})</span>
+
+                <span class="text-[10px] text-content-muted truncate">
+                  {{ lead.suggestedOffer || 'Consultoría Digital B2B' }} {{ priceTier(lead.priceLevel) }}
                 </span>
               </div>
-
-              <!-- Name & Address -->
-              <h4 class="font-bold text-xs text-white group-hover:text-cyan-300 transition-colors line-clamp-1">
-                {{ lead.name }}
-              </h4>
-              <p class="text-[11px] text-slate-400 line-clamp-1 mt-0.5">{{ lead.address }}</p>
-
-              <!-- Opportunity Headline -->
-              <div class="mt-2.5 pt-2 border-t border-white/[0.06] flex items-center justify-between">
-                <span class="text-[10px] text-cyan-400 font-medium truncate max-w-[240px]">
-                  💡 {{ lead.suggestedOffer || 'Propuesta disponible' }}
-                </span>
-                <span class="text-[10px] text-slate-400 group-hover:text-cyan-300 transition-colors flex items-center gap-0.5">
-                  Ver pitch ➜
-                </span>
-              </div>
-            </div>
+            </article>
           }
         </div>
       </aside>
 
-      <!-- ÁREA CENTRAL: MAPA TÁCTICO LEAFLET (FLEX-1) -->
-      <main class="flex-1 relative flex flex-col min-w-0">
-        <!-- MAP CONTAINER -->
-        <div #mapContainer class="w-full h-full z-0 bg-[#060a10]"></div>
+      <!-- =====================================================================
+           COLUMN 2 (CENTER): INTERACTIVE DARK MAP + FLOATING BAR + GPU DOCK
+           ===================================================================== -->
+      <main class="flex-1 relative flex flex-col min-w-0 overflow-hidden bg-app">
+        <div #mapContainer class="w-full h-full z-0"></div>
 
-        <!-- MAP OVERLAY CONTROLS (Top Right) -->
-        <div class="absolute top-4 right-16 z-10 flex items-center gap-2 bg-[#0c111a]/90 backdrop-blur-md border border-slate-800 p-1.5 rounded-xl shadow-xl">
+        <!-- TOP-RIGHT FLOATING TACTICAL BAR (ZERO COLLISION WITH TOP-LEFT ZOOM/GEOMAN) -->
+        <div class="absolute top-3.5 right-3.5 z-10 flex items-center gap-1.5">
           <button
             type="button"
             (click)="recenterRadar()"
-            class="px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Centrar mapa en el radar"
+            title="Centrar mapa en zona activa"
+            class="press-scale px-2.5 py-1.5 rounded-xl bg-surface/90 hover:bg-surface-elevated border border-border-subtle text-content-secondary hover:text-content-primary text-xs font-medium backdrop-blur-md shadow-lg flex items-center gap-1.5 cursor-pointer"
           >
-            <svg lucideCrosshair class="w-3.5 h-3.5 text-cyan-400"></svg>
+            <svg lucideRefreshCw class="w-3.5 h-3.5 text-cyan-400"></svg>
             <span>Centrar</span>
           </button>
-          <div class="h-4 w-px bg-slate-800"></div>
+
           <button
             type="button"
+            data-testid="btn-corredores-tacticos"
             (click)="isPolygonModalOpen.set(true)"
-            class="px-2.5 py-1 text-xs font-semibold rounded-lg text-cyan-300 hover:text-white hover:bg-cyan-950/60 transition-colors flex items-center gap-1.5 border border-cyan-800/40 cursor-pointer"
-            title="Ingresar o gestionar polígono táctico"
+            class="press-scale px-3 py-1.5 rounded-xl bg-surface/90 hover:bg-surface-elevated border border-border-subtle text-cyan-300 text-xs font-semibold backdrop-blur-md shadow-lg flex items-center gap-1.5 cursor-pointer"
           >
             <svg lucideLayers class="w-3.5 h-3.5"></svg>
-            <span>Ingresar Polígono</span>
+            <span>Corredores Tácticos ({{ tacticalPolygons().length }})</span>
           </button>
-          <div class="h-4 w-px bg-slate-800"></div>
-          <span class="text-[11px] text-slate-400 font-mono px-1">
-            📍 {{ selectedCity }}, {{ selectedState }} ({{ getCountryBadge() }})
-          </span>
+
+          <div class="hidden xl:flex px-3 py-1.5 rounded-xl bg-surface/90 border border-border-subtle text-xs text-content-secondary backdrop-blur-md shadow-lg items-center gap-2">
+            <span class="px-1.5 py-0.2 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono text-[10px] font-bold">
+              {{ activeCountryCode() }}
+            </span>
+            <span class="font-medium text-content-primary truncate max-w-[200px]">
+              {{ selectedCity() }}, {{ selectedState() }}
+            </span>
+          </div>
         </div>
 
-        <!-- DRAWER / MODAL DEL LEAD SELECCIONADO (Bottom Overlay) -->
-        @if (prospecting.selectedLead(); as activeLead) {
-          <div class="absolute bottom-6 left-6 right-6 z-20 bg-[#0d1421]/95 border border-cyan-500/30 rounded-2xl p-4 shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom duration-200">
-            <div class="flex items-start justify-between gap-4">
-              <!-- Info Col -->
-              <div class="space-y-1.5 max-w-xl">
-                <div class="flex items-center gap-2">
-                  <span
-                    class="text-[10px] font-bold px-2 py-0.5 rounded-full border"
-                    [ngClass]="getPainBadgeClass(activeLead.primaryPain)"
-                  >
-                    {{ formatPainTitle(activeLead.primaryPain) }}
-                  </span>
-                  <span class="text-xs font-mono text-amber-400">★ {{ activeLead.rating }} ({{ activeLead.reviewsCount }} reviews)</span>
-                  @if (activeLead.websiteUrl) {
-                    <a [href]="activeLead.websiteUrl" target="_blank" class="text-xs text-cyan-400 hover:underline flex items-center gap-1">
-                      <svg lucideGlobe class="w-3 h-3"></svg> Sitio oficial
-                    </a>
-                  } @else {
-                    <span class="text-xs text-rose-400 font-medium">⚠️ Sin sitio web oficial</span>
-                  }
-                </div>
-                <h3 class="text-base font-bold text-white tracking-tight">{{ activeLead.name }}</h3>
-                <p class="text-xs text-slate-300 leading-relaxed font-mono bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-                  <span class="text-cyan-400 font-bold block mb-1">💬 Pitch de Contacto Preparado:</span>
-                  {{ activeLead.salesPitchDraft }}
-                </p>
-              </div>
-
-              <!-- Actions Col -->
-              <div class="flex flex-col gap-2 shrink-0">
-                <button
-                  type="button"
-                  (click)="copyPitch(activeLead.salesPitchDraft)"
-                  class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-950/60 transition-all active:scale-95 cursor-pointer"
-                >
-                  @if (copiedPitch()) {
-                    <svg lucideCheck class="w-4 h-4 text-emerald-300"></svg>
-                    <span>¡Copiado al Portapapeles!</span>
-                  } @else {
-                    <svg lucideCopy class="w-4 h-4"></svg>
-                    <span>Copiar Pitch WhatsApp</span>
-                  }
-                </button>
-                @if (activeLead.phone) {
-                  <a
-                    [href]="'https://wa.me/' + cleanPhone(activeLead.phone)"
-                    target="_blank"
-                    class="px-4 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
-                  >
-                    <svg lucidePhone class="w-4 h-4"></svg>
-                    <span>Abrir en WhatsApp</span>
-                  </a>
-                }
-                <button
-                  type="button"
-                  (click)="prospecting.selectedLead.set(null)"
-                  class="px-4 py-1.5 text-slate-400 hover:text-white text-xs font-semibold text-center transition-colors cursor-pointer"
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        }
+        <!-- GPU-COMPOSITED TELESCOPIC DOCK SHEET -->
+        <app-geo-prospects-dock
+          [leads]="sortedTableLeads()"
+          [selectedLeadId]="prospecting.selectedLead()?.id || null"
+          [totalPipelineUsd]="totalPipelineUsd()"
+          [mode]="dockMode()"
+          [sortOrder]="sortOrder()"
+          [currentPage]="currentPage()"
+          [pageSize]="pageSize()"
+          (modeChanged)="setDockMode($event)"
+          (sortToggled)="toggleSortDirection()"
+          (pageChanged)="onPageChanged($event)"
+          (leadSelected)="selectLead($event)"
+          (rowHovered)="highlightMapMarker($event)"
+          (rowHoverLeft)="resetMapMarkerHighlight()"
+        />
       </main>
 
-      <!-- MODAL INGRESOR DE POLÍGONOS TÁCTICOS -->
+      <!-- =====================================================================
+           COLUMN 3 (RIGHT): MASTER-DETAIL FULL-HEIGHT CRM INSPECTOR (ZERO OVERLAP)
+           ===================================================================== -->
+      @if (prospecting.selectedLead(); as activeLead) {
+        <app-geo-lead-inspector
+          [lead]="activeLead"
+          [activePains]="activeBusinessPains()"
+          [currentPain]="currentActivePain()"
+          [selectedTone]="selectedPitchTone()"
+          [suggestedOfferText]="currentSuggestedOffer(activeLead)"
+          [pitchText]="currentPitchText(activeLead)"
+          [whatsappUrl]="buildWhatsappUrl(activeLead)"
+          [copiedPitch]="copiedPitch()"
+          [contacts]="prospecting.selectedLeadContacts()"
+          [contactChannel]="contactChannelInput()"
+          [contactOutcome]="contactOutcomeInput()"
+          [contactNotes]="contactNotesInput()"
+          [isSavingContact]="isSavingContact()"
+          [isEnrichingDeep]="isEnrichingDeep()"
+          [feedbackMessage]="crmFeedbackMessage()"
+          [contactError]="contactErrorMessage()"
+          [isConfirmingBlacklist]="isConfirmingBlacklist()"
+          (painSelected)="selectedPainId.set($event)"
+          (painDismissed)="dismissPainAsFalsePositive(activeLead, $event.pain, $event.event)"
+          (pitchToneChanged)="selectedPitchTone.set($event)"
+          (copyRequested)="copyPitch(currentPitchText(activeLead))"
+          (enrichRequested)="triggerDeepEnrichment(activeLead)"
+          (channelChanged)="contactChannelInput.set($event)"
+          (outcomeChanged)="contactOutcomeInput.set($event)"
+          (notesChanged)="contactNotesInput.set($event)"
+          (submitContactRequested)="submitContactLog(activeLead)"
+          (requestBlacklistConfirmation)="isConfirmingBlacklist.set(true)"
+          (confirmBlacklistRequested)="blacklistCurrentLead(activeLead)"
+          (cancelBlacklistRequested)="isConfirmingBlacklist.set(false)"
+          (closeRequested)="closeInspector()"
+        />
+      }
+
+      <!-- =====================================================================
+           DYNAMIC TACTICAL POLYGONS & GEOJSON MODAL (THEME-TOKEN ALIGNED)
+           ===================================================================== -->
       @if (isPolygonModalOpen()) {
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div class="bg-[#0f1522] border border-cyan-500/40 rounded-2xl w-full max-w-xl p-5 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
-            <!-- Modal Header -->
-            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+          (click)="isPolygonModalOpen.set(false)"
+        >
+          <div
+            class="bg-surface border border-border-subtle rounded-2xl w-full max-w-xl p-5 shadow-2xl space-y-4"
+            (click)="$event.stopPropagation()"
+          >
+            <div class="flex items-center justify-between border-b border-border-subtle pb-3">
               <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400">
+                <div class="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
                   <svg lucideLayers class="w-4 h-4"></svg>
                 </div>
                 <div>
-                  <h3 class="text-sm font-bold text-white tracking-wide">Ingresor de Polígonos Tácticos B2B</h3>
-                  <p class="text-[11px] text-slate-400">Pega coordenadas, GeoJSON o selecciona zonas estratégicas</p>
+                  <h3 class="text-sm font-bold text-content-primary tracking-wide">
+                    Corredores & Polígonos Tácticos B2B
+                  </h3>
+                  <p class="text-[11px] text-content-secondary">
+                    {{ tacticalPolygons().length }} distritos industriales, financieros y comerciales listos para auditar
+                  </p>
                 </div>
               </div>
               <button
                 type="button"
                 (click)="isPolygonModalOpen.set(false)"
-                class="w-7 h-7 rounded-lg hover:bg-white/[0.08] text-slate-400 hover:text-white flex items-center justify-center font-bold text-xs cursor-pointer"
+                class="press-scale w-7 h-7 rounded-lg bg-surface-elevated hover:bg-surface-hover text-content-secondary hover:text-content-primary flex items-center justify-center cursor-pointer"
+                title="Cerrar (Esc)"
               >
-                ✕
+                <svg lucideX class="w-4 h-4"></svg>
               </button>
             </div>
 
-            <!-- Presets Section -->
             <div class="space-y-1.5">
-              <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex justify-between">
-                <span>Zonas & Corredores Predefinidos</span>
-                <span class="text-cyan-400 text-[10px]">1-Clic para cargar</span>
-              </label>
-              <div class="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto custom-scrollbar pr-1">
-                @for (preset of tacticalPresets; track preset.name) {
+              <div class="text-[10px] font-semibold text-content-secondary uppercase tracking-wider flex justify-between">
+                <span>Corredores Estratégicos</span>
+                <span class="text-cyan-400 font-mono">1-Clic para delimitar</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                @for (preset of tacticalPolygons(); track preset.slug) {
                   <button
                     type="button"
                     (click)="applyPresetPolygon(preset)"
-                    class="p-2.5 rounded-xl bg-slate-900/80 hover:bg-[#152033] border border-slate-800 hover:border-cyan-500/50 text-left transition-all group cursor-pointer"
+                    class="press-scale p-2.5 rounded-xl bg-app hover:bg-surface-elevated border border-border-subtle hover:border-cyan-500/50 text-left group cursor-pointer"
                   >
-                    <div class="text-[11px] font-bold text-white group-hover:text-cyan-300 truncate">{{ preset.flag }} {{ preset.name }}</div>
-                    <div class="text-[10px] text-slate-500 font-mono mt-0.5">{{ preset.city }} · {{ preset.category }}</div>
+                    <div class="flex items-center gap-1.5">
+                      <span class="px-1.5 py-0.2 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono text-[9px] font-bold shrink-0">
+                        {{ preset.countryCode }}
+                      </span>
+                      <span class="text-[11px] font-bold text-content-primary group-hover:text-cyan-300 truncate">
+                        {{ preset.name }}
+                      </span>
+                    </div>
+                    <div class="text-[10px] text-content-muted font-mono mt-1 truncate">
+                      {{ preset.state }} · {{ preset.category }}
+                    </div>
                   </button>
                 }
               </div>
             </div>
 
-            <!-- Raw Coordinate / GeoJSON Input -->
             <div class="space-y-1.5">
-              <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex justify-between">
+              <label class="text-[10px] font-semibold text-content-secondary uppercase tracking-wider flex justify-between">
                 <span>Pegar Coordenadas o GeoJSON</span>
-                <span class="text-slate-500 text-[10px] font-mono">[[lat, lng], ...] o Feature</span>
+                <span class="text-content-muted font-mono">[[lat, lng], ...] o Feature</span>
               </label>
               <textarea
                 [(ngModel)]="rawPolygonInput"
-                placeholder='Pega aquí coordenadas o GeoJSON, ej:&#10;[&#10;  [20.6150, -100.4400],&#10;  [20.6350, -100.4400],&#10;  [20.6350, -100.4100],&#10;  [20.6150, -100.4100]&#10;]'
-                rows="5"
-                class="w-full bg-[#131b29] border border-slate-700/80 rounded-xl p-3 text-xs font-mono text-cyan-300 placeholder-slate-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 custom-scrollbar"
+                placeholder="Pega coordenadas [[lat, lng], ...] o un Feature GeoJSON..."
+                rows="3"
+                class="w-full bg-app border border-border-subtle rounded-xl p-2.5 text-xs font-mono text-cyan-300 placeholder-content-muted focus:outline-none focus:border-cyan-500"
               ></textarea>
               @if (polygonParseError()) {
-                <p class="text-[11px] text-rose-400 font-mono flex items-center gap-1">
-                  ⚠️ {{ polygonParseError() }}
+                <p class="inline-flex items-center gap-1 text-[11px] text-badge-low-text font-mono">
+                  <svg lucideAlertCircle class="w-3.5 h-3.5 shrink-0"></svg>
+                  <span>{{ polygonParseError() }}</span>
                 </p>
               }
             </div>
 
-            <!-- Modal Footer Actions -->
-            <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+            <div class="flex items-center justify-between pt-2 border-t border-border-subtle">
               <button
                 type="button"
-                (click)="loadDemoQueretaroPolygon()"
+                (click)="loadSamplePolygonToTextarea()"
                 class="text-[11px] text-cyan-400 hover:underline cursor-pointer"
               >
-                Cargar ejemplo Querétaro
+                Insertar plantilla de coordenadas
               </button>
               <div class="flex items-center gap-2">
                 <button
                   type="button"
                   (click)="isPolygonModalOpen.set(false)"
-                  class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  class="press-scale px-3.5 py-1.5 rounded-xl bg-surface-elevated hover:bg-surface-hover text-xs font-semibold text-content-secondary hover:text-content-primary cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="button"
                   (click)="applyPastedPolygon()"
-                  class="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-lg shadow-cyan-950/60 transition-all cursor-pointer active:scale-95"
+                  class="press-scale px-4 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold cursor-pointer"
                 >
                   Aplicar al Mapa
                 </button>
@@ -1026,55 +585,54 @@ export const TACTICAL_POLYGONS: TacticalPolygonPreset[] = [
       }
     </div>
   `,
-  styles: [
-    `
-      .animate-spin-slow {
-        animation: spin 8s linear infinite;
-      }
-      @keyframes spin {
-        from {
-          transform: rotate(0deg);
-        }
-        to {
-          transform: rotate(360deg);
-        }
-      }
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 5px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: rgba(15, 23, 42, 0.4);
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: rgba(51, 65, 85, 0.6);
-        border-radius: 9999px;
-      }
-    `,
-  ],
 })
 export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly prospecting = inject(ProspectingService);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly mapContainer = viewChild<ElementRef<HTMLDivElement>>('mapContainer');
+  private readonly leadListContainer = viewChild<ElementRef<HTMLDivElement>>('leadListContainer');
 
-  // Map layers
-  private map?: L.Map;
-  private circleLayer?: L.Circle;
-  private centerMarker?: L.Marker;
-  private cityPolygonLayer?: L.GeoJSON;
-  private customPolygonLayer?: L.Polygon;
+  // Route Path & Query Inputs (via withComponentInputBinding)
+  readonly countryCode = input<string>();
+  readonly stateSlug = input<string>();
+  readonly citySlug = input<string>();
+  readonly leadId = input<string>();
+  readonly sector = input<string>();
+  readonly tone = input<string>();
+  readonly dock = input<string>();
+  readonly excludeChainsParam = input<string>();
+  readonly onlyMobileParam = input<string>();
+  readonly painParam = input<string>();
+  readonly pageParam = input<string>();
+  readonly pageSizeParam = input<string>();
+
+  // Leaflet layers
+  private map?: LeafletESM.Map;
+  private circleLayer?: LeafletESM.Circle;
+  private centerMarker?: LeafletESM.Marker;
+  private cityPolygonLayer?: LeafletESM.GeoJSON;
+  private customPolygonLayer?: LeafletESM.Polygon;
   private leadMarkersLayer = L.layerGroup();
 
-  // Multi-Country & State & Cities presets
-  readonly countries = COUNTRIES_CONFIG;
-  selectedCountry = 'Mexico';
-  selectedState = 'Yucatán';
-  selectedCity = 'Mérida';
-  currentCenter = { lat: 20.9674, lng: -89.5926 };
+  // Dynamic Geo-Presets State
+  readonly selectedCountry = signal<string>('United States');
+  readonly selectedState = signal<string>('California');
+  readonly selectedCity = signal<string>('San Francisco');
+  readonly isZoneCollapsed = signal<boolean>(true);
+  currentCenter = { lat: INITIAL_BOOT_PRESET.latitude, lng: INITIAL_BOOT_PRESET.longitude };
 
-  // Inputs & Scanning mode
-  selectedSector = 'Dentistas';
-  readonly popularSectors = ['Dentistas', 'Talleres Mecánicos', 'Notarías', 'Restaurantes', 'Clínicas', 'Logística'];
-  radiusKm = 5;
+  // Scan parameters
+  readonly selectedSector = signal<string>('Dentistas');
+  readonly popularSectors = [
+    'Dentistas',
+    'Clínicas',
+    'Talleres Mecánicos',
+    'Restaurantes',
+    'Notarías',
+    'Logística',
+  ];
+  readonly radiusKm = signal<number>(5);
 
   readonly scanMode = signal<'RADIUS' | 'POLYGON'>('RADIUS');
   readonly customPolygon = signal<[number, number][] | null>(null);
@@ -1082,7 +640,107 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly polygonParseError = signal<string | null>(null);
   rawPolygonInput = '';
 
-  readonly tacticalPresets = TACTICAL_POLYGONS;
+  // Enterprise Filters
+  readonly excludeChains = signal<boolean>(false);
+  readonly excludeCooldown = signal<boolean>(false);
+  readonly onlyMobileWhatsapp = signal<boolean>(false);
+  readonly selectedPainFilter = signal<string>('');
+  readonly isPainDropdownOpen = signal<boolean>(false);
+
+  // GPU Telescopic Dock & Datagrid State
+  readonly dockMode = signal<DockViewMode>('PEEK');
+  readonly sortOrder = signal<'ASC' | 'DESC'>('DESC');
+  readonly highlightedLeadId = signal<string | null>(null);
+  readonly currentPage = signal<number>(1);
+  readonly pageSize = signal<number>(25);
+
+  // Right Master-Detail CRM Inspector State
+  readonly selectedPainId = signal<string | null>(null);
+  readonly selectedPitchTone = signal<PitchToneKey>('OWNER');
+  readonly copiedPitch = signal<boolean>(false);
+  readonly isSavingContact = signal<boolean>(false);
+  readonly isEnrichingDeep = signal<boolean>(false);
+  readonly crmFeedbackMessage = signal<string | null>(null);
+  readonly contactErrorMessage = signal<string | null>(null);
+  readonly isConfirmingBlacklist = signal<boolean>(false);
+  readonly contactChannelInput = signal<ContactChannel>('WHATSAPP');
+  readonly contactOutcomeInput = signal<ContactOutcome>('CONNECTED_PITCHED');
+  readonly contactNotesInput = signal<string>('');
+
+  // Computed Geo Catalogs from DB
+  private readonly effectiveGeoPresets = computed<GeoPresetDto[]>(() => {
+    const loaded = this.prospecting.geoPresets();
+    return loaded.length > 0 ? loaded : [INITIAL_BOOT_PRESET];
+  });
+
+  readonly totalPresetsCount = computed(() => this.prospecting.geoPresets().length);
+
+  readonly countries = computed<CountryOption[]>(() => {
+    const map = new Map<string, CountryOption>();
+    for (const row of this.effectiveGeoPresets()) {
+      if (!map.has(row.countryName)) {
+        const label =
+          row.countryCode === 'MX'
+            ? 'México'
+            : row.countryCode === 'CO'
+              ? 'Colombia'
+              : row.countryCode === 'US'
+                ? 'EE. UU.'
+                : row.countryName;
+        map.set(row.countryName, {
+          countryCode: row.countryCode,
+          countryName: row.countryName,
+          label,
+        });
+      }
+    }
+    return Array.from(map.values());
+  });
+
+  readonly activeCountryCode = computed<string>(() => {
+    return (
+      this.countries().find((c) => c.countryName === this.selectedCountry())?.countryCode || 'US'
+    );
+  });
+
+  readonly countryCities = computed<CityOption[]>(() => {
+    const country = this.selectedCountry();
+    return this.effectiveGeoPresets()
+      .filter((row) => row.countryName === country)
+      .map((row) => ({
+        id: row.id || row.slug,
+        name: row.city,
+        state: row.state,
+        countryName: row.countryName,
+        countryCode: row.countryCode,
+        lat: row.latitude,
+        lng: row.longitude,
+        zoom: row.zoom || 13,
+        isTactical: row.isTactical,
+        category: row.category,
+        polygonCoordinates: Array.isArray(row.polygonCoordinates)
+          ? (row.polygonCoordinates as [number, number][])
+          : undefined,
+      }));
+  });
+
+  readonly tacticalPolygons = computed<TacticalPolygonOption[]>(() => {
+    const currentCountry = this.selectedCountry();
+    return this.effectiveGeoPresets()
+      .filter(
+        (r) => r.isTactical && Array.isArray(r.polygonCoordinates) && r.polygonCoordinates.length >= 3,
+      )
+      .sort((a, b) => Number(b.countryName === currentCountry) - Number(a.countryName === currentCountry))
+      .map((r) => ({
+        slug: r.slug,
+        name: r.city,
+        state: r.state,
+        countryName: r.countryName,
+        countryCode: r.countryCode,
+        category: r.category || 'Comercial',
+        polygon: r.polygonCoordinates as [number, number][],
+      }));
+  });
 
   readonly polygonAreaKm2 = computed(() => {
     const poly = this.customPolygon();
@@ -1090,26 +748,473 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.calculateAreaKm2(poly);
   });
 
-  readonly copiedPitch = signal<boolean>(false);
-  readonly currentStates = signal<StatePreset[]>([]);
-  readonly currentCities = signal<{ name: string; lat: number; lng: number }[]>([]);
+  readonly hasActiveFilters = computed(
+    () =>
+      this.excludeChains() ||
+      this.excludeCooldown() ||
+      this.onlyMobileWhatsapp() ||
+      Boolean(this.selectedPainFilter()),
+  );
 
-  ngOnInit() {
-    this.updateCurrentStates();
-    this.updateCurrentCities();
+  readonly activePainFilterLabel = computed(() => {
+    const code = this.selectedPainFilter();
+    if (!code) return 'Dolencia: Todas las categorías';
+    const match = this.prospecting.painCatalog().find((p) => p.code === code);
+    return match ? `Dolencia: ${match.name}` : `Dolencia: ${code}`;
+  });
+
+  readonly mismatchLeadsCity = computed<string | null>(() => {
+    const leads = this.prospecting.leads();
+    if (leads.length === 0) return null;
+    const targetCity = normalizeGeoText(this.selectedCity());
+    const targetState = normalizeGeoText(this.selectedState());
+    const anyMatchesViewport = leads.some(
+      (l) =>
+        normalizeGeoText(l.city) === targetCity ||
+        (this.scanMode() === 'POLYGON' && normalizeGeoText(l.state) === targetState),
+    );
+    if (anyMatchesViewport) return null;
+
+    const counts = new Map<string, number>();
+    for (const lead of leads) {
+      if (lead.city) {
+        counts.set(lead.city, (counts.get(lead.city) || 0) + 1);
+      }
+    }
+    let dominant: string | null = null;
+    let best = 0;
+    for (const [city, count] of counts.entries()) {
+      if (count > best) {
+        best = count;
+        dominant = city;
+      }
+    }
+    return dominant;
+  });
+
+  readonly activeBusinessPains = computed<ProspectedBusinessPainItem[]>(() => {
+    const detailed = this.prospecting.selectedLeadPains();
+    const activeStatuses = new Set(['DETECTED', 'VERIFIED', 'PITCHED']);
+    if (detailed.length > 0) {
+      return detailed.filter((p) => activeStatuses.has(p.status));
+    }
+    const lead = this.prospecting.selectedLead();
+    return (lead?.detectedPains || []).filter((p) => activeStatuses.has(p.status));
+  });
+
+  readonly currentActivePain = computed<ProspectedBusinessPainItem | null>(() => {
+    const list = this.activeBusinessPains();
+    if (list.length === 0) return null;
+    const explicitId = this.selectedPainId();
+    if (explicitId) {
+      const found = list.find((p) => p.id === explicitId);
+      if (found) return found;
+    }
+    return list.find((p) => p.isPrimary) || list[0];
+  });
+
+  readonly sortedTableLeads = computed(() => {
+    const list = [...this.prospecting.leads()];
+    const order = this.sortOrder();
+    return list.sort((a, b) => {
+      const ticketA = Number(a.estimatedTicketUsd) || 0;
+      const ticketB = Number(b.estimatedTicketUsd) || 0;
+      return order === 'DESC' ? ticketB - ticketA : ticketA - ticketB;
+    });
+  });
+
+  readonly totalPipelineUsd = computed(() => {
+    return this.prospecting
+      .leads()
+      .reduce((sum, l) => sum + (Number(l.estimatedTicketUsd) || 450), 0);
+  });
+
+  ngOnInit(): void {
+    this.hydrateFromRouteParams();
+
+    this.prospecting
+      .getGeoPresets()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (rows) => {
+          if (rows.length > 0) {
+            this.ensureValidSelectionAfterPresetsLoad();
+          }
+        },
+      });
+    this.prospecting
+      .getPainCatalog()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe();
+    this.prospecting
+      .getFunnelAnalytics()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe();
+    this.refreshLeadsFromBackend();
   }
 
-  ngAfterViewInit() {
+  private hydrateFromRouteParams(): void {
+    if (this.sector()) {
+      this.selectedSector.set(this.sector()!);
+    }
+    if (this.tone()) {
+      const t = this.tone()!.toUpperCase() as PitchToneKey;
+      if (t === 'OWNER' || t === 'GATEKEEPER' || t === 'ENTERPRISE') {
+        this.selectedPitchTone.set(t);
+      }
+    }
+    if (this.dock()) {
+      const d = this.dock()!.toUpperCase() as DockViewMode;
+      if (d === 'PEEK' || d === 'SPLIT' || d === 'MAXIMIZED') {
+        this.dockMode.set(d);
+      }
+    }
+    if (this.excludeChainsParam() === 'true') {
+      this.excludeChains.set(true);
+    }
+    if (this.onlyMobileParam() === 'true') {
+      this.onlyMobileWhatsapp.set(true);
+    }
+    if (this.painParam()) {
+      this.selectedPainFilter.set(this.painParam()!);
+    }
+    if (this.pageParam()) {
+      const parsedPage = parseInt(this.pageParam()!, 10);
+      if (!isNaN(parsedPage) && parsedPage > 0) {
+        this.currentPage.set(parsedPage);
+      }
+    }
+    if (this.pageSizeParam()) {
+      const parsedSize = parseInt(this.pageSizeParam()!, 10);
+      if (!isNaN(parsedSize) && parsedSize > 0) {
+        this.pageSize.set(parsedSize);
+      }
+    }
+  }
+
+  private syncUrlState(replaceUrl: boolean = true): void {
+    const country = this.selectedCountry();
+    const countryMatch = this.countries().find((c) => c.countryName === country);
+    const countryCode = (countryMatch?.countryCode || this.activeCountryCode() || 'us').toLowerCase();
+    const stateSlug = this.selectedState().toLowerCase().replace(/\s+/g, '-');
+    const citySlug = this.selectedCity().toLowerCase().replace(/\s+/g, '-');
+
+    const lead = this.prospecting.selectedLead();
+    const queryParams: Record<string, string | null> = {
+      leadId: lead ? lead.id : null,
+      sector: this.selectedSector() !== 'Dentistas' ? this.selectedSector() : null,
+      tone: this.selectedPitchTone() !== 'OWNER' ? this.selectedPitchTone() : null,
+      dock: this.dockMode() !== 'PEEK' ? this.dockMode() : null,
+      excludeChains: this.excludeChains() ? 'true' : null,
+      onlyMobile: this.onlyMobileWhatsapp() ? 'true' : null,
+      pain: this.selectedPainFilter() || null,
+      page: this.currentPage() > 1 ? String(this.currentPage()) : null,
+      pageSize: this.pageSize() !== 25 ? String(this.pageSize()) : null,
+    };
+
+    const targetUrl = ['/radar/geo', countryCode, stateSlug, citySlug];
+    this.router.navigate(targetUrl, {
+      queryParams,
+      queryParamsHandling: 'merge',
+      replaceUrl,
+    });
+  }
+
+  ngAfterViewInit(): void {
     this.initMap();
   }
 
-  ngOnDestroy() {
+  ngOnDestroy(): void {
     if (this.map) {
       this.map.remove();
     }
   }
 
-  setScanMode(mode: 'RADIUS' | 'POLYGON') {
+  // ===========================================================================
+  // ZERO-MOUSE SDR KEYBOARD ENGINE (J/K, 1/2/3, C, W, ESC PRIORITY STACK)
+  // ===========================================================================
+  @HostListener('document:keydown', ['$event'])
+  handleGlobalKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      if (this.isPolygonModalOpen()) {
+        event.preventDefault();
+        this.isPolygonModalOpen.set(false);
+        return;
+      }
+      if (this.isPainDropdownOpen()) {
+        event.preventDefault();
+        this.isPainDropdownOpen.set(false);
+        return;
+      }
+      if (this.isConfirmingBlacklist()) {
+        event.preventDefault();
+        this.isConfirmingBlacklist.set(false);
+        return;
+      }
+      if (this.prospecting.selectedLead()) {
+        event.preventDefault();
+        this.closeInspector();
+        return;
+      }
+      return;
+    }
+
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+    const target = event.target as HTMLElement | null;
+    if (
+      target &&
+      (target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable)
+    ) {
+      return;
+    }
+
+    const list = this.prospecting.leads();
+    const activeLead = this.prospecting.selectedLead();
+
+    if (event.key === 'j' || event.key === 'J' || event.key === 'ArrowDown') {
+      if (list.length === 0) return;
+      event.preventDefault();
+      const currentIdx = activeLead ? list.findIndex((item) => item.id === activeLead.id) : -1;
+      const nextIdx = currentIdx < 0 ? 0 : Math.min(list.length - 1, currentIdx + 1);
+      const nextLead = list[nextIdx];
+      this.selectLead(nextLead);
+      this.scrollLeadCardIntoView(nextLead.id);
+      return;
+    }
+
+    if (event.key === 'k' || event.key === 'K' || event.key === 'ArrowUp') {
+      if (list.length === 0) return;
+      event.preventDefault();
+      const currentIdx = activeLead ? list.findIndex((item) => item.id === activeLead.id) : -1;
+      const prevIdx = currentIdx <= 0 ? 0 : currentIdx - 1;
+      const prevLead = list[prevIdx];
+      this.selectLead(prevLead);
+      this.scrollLeadCardIntoView(prevLead.id);
+      return;
+    }
+
+    if (!activeLead) return;
+
+    if (event.key === '1') {
+      event.preventDefault();
+      this.selectedPitchTone.set('OWNER');
+    } else if (event.key === '2') {
+      event.preventDefault();
+      this.selectedPitchTone.set('GATEKEEPER');
+    } else if (event.key === '3') {
+      event.preventDefault();
+      this.selectedPitchTone.set('ENTERPRISE');
+    } else if (event.key === 'c' || event.key === 'C') {
+      event.preventDefault();
+      this.copyPitch(this.currentPitchText(activeLead));
+    } else if (event.key === 'i' || event.key === 'I') {
+      event.preventDefault();
+      this.triggerDeepEnrichment(activeLead);
+    } else if (event.key === 'w' || event.key === 'W') {
+      if (activeLead.phoneType === 'MOBILE' && (activeLead.phoneE164 || activeLead.phone)) {
+        event.preventDefault();
+        window.open(this.buildWhatsappUrl(activeLead), '_blank', 'noopener,noreferrer');
+      }
+    }
+  }
+
+  private scrollLeadCardIntoView(leadId: string): void {
+    requestAnimationFrame(() => {
+      const container = this.leadListContainer()?.nativeElement;
+      if (!container) return;
+      const card = container.querySelector<HTMLElement>(`[data-lead-id="${leadId}"]`);
+      card?.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  private scheduleMapResize(): void {
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        this.map?.invalidateSize({ pan: false });
+      }, 40);
+    });
+  }
+
+  toggleZoneCollapse(): void {
+    this.isZoneCollapsed.update((v) => !v);
+  }
+
+  private ensureValidSelectionAfterPresetsLoad(): void {
+    // If route path params were provided, check for city match first
+    const pathCitySlug = this.citySlug();
+    const pathStateSlug = this.stateSlug();
+    const pathCountryCode = this.countryCode();
+
+    if (pathCitySlug) {
+      const match = this.effectiveGeoPresets().find((p) => {
+        const cSlug = p.city.toLowerCase().replace(/\s+/g, '-');
+        const sSlug = p.state.toLowerCase().replace(/\s+/g, '-');
+        const code = p.countryCode.toLowerCase();
+        return (
+          cSlug === pathCitySlug.toLowerCase() &&
+          (!pathStateSlug || sSlug === pathStateSlug.toLowerCase()) &&
+          (!pathCountryCode || code === pathCountryCode.toLowerCase())
+        );
+      });
+
+      if (match) {
+        this.selectedCountry.set(match.countryName);
+        this.selectedState.set(match.state);
+        this.selectedCity.set(match.city);
+        this.currentCenter = { lat: match.latitude, lng: match.longitude };
+        return;
+      }
+    }
+
+    const cities = this.countryCities();
+    if (cities.length > 0 && !cities.some((c) => c.name === this.selectedCity())) {
+      const preferred = cities.find((c) => !c.isTactical) || cities[0];
+      this.selectedState.set(preferred.state);
+      this.selectedCity.set(preferred.name);
+      this.currentCenter = { lat: preferred.lat, lng: preferred.lng };
+    }
+  }
+
+  onCountrySelected(countryName: string): void {
+    this.selectedCountry.set(countryName);
+    const cities = this.countryCities();
+    const preferred = cities.find((c) => !c.isTactical) || cities[0];
+    if (preferred) {
+      this.selectedCountry.set(preferred.countryName);
+      this.selectedState.set(preferred.state);
+      this.selectedCity.set(preferred.name);
+      this.currentCenter = { lat: preferred.lat, lng: preferred.lng };
+
+      if (preferred.isTactical && preferred.polygonCoordinates && preferred.polygonCoordinates.length >= 3) {
+        this.setPolygonOnMap(preferred.polygonCoordinates);
+      } else {
+        if (this.scanMode() === 'POLYGON') {
+          this.clearPolygon();
+        }
+        this.fetchCityBoundary(preferred.name, preferred.state, preferred.countryName);
+        this.updateMapPosition(preferred.zoom || 13);
+      }
+      // Keep panel expanded if user was already interacting with it
+      // this.syncUrlState(true);
+    }
+  }
+
+  onCityOptionSelected(cityObj: CityOption): void {
+    this.selectedCountry.set(cityObj.countryName);
+    this.selectedState.set(cityObj.state);
+    this.selectedCity.set(cityObj.name);
+    this.currentCenter = { lat: cityObj.lat, lng: cityObj.lng };
+
+    if (cityObj.isTactical && cityObj.polygonCoordinates && cityObj.polygonCoordinates.length >= 3) {
+      this.setPolygonOnMap(cityObj.polygonCoordinates);
+    } else {
+      if (this.scanMode() === 'POLYGON') {
+        this.clearPolygon();
+      }
+      this.fetchCityBoundary(cityObj.name, cityObj.state, cityObj.countryName);
+      this.updateMapPosition(cityObj.zoom || 13);
+    }
+
+    this.syncUrlState(false);
+  }
+
+  onRadiusChange(newRadius: number): void {
+    this.radiusKm.set(Number(newRadius) || 5);
+    this.updateRadarCircle();
+  }
+
+  toggleExcludeChains(): void {
+    this.excludeChains.update((v) => !v);
+    this.syncUrlState(true);
+    this.refreshLeadsFromBackend();
+  }
+
+  toggleExcludeCooldown(): void {
+    this.excludeCooldown.update((v) => !v);
+    this.syncUrlState(true);
+    this.refreshLeadsFromBackend();
+  }
+
+  toggleOnlyMobile(): void {
+    this.onlyMobileWhatsapp.update((v) => !v);
+    this.syncUrlState(true);
+    this.refreshLeadsFromBackend();
+  }
+
+  togglePainDropdown(): void {
+    this.isPainDropdownOpen.update((v) => !v);
+  }
+
+  selectPainFilter(painCode: string): void {
+    this.selectedPainFilter.set(painCode);
+    this.isPainDropdownOpen.set(false);
+    this.syncUrlState(true);
+    this.refreshLeadsFromBackend();
+  }
+
+  resetFilters(): void {
+    this.excludeChains.set(false);
+    this.excludeCooldown.set(false);
+    this.onlyMobileWhatsapp.set(false);
+    this.selectedPainFilter.set('');
+    this.isPainDropdownOpen.set(false);
+    this.syncUrlState(true);
+    this.refreshLeadsFromBackend();
+  }
+
+  refreshLeadsFromBackend(): void {
+    const phoneType: PhoneLineType | undefined = this.onlyMobileWhatsapp() ? 'MOBILE' : undefined;
+    this.prospecting
+      .fetchLeads({
+        excludeChains: this.excludeChains() || undefined,
+        excludeCooldown: this.excludeCooldown() || undefined,
+        phoneType,
+        painCode: this.selectedPainFilter() || undefined,
+        limit: 150,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (leads) => {
+          this.renderLeadMarkers(leads);
+          // Auto-select lead if leadId param was provided and lead exists
+          const targetLeadId = this.leadId();
+          if (targetLeadId && (!this.prospecting.selectedLead() || this.prospecting.selectedLead()?.id !== targetLeadId)) {
+            const matchedLead = leads.find((l) => l.id === targetLeadId);
+            if (matchedLead) {
+              this.selectLead(matchedLead);
+            }
+          }
+        },
+      });
+  }
+
+  focusMapOnSavedLeads(): void {
+    if (!this.map) return;
+    const coords = this.prospecting
+      .leads()
+      .map((l) => {
+        const rawLat = l.latitude as unknown;
+        const rawLng = l.longitude as unknown;
+        const lat = typeof rawLat === 'number' ? rawLat : parseFloat(String(rawLat));
+        const lng = typeof rawLng === 'number' ? rawLng : parseFloat(String(rawLng));
+        return isFinite(lat) && isFinite(lng) ? ([lat, lng] as [number, number]) : null;
+      })
+      .filter((coord): coord is [number, number] => coord !== null);
+    if (coords.length === 0) return;
+
+    const first = this.prospecting.leads()[0];
+    if (first?.city && first?.state) {
+      this.selectedCity.set(first.city);
+      this.selectedState.set(first.state);
+    }
+    this.map.fitBounds(L.latLngBounds(coords), { padding: [56, 56], maxZoom: 14 });
+  }
+
+  setScanMode(mode: 'RADIUS' | 'POLYGON'): void {
     this.scanMode.set(mode);
     if (!this.map) return;
 
@@ -1121,91 +1226,52 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
         this.centerMarker.addTo(this.map);
       }
       this.updateRadarCircle();
+    } else if (this.customPolygonLayer && this.map.hasLayer(this.customPolygonLayer)) {
+      this.map.fitBounds(this.customPolygonLayer.getBounds(), { padding: [50, 50] });
     } else {
-      // In polygon mode, if polygon exists, focus on it
-      if (this.customPolygonLayer && this.map.hasLayer(this.customPolygonLayer)) {
-        this.map.fitBounds(this.customPolygonLayer.getBounds(), { padding: [50, 50] });
-      } else {
-        // If no polygon yet, prompt opening the modal or hint
-        this.isPolygonModalOpen.set(true);
-      }
+      this.isPolygonModalOpen.set(true);
     }
   }
 
-  onCountryChange() {
-    this.updateCurrentStates();
-    const firstState = this.currentStates()[0];
-    if (firstState) {
-      this.selectedState = firstState.name;
-      this.onStateChange();
-    }
-  }
-
-  onStateChange() {
-    this.updateCurrentCities();
-    const firstCity = this.currentCities()[0];
-    if (firstCity) {
-      this.selectedCity = firstCity.name;
-      this.onCityChange();
-    }
-  }
-
-  onCityChange() {
-    const cityObj = this.currentCities().find((c) => c.name === this.selectedCity);
-    if (cityObj) {
-      this.currentCenter = { lat: cityObj.lat, lng: cityObj.lng };
-      this.fetchCityBoundary(cityObj.name, this.selectedState, this.selectedCountry);
-      this.updateMapPosition();
-    }
-  }
-
-  private updateCurrentStates() {
-    const countryObj = this.countries.find((c) => c.countryName === this.selectedCountry);
-    if (countryObj) {
-      this.currentStates.set(countryObj.states);
-    }
-  }
-
-  private updateCurrentCities() {
-    const states = this.currentStates();
-    const stateObj = states.find((s) => s.name === this.selectedState) || states[0];
-    if (stateObj) {
-      this.currentCities.set(stateObj.cities);
-    } else {
-      this.currentCities.set([]);
-    }
-  }
-
-  private initMap() {
+  private initMap(): void {
     const container = this.mapContainer()?.nativeElement;
     if (!container) return;
 
-    // CartoDB Dark Matter tiles (neon tactical look)
     this.map = L.map(container, {
       center: [this.currentCenter.lat, this.currentCenter.lng],
       zoom: 13,
       zoomControl: false,
     });
 
-    // Basemap táctico oscuro de alta definición (Esri World Dark Gray Canvas) - 100% Gratuito, sin marcas de agua ni API Key
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-      attribution: '&copy; Esri, HERE, Garmin, &copy; OpenStreetMap',
-      maxZoom: 16,
-    }).addTo(this.map);
+    L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+      {
+        attribution: '&copy; Esri, HERE, Garmin, &copy; OpenStreetMap',
+        maxZoom: 18,
+        maxNativeZoom: 16,
+      },
+    ).addTo(this.map);
 
-    // Capa táctica de etiquetas de calles, avenidas y colonias
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 16,
-    }).addTo(this.map);
+    L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+      {
+        maxZoom: 18,
+        maxNativeZoom: 16,
+      },
+    ).addTo(this.map);
 
-    L.control.zoom({ position: 'bottomright' }).addTo(this.map);
-
+    L.control.zoom({ position: 'topleft' }).addTo(this.map);
     this.leadMarkersLayer.addTo(this.map);
 
-    // Initialize Leaflet Geoman toolbar for manual polygon and rectangle drawing
-    if ((this.map as any).pm) {
-      (this.map as any).pm.addControls({
-        position: 'topright',
+    const pmMap = this.map as LeafletESM.Map & {
+      pm?: {
+        addControls: (opts: Record<string, unknown>) => void;
+      };
+    };
+
+    if (pmMap.pm) {
+      pmMap.pm.addControls({
+        position: 'topleft',
         drawCircle: false,
         drawMarker: false,
         drawCircleMarker: false,
@@ -1218,13 +1284,16 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
         removalMode: true,
       });
 
-      this.map.on('pm:create', (e: any) => {
-        if (e.layer && (e.shape === 'Polygon' || e.shape === 'Rectangle')) {
-          this.handleGeomanDrawnLayer(e.layer);
-        }
-      });
+      this.map.on(
+        'pm:create',
+        (e: LeafletESM.LeafletEvent & { layer?: LeafletESM.Polygon; shape?: string }) => {
+          if (e.layer && (e.shape === 'Polygon' || e.shape === 'Rectangle')) {
+            this.handleGeomanDrawnLayer(e.layer);
+          }
+        },
+      );
 
-      this.map.on('pm:remove', (e: any) => {
+      this.map.on('pm:remove', (e: LeafletESM.LeafletEvent & { layer?: LeafletESM.Layer }) => {
         if (e.layer === this.customPolygonLayer) {
           this.clearPolygon();
         }
@@ -1232,20 +1301,20 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.updateRadarCircle();
-    this.fetchCityBoundary(this.selectedCity, this.selectedState, this.selectedCountry);
+    this.fetchCityBoundary(this.selectedCity(), this.selectedState(), this.selectedCountry());
+    if (this.prospecting.leads().length > 0) {
+      this.renderLeadMarkers(this.prospecting.leads());
+    }
   }
 
-  private handleGeomanDrawnLayer(layer: any) {
+  private handleGeomanDrawnLayer(layer: LeafletESM.Polygon): void {
     if (!this.map) return;
 
-    // Remove old polygon layer if exists
     if (this.customPolygonLayer && this.map.hasLayer(this.customPolygonLayer)) {
       this.map.removeLayer(this.customPolygonLayer);
     }
 
     this.customPolygonLayer = layer;
-
-    // Style the drawn polygon in neon tactical cyan
     layer.setStyle({
       color: '#06b6d4',
       weight: 2.5,
@@ -1255,15 +1324,18 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
     });
 
     const latlngs = layer.getLatLngs();
-    const ring = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
-    const coords: [number, number][] = ring.map((pt: any) => [Number(pt.lat.toFixed(6)), Number(pt.lng.toFixed(6))]);
+    const ring = (Array.isArray(latlngs[0]) ? latlngs[0] : latlngs) as LeafletESM.LatLng[];
+    const coords: [number, number][] = ring.map((pt) => [
+      Number(pt.lat.toFixed(6)),
+      Number(pt.lng.toFixed(6)),
+    ]);
 
     this.customPolygon.set(coords);
     this.scanMode.set('POLYGON');
 
-    // Update center to polygon centroid
     if (coords.length > 0) {
-      let sumLat = 0, sumLng = 0;
+      let sumLat = 0;
+      let sumLng = 0;
       for (const [lat, lng] of coords) {
         sumLat += lat;
         sumLng += lng;
@@ -1275,10 +1347,9 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  updateRadarCircle() {
+  updateRadarCircle(): void {
     if (!this.map) return;
-
-    const radiusMeters = this.radiusKm * 1000;
+    const radiusMeters = this.radiusKm() * 1000;
 
     if (!this.circleLayer) {
       this.circleLayer = L.circle([this.currentCenter.lat, this.currentCenter.lng], {
@@ -1290,10 +1361,9 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
         fillOpacity: 0.12,
       }).addTo(this.map);
 
-      // Draggable center pin
       const centerIcon = L.divIcon({
         className: 'custom-center-marker',
-        html: `<div style="width: 14px; height: 14px; background: #06b6d4; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 12px #06b6d4;"></div>`,
+        html: '<div class="geo-center-pin"></div>',
         iconSize: [14, 14],
         iconAnchor: [7, 7],
       });
@@ -1303,8 +1373,9 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
         draggable: true,
       }).addTo(this.map);
 
-      this.centerMarker.on('drag', (event: any) => {
-        const newLatLng = event.target.getLatLng();
+      this.centerMarker.on('drag', (event: LeafletESM.LeafletEvent) => {
+        const marker = event.target as LeafletESM.Marker;
+        const newLatLng = marker.getLatLng();
         this.currentCenter = { lat: newLatLng.lat, lng: newLatLng.lng };
         this.circleLayer?.setLatLng(newLatLng);
       });
@@ -1315,85 +1386,91 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private fetchCityBoundary(city: string, state: string, country: string = 'Mexico') {
-    this.prospecting.geocodeCity(city, state, country).subscribe({
-      next: (res) => {
-        if (res?.center) {
-          this.currentCenter = res.center;
-          this.updateRadarCircle();
-        }
-
-        if (this.map && res?.geojsonPolygon) {
-          if (this.cityPolygonLayer) {
-            this.map.removeLayer(this.cityPolygonLayer);
+  private fetchCityBoundary(city: string, state: string, country: string = 'Mexico'): void {
+    this.prospecting
+      .geocodeCity(city, state, country)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          if (res?.center && (!this.currentCenter.lat || !this.currentCenter.lng)) {
+            this.currentCenter = res.center;
+            this.updateRadarCircle();
           }
-
-          this.cityPolygonLayer = L.geoJSON(res.geojsonPolygon, {
-            style: {
-              color: '#38bdf8',
-              weight: 1.5,
-              dashArray: '4, 8',
-              fillOpacity: 0.03,
-              fillColor: '#38bdf8',
-            },
-          }).addTo(this.map);
-        }
-      },
-    });
+          if (this.map && res?.geojsonPolygon) {
+            if (this.cityPolygonLayer) {
+              this.map.removeLayer(this.cityPolygonLayer);
+            }
+            this.cityPolygonLayer = L.geoJSON(res.geojsonPolygon as GeoJSON.GeoJsonObject, {
+              filter: (feature) => feature.geometry?.type !== 'Point',
+              style: {
+                color: '#38bdf8',
+                weight: 1.5,
+                dashArray: '4, 8',
+                fillOpacity: 0.03,
+                fillColor: '#38bdf8',
+              },
+            }).addTo(this.map);
+          }
+        },
+      });
   }
 
-  private updateMapPosition() {
+  private updateMapPosition(zoom: number = 13): void {
     if (!this.map) return;
-    this.map.flyTo([this.currentCenter.lat, this.currentCenter.lng], 13, {
-      duration: 1.2,
+    this.map.flyTo([this.currentCenter.lat, this.currentCenter.lng], zoom, {
+      duration: 1.0,
     });
     this.updateRadarCircle();
   }
 
-  recenterRadar() {
+  recenterRadar(): void {
     this.updateMapPosition();
   }
 
-  applyPresetPolygon(preset: TacticalPolygonPreset) {
-    this.setPolygonOnMap(preset.polygon);
-    this.selectedCity = preset.city;
-    if (preset.country) {
-      this.selectedCountry = preset.country;
-      this.updateCurrentStates();
-      const stateObj = this.currentStates().find((s) => s.cities.some((c) => c.name === preset.city));
-      if (stateObj) {
-        this.selectedState = stateObj.name;
-        this.updateCurrentCities();
-      }
+  applyPresetPolygon(preset: TacticalPolygonOption): void {
+    if (typeof document !== 'undefined') {
+      (document.activeElement as HTMLElement | null)?.blur();
     }
+    this.selectedCountry.set(preset.countryName);
+    this.selectedState.set(preset.state);
+    this.selectedCity.set(preset.name);
+    this.setPolygonOnMap(preset.polygon);
     this.isPolygonModalOpen.set(false);
+    this.isZoneCollapsed.set(true);
   }
 
-  loadDemoQueretaroPolygon() {
-    const demo = TACTICAL_POLYGONS[0];
-    this.rawPolygonInput = JSON.stringify(demo.polygon, null, 2);
+  loadSamplePolygonToTextarea(): void {
+    const first = this.tacticalPolygons()[0];
+    const sample = first?.polygon || [
+      [20.97, -89.625],
+      [21.002, -89.625],
+      [21.002, -89.61],
+      [20.97, -89.61],
+    ];
+    this.rawPolygonInput = JSON.stringify(sample, null, 2);
     this.polygonParseError.set(null);
   }
 
-  applyPastedPolygon() {
+  applyPastedPolygon(): void {
     this.polygonParseError.set(null);
     if (!this.rawPolygonInput || !this.rawPolygonInput.trim()) {
-      this.polygonParseError.set('Por favor ingresa o pega coordenadas.');
+      this.polygonParseError.set('Ingresa o pega al menos 3 coordenadas [lat, lng].');
       return;
     }
 
     const parsed = this.parseCoordinates(this.rawPolygonInput);
     if (!parsed || parsed.length < 3) {
-      this.polygonParseError.set('No se detectaron al menos 3 coordenadas válidas [lat, lng].');
+      this.polygonParseError.set('Formato inválido: se requieren mínimo 3 vértices [lat, lng].');
       return;
     }
 
     this.setPolygonOnMap(parsed);
     this.isPolygonModalOpen.set(false);
+    this.isZoneCollapsed.set(true);
     this.rawPolygonInput = '';
   }
 
-  private setPolygonOnMap(coords: [number, number][]) {
+  private setPolygonOnMap(coords: [number, number][]): void {
     if (!this.map) return;
 
     if (this.customPolygonLayer && this.map.hasLayer(this.customPolygonLayer)) {
@@ -1411,8 +1488,8 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
     this.customPolygon.set(coords);
     this.scanMode.set('POLYGON');
 
-    // Calculate centroid and center map
-    let sumLat = 0, sumLng = 0;
+    let sumLat = 0;
+    let sumLng = 0;
     for (const [lat, lng] of coords) {
       sumLat += lat;
       sumLng += lng;
@@ -1425,7 +1502,7 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
     this.map.fitBounds(this.customPolygonLayer.getBounds(), { padding: [50, 50] });
   }
 
-  clearPolygon() {
+  clearPolygon(): void {
     if (this.customPolygonLayer && this.map?.hasLayer(this.customPolygonLayer)) {
       this.map.removeLayer(this.customPolygonLayer);
     }
@@ -1437,31 +1514,27 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private parseCoordinates(input: string): [number, number][] | null {
     const trimmed = input.trim();
-
     try {
       const parsed = JSON.parse(trimmed);
-      // GeoJSON Feature
       if (parsed.type === 'Feature' && parsed.geometry?.type === 'Polygon') {
-        const ring = parsed.geometry.coordinates[0];
-        return ring.map((pt: any[]) => [Number(pt[1]), Number(pt[0])]);
+        return parsed.geometry.coordinates[0].map((pt: number[]) => [Number(pt[1]), Number(pt[0])]);
       }
-      // GeoJSON Polygon
       if (parsed.type === 'Polygon' && Array.isArray(parsed.coordinates)) {
-        const ring = parsed.coordinates[0];
-        return ring.map((pt: any[]) => [Number(pt[1]), Number(pt[0])]);
+        return parsed.coordinates[0].map((pt: number[]) => [Number(pt[1]), Number(pt[0])]);
       }
-      // Array of arrays [[lat, lng], ...]
       if (Array.isArray(parsed)) {
         return parsed
-          .map((item: any) => {
+          .map((item: unknown) => {
             if (Array.isArray(item) && item.length >= 2) return [Number(item[0]), Number(item[1])];
-            if (item && 'lat' in item && 'lng' in item) return [Number(item.lat), Number(item.lng)];
+            if (item && typeof item === 'object' && 'lat' in item && 'lng' in item) {
+              const obj = item as { lat: number; lng: number };
+              return [Number(obj.lat), Number(obj.lng)];
+            }
             return null;
           })
           .filter((pt): pt is [number, number] => pt !== null && !isNaN(pt[0]) && !isNaN(pt[1]));
       }
     } catch {
-      // Line by line fallback
       const lines = trimmed.split(/[\r\n]+/);
       const points: [number, number][] = [];
       for (const line of lines) {
@@ -1474,11 +1547,8 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
           }
         }
       }
-      if (points.length >= 3) {
-        return points;
-      }
+      if (points.length >= 3) return points;
     }
-
     return null;
   }
 
@@ -1495,150 +1565,382 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
       const dLng = ((p2[1] - p1[1]) * Math.PI) / 180;
       total += dLng * (2 + Math.sin(lat1) + Math.sin(lat2));
     }
-    const area = Math.abs((total * R * R) / 2);
-    return Number(area.toFixed(2));
+    return Number(Math.abs((total * R * R) / 2).toFixed(2));
   }
 
-  triggerScan() {
-    const isPolygon = this.scanMode() === 'POLYGON' && Boolean(this.customPolygon()?.length);
+  setDockMode(mode: DockViewMode): void {
+    this.dockMode.set(mode);
+    this.syncUrlState(true);
+  }
+
+  toggleSortDirection(): void {
+    this.sortOrder.update((curr) => (curr === 'DESC' ? 'ASC' : 'DESC'));
+  }
+
+  onPageChanged(page: number): void {
+    this.currentPage.set(page);
+    this.syncUrlState(true);
+    this.renderLeadMarkers(this.prospecting.leads());
+  }
+
+  triggerDeepEnrichment(lead: ProspectedBusiness): void {
+    if (this.isEnrichingDeep()) return;
+    this.isEnrichingDeep.set(true);
+    this.crmFeedbackMessage.set(null);
+    this.contactErrorMessage.set(null);
 
     this.prospecting
-      .scanArea({
-        sector: this.selectedSector,
-        center: this.currentCenter,
-        radiusKm: this.radiusKm,
-        city: this.selectedCity,
-        state: this.selectedState,
-        country: this.selectedCountry,
-        polygon: isPolygon ? this.customPolygon()! : undefined,
-      })
+      .enrichLeadDeeply(lead.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (res) => {
-          this.renderLeadMarkers(res.leads);
+        next: () => {
+          this.isEnrichingDeep.set(false);
+          this.crmFeedbackMessage.set('Inteligencia profunda Orion Search completada');
+        },
+        error: (err) => {
+          this.isEnrichingDeep.set(false);
+          const msg = err?.error?.message || 'Error al enriquecer prospecto con Orion Search.';
+          this.contactErrorMessage.set(Array.isArray(msg) ? msg.join(', ') : msg);
         },
       });
   }
 
-  private renderLeadMarkers(leads: ProspectedBusiness[]) {
+  highlightMapMarker(lead: ProspectedBusiness): void {
+    this.highlightedLeadId.set(lead.id);
+    this.renderLeadMarkers(this.prospecting.leads());
+  }
+
+  resetMapMarkerHighlight(): void {
+    this.highlightedLeadId.set(null);
+    this.renderLeadMarkers(this.prospecting.leads());
+  }
+
+  triggerScan(): void {
+    const isPolygon = this.scanMode() === 'POLYGON' && Boolean(this.customPolygon()?.length);
+    const scanId = `radar_${Date.now()}`;
+
+    this.isZoneCollapsed.set(true);
+    if (this.dockMode() === 'PEEK') {
+      this.dockMode.set('SPLIT');
+    }
+    this.syncUrlState(true);
+
+    const centerLat = Number(this.currentCenter.lat) || 37.7749;
+    const centerLng = Number(this.currentCenter.lng) || -122.4194;
+
+    this.prospecting
+      .scanArea({
+        sector: this.selectedSector(),
+        center: { lat: centerLat, lng: centerLng },
+        radiusKm: Number(this.radiusKm()) || 5,
+        city: this.selectedCity(),
+        state: this.selectedState(),
+        country: this.selectedCountry(),
+        polygon: isPolygon ? this.customPolygon()! : undefined,
+        scanId,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          if (this.hasActiveFilters()) {
+            this.refreshLeadsFromBackend();
+          } else {
+            this.renderLeadMarkers(res.leads || this.prospecting.leads());
+          }
+        },
+      });
+  }
+
+  private renderLeadMarkers(leads: ProspectedBusiness[]): void {
     if (!this.map) return;
     this.leadMarkersLayer.clearLayers();
 
-    leads.forEach((lead) => {
-      const color = this.getMarkerColor(lead.primaryPain);
+    const selectedId = this.prospecting.selectedLead()?.id || null;
+    const hoveredId = this.highlightedLeadId();
+
+    for (const lead of leads) {
+      const rawLat = lead.latitude as unknown;
+      const rawLng = lead.longitude as unknown;
+      const lat = typeof rawLat === 'number' ? rawLat : parseFloat(String(rawLat));
+      const lng = typeof rawLng === 'number' ? rawLng : parseFloat(String(rawLng));
+      if (!isFinite(lat) || !isFinite(lng)) continue;
+
+      const painMod = getPinModifierClass(lead.primaryPain);
+      const chainMod = isChainLead(lead) ? 'geo-lead-pin--chain' : '';
+      const isActive = selectedId === lead.id || hoveredId === lead.id;
+      const activeMod = isActive ? 'geo-lead-pin--active' : '';
+      const label = isChainLead(lead) ? 'HQ' : lead.phoneType === 'MOBILE' ? 'WA' : 'B2B';
+
       const icon = L.divIcon({
         className: 'custom-lead-pin',
-        html: `<div style="
-          width: 22px; height: 22px;
-          background: ${color};
-          border: 2px solid white;
-          border-radius: 50%;
-          box-shadow: 0 0 14px ${color};
-          display: flex; align-items: center; justify-content: center;
-          font-size: 10px; font-weight: bold; color: white;">
-          ★
-        </div>`,
-        iconSize: [22, 22],
-        iconAnchor: [11, 11],
+        html: `<div class="geo-lead-pin ${painMod} ${chainMod} ${activeMod}">${label}</div>`,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
       });
 
-      const marker = L.marker([lead.latitude, lead.longitude], { icon });
-      marker.on('click', () => {
-        this.selectLead(lead);
-      });
-      marker.bindTooltip(`<b>${lead.name}</b><br><span style="font-size: 10px;">${this.formatPainTitle(lead.primaryPain)}</span>`, {
-        direction: 'top',
-        className: 'bg-slate-900 text-white border border-slate-700 text-xs px-2 py-1 rounded shadow',
-      });
+      const marker = L.marker([lat, lng], { icon });
+      marker.on('click', () => this.selectLead(lead));
+
+      const ticketLabel = lead.estimatedTicketUsd ? ` · ~$${lead.estimatedTicketUsd} USD` : '';
+      marker.bindTooltip(
+        `<div class="text-xs font-semibold">${escapeHtml(lead.name)}</div><div class="text-[10px] opacity-80 font-mono">${escapeHtml(formatPainTitle(lead.primaryPain))}${escapeHtml(ticketLabel)}</div>`,
+        {
+          direction: 'top',
+          className: 'geo-map-tooltip',
+        },
+      );
 
       this.leadMarkersLayer.addLayer(marker);
-    });
-  }
-
-  selectLead(lead: ProspectedBusiness) {
-    this.prospecting.selectedLead.set(lead);
-    if (this.map) {
-      this.map.panTo([lead.latitude, lead.longitude]);
     }
   }
 
-  copyPitch(text?: string) {
+  selectLead(lead: ProspectedBusiness): void {
+    const wasInspectorClosed = !this.prospecting.selectedLead();
+    this.prospecting.selectedLead.set(lead);
+    this.selectedPainId.set(null);
+    this.crmFeedbackMessage.set(null);
+    this.contactErrorMessage.set(null);
+    this.isConfirmingBlacklist.set(false);
+    this.prospecting.selectedLeadPains.set(lead.detectedPains || []);
+    this.prospecting.selectedLeadContacts.set([]);
+
+    if (isChainLead(lead)) {
+      this.selectedPitchTone.set('ENTERPRISE');
+    } else if (lead.phoneType === 'LANDLINE' || lead.phoneType === 'TOLL_FREE') {
+      this.selectedPitchTone.set('GATEKEEPER');
+    } else {
+      this.selectedPitchTone.set('OWNER');
+    }
+
+    this.contactChannelInput.set(lead.phoneType === 'MOBILE' ? 'WHATSAPP' : 'PHONE_CALL');
+
+    this.prospecting
+      .getLeadPains(lead.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe();
+    this.prospecting
+      .getLeadContacts(lead.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe();
+
+    this.renderLeadMarkers(this.prospecting.leads());
+
+    if (wasInspectorClosed) {
+      this.scheduleMapResize();
+    }
+
+    this.scrollLeadCardIntoView(lead.id);
+
+    const rawLat = lead.latitude as unknown;
+    const rawLng = lead.longitude as unknown;
+    const lat = typeof rawLat === 'number' ? rawLat : parseFloat(String(rawLat));
+    const lng = typeof rawLng === 'number' ? rawLng : parseFloat(String(rawLng));
+
+    if (this.map && isFinite(lat) && isFinite(lng)) {
+      const targetZoom = 15;
+      // Camera Viewport Projection Offset:
+      // When Inspector is open on the right (w-[410px]), offset center so pin sits in visible center
+      const targetPoint = this.map.project([lat, lng], targetZoom);
+      const offsetPoint = L.point(targetPoint.x + 205, targetPoint.y);
+      const compensatedLatLng = this.map.unproject(offsetPoint, targetZoom);
+      this.map.flyTo(compensatedLatLng, targetZoom, {
+        duration: 0.8,
+        easeLinearity: 0.25,
+      });
+    }
+
+    this.syncUrlState(false);
+  }
+
+  closeInspector(): void {
+    this.isConfirmingBlacklist.set(false);
+    this.prospecting.selectedLead.set(null);
+    this.renderLeadMarkers(this.prospecting.leads());
+    this.scheduleMapResize();
+    this.syncUrlState(true);
+  }
+
+  dismissPainAsFalsePositive(
+    lead: ProspectedBusiness,
+    painItem: ProspectedBusinessPainItem,
+    event: MouseEvent,
+  ): void {
+    event.stopPropagation();
+    this.crmFeedbackMessage.set(null);
+
+    this.prospecting
+      .updateLeadPainStatus(lead.id, painItem.id, {
+        status: 'FALSE_POSITIVE',
+        dismissReason: 'Descartado manualmente desde Geo-Radar CRM',
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          this.selectedPainId.set(null);
+          this.crmFeedbackMessage.set(
+            res.activePainsRemaining > 0
+              ? `Falso positivo descartado (${res.activePainsRemaining} activa[s])`
+              : 'Dolencia descartada',
+          );
+          this.prospecting
+            .getLeadPains(lead.id)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe();
+          this.refreshLeadsFromBackend();
+        },
+      });
+  }
+
+  submitContactLog(lead: ProspectedBusiness): void {
+    this.isSavingContact.set(true);
+    this.contactErrorMessage.set(null);
+    this.crmFeedbackMessage.set(null);
+
+    const activePain = this.currentActivePain();
+    const recipientRole =
+      this.selectedPitchTone() === 'GATEKEEPER'
+        ? 'GATEKEEPER_RECEPTION'
+        : this.selectedPitchTone() === 'ENTERPRISE'
+          ? 'CORPORATE_DECISION_MAKER'
+          : 'BUSINESS_OWNER';
+
+    this.prospecting
+      .recordContact(lead.id, {
+        channel: this.contactChannelInput(),
+        recipientRole,
+        painCode: activePain?.painCatalog.code,
+        pitchToneUsed: this.selectedPitchTone(),
+        outcome: this.contactOutcomeInput(),
+        notes: this.contactNotesInput().trim() || undefined,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.isSavingContact.set(false);
+          this.contactNotesInput.set('');
+          this.crmFeedbackMessage.set('Contacto registrado y cooldown actualizado');
+          this.prospecting
+            .getLeadContacts(lead.id)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe();
+          this.prospecting
+            .getFunnelAnalytics()
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe();
+          this.refreshLeadsFromBackend();
+        },
+        error: (err) => {
+          this.isSavingContact.set(false);
+          const msg =
+            err?.error?.message ||
+            'No se pudo registrar el contacto (verifica si el prospecto está en enfriamiento activo).';
+          this.contactErrorMessage.set(Array.isArray(msg) ? msg.join(', ') : msg);
+        },
+      });
+  }
+
+  blacklistCurrentLead(lead: ProspectedBusiness): void {
+    this.isConfirmingBlacklist.set(false);
+    this.prospecting
+      .blacklistLead(lead.id, 'Marcado como No Contactar desde Geo-Radar CRM')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.renderLeadMarkers(this.prospecting.leads());
+          this.scheduleMapResize();
+        },
+      });
+  }
+
+  currentSuggestedOffer(lead: ProspectedBusiness): string {
+    const activePain = this.currentActivePain();
+    return activePain?.painCatalog.suggestedOffer || lead.suggestedOffer || 'Consultoría Digital B2B';
+  }
+
+  buildDecisionMakerGreeting(lead: ProspectedBusiness): string {
+    const primaryContact = lead.contacts?.find((c) => c.isPrimary) || lead.contacts?.[0];
+    const legacyDm = lead.rawGoogleData?.deepIntelligence?.decisionMakers?.[0];
+
+    if (primaryContact) {
+      if (primaryContact.honorific && primaryContact.fullName) {
+        return `Hola, ${primaryContact.honorific} ${primaryContact.fullName}.`;
+      }
+      return `Hola, ${primaryContact.fullName}.`;
+    }
+
+    if (legacyDm?.name) {
+      return `Hola, ${legacyDm.name}.`;
+    }
+
+    return `Hola equipo de ${lead.name},`;
+  }
+
+  currentPitchText(lead: ProspectedBusiness): string {
+    const activePain = this.currentActivePain();
+    const tone = this.selectedPitchTone();
+
+    if (activePain) {
+      if (tone === 'GATEKEEPER' && activePain.customPitchGatekeeper) {
+        return activePain.customPitchGatekeeper;
+      }
+      if (tone === 'ENTERPRISE' && activePain.customPitchEnterprise) {
+        return activePain.customPitchEnterprise;
+      }
+      if (activePain.customPitchOwner) {
+        const greeting = this.buildDecisionMakerGreeting(lead);
+        return activePain.customPitchOwner.replace(/^Hola[^,\n.]*[,.]/i, greeting);
+      }
+    }
+
+    const greeting = this.buildDecisionMakerGreeting(lead);
+    if (lead.salesPitchDraft) {
+      return lead.salesPitchDraft.replace(/^Hola[^,\n.]*[,.]/i, greeting);
+    }
+
+    return (
+      `${greeting} revisamos su presencia en Google Maps en ${lead.city} y preparamos una propuesta para optimizar su captación digital. ¿Con quién podemos compartirla?`
+    );
+  }
+
+  buildWhatsappUrl(lead: ProspectedBusiness): string {
+    const digits = cleanPhoneDigits(lead.phoneE164 || lead.phone || '');
+    const text = encodeURIComponent(this.currentPitchText(lead));
+    return `https://wa.me/${digits}?text=${text}`;
+  }
+
+  copyPitch(text?: string): void {
     if (!text) return;
-    navigator.clipboard.writeText(text);
+    navigator.clipboard?.writeText(text);
     this.copiedPitch.set(true);
     setTimeout(() => this.copiedPitch.set(false), 2500);
   }
 
-  cleanPhone(phone?: string): string {
-    return (phone || '').replace(/\D/g, '');
+  // Template delegators
+  checkChain(lead: ProspectedBusiness): boolean {
+    return isChainLead(lead);
   }
 
-  getPainBadgeClass(pain?: CompanyPainCategory): string {
-    switch (pain) {
-      case 'NO_WEBSITE':
-        return 'bg-rose-950/80 text-rose-300 border-rose-800/80';
-      case 'NO_ONLINE_BOOKING':
-        return 'bg-amber-950/80 text-amber-300 border-amber-800/80';
-      case 'UNRESPONSIVE_CUSTOMER_SERVICE':
-        return 'bg-violet-950/80 text-violet-300 border-violet-800/80';
-      case 'MANUAL_INVENTORY_OR_CATALOG':
-        return 'bg-blue-950/80 text-blue-300 border-blue-800/80';
-      default:
-        return 'bg-cyan-950/80 text-cyan-300 border-cyan-800/80';
-    }
+  checkCooldown(lead: ProspectedBusiness): boolean {
+    return isLeadInCooldown(lead);
   }
 
-  getPainDotClass(pain?: CompanyPainCategory): string {
-    switch (pain) {
-      case 'NO_WEBSITE':
-        return 'bg-rose-400';
-      case 'NO_ONLINE_BOOKING':
-        return 'bg-amber-400';
-      case 'UNRESPONSIVE_CUSTOMER_SERVICE':
-        return 'bg-violet-400';
-      case 'MANUAL_INVENTORY_OR_CATALOG':
-        return 'bg-blue-400';
-      default:
-        return 'bg-cyan-400';
-    }
+  cooldownDays(lead: ProspectedBusiness): number {
+    return getCooldownDaysLeft(lead);
   }
 
-  private getMarkerColor(pain?: CompanyPainCategory): string {
-    switch (pain) {
-      case 'NO_WEBSITE':
-        return '#f43f5e'; // rose-500
-      case 'NO_ONLINE_BOOKING':
-        return '#f59e0b'; // amber-500
-      case 'UNRESPONSIVE_CUSTOMER_SERVICE':
-        return '#8b5cf6'; // violet-500
-      case 'MANUAL_INVENTORY_OR_CATALOG':
-        return '#3b82f6'; // blue-500
-      default:
-        return '#06b6d4'; // cyan-500
-    }
+  painBadge(pain?: CompanyPainCategory | null): string {
+    return getPainBadgeClass(pain);
   }
 
-  formatPainTitle(pain?: CompanyPainCategory): string {
-    switch (pain) {
-      case 'NO_WEBSITE':
-        return '🚨 Sin Sitio Web Oficial';
-      case 'NO_ONLINE_BOOKING':
-        return '📅 Demora en Citas';
-      case 'UNRESPONSIVE_CUSTOMER_SERVICE':
-        return '🤖 WhatsApp Desatendido';
-      case 'MANUAL_INVENTORY_OR_CATALOG':
-        return '📋 Catálogo Manual';
-      case 'OUTDATED_OR_SLOW_WEB':
-        return '⚡ Web Obsoleta / Lenta';
-      case 'LACK_OF_ECOMMERCE':
-        return '🛒 Falta Tienda Online';
-      default:
-        return '💡 Oportunidad Detectada';
-    }
+  painDot(pain?: CompanyPainCategory | null): string {
+    return getPainDotClass(pain);
   }
 
-  getCountryBadge(): string {
-    if (this.selectedCountry === 'Colombia') return '🇨🇴 CO';
-    if (this.selectedCountry === 'United States') return '🇺🇸 US';
-    return '🇲🇽 MX';
+  painTitle(pain?: CompanyPainCategory | null): string {
+    return formatPainTitle(pain);
+  }
+
+  priceTier(priceLevel?: number | null): string {
+    return formatPriceTier(priceLevel);
   }
 }
