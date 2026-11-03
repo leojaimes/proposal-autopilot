@@ -122,6 +122,18 @@ export class LinkedInJobAdapter implements JobDataSourcePort {
       }
     }
 
+    // Proposals / Applicants Urgency
+    let proposalsCount: number | null = null;
+    let proposalsCountKnown = false;
+    const rawApps = String(raw.applicantsCount || raw.numApplicants || '');
+    if (rawApps) {
+      const appMatch = rawApps.match(/\d+/);
+      if (appMatch) {
+        proposalsCount = parseInt(appMatch[0], 10);
+        proposalsCountKnown = true;
+      }
+    }
+
     return {
       externalId,
       title: raw.title || raw.jobTitle || 'Untitled LinkedIn Job',
@@ -137,8 +149,8 @@ export class LinkedInJobAdapter implements JobDataSourcePort {
       clientRating: 5.0,
       clientTotalSpend: 0,
       clientHireRate: null,
-      proposalsCount: null,
-      proposalsCountKnown: false,
+      proposalsCount,
+      proposalsCountKnown,
       isPaymentVerified: false,
       paymentVerificationKnown: false,
       skills,
