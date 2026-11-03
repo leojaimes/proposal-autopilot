@@ -197,7 +197,71 @@ isActive: true,
         ].filter(Boolean) as string[];
         keywords = Array.from(new Set(candidateQueries)).slice(0, 5);
       } else {
-        throw new BadRequestException('No se encontraron términos de búsqueda ni perfil activo configurado. Calibre su perfil de posicionamiento antes de scrapear.');
+        // Auto-provisioning defensivo para Tenants en Zero-State / Fresh Workspaces:
+        // Clonar perfil de referencia o inyectar roles estándar para desbloquear la extracción
+        const defaultProfile = await this.prisma.positioningProfile.findFirst({
+          where: { isActive: true },
+          include: { proofStories: true },
+        });
+
+        const fallbackKeywords = [
+          'Full Stack Developer',
+          'Backend Engineer',
+          'Node.js Developer',
+          'NestJS Developer',
+          'React Developer',
+        ];
+
+        keywords = defaultProfile?.coreRoles?.length
+          ? defaultProfile.coreRoles.slice(0, 5)
+          : fallbackKeywords;
+
+        try {
+          const seededProfile = await this.prisma.positioningProfile.create({
+            data: {
+              tenantId,
+              personaName: defaultProfile?.personaName || 'Lead Full Stack & AI Architect',
+              roleTitle: defaultProfile?.roleTitle || 'Senior Full Stack & AI Architect',
+              offerHeadline: defaultProfile?.offerHeadline || 'Building robust, scalable SaaS architectures and AI-driven platforms',
+              targetAudience: defaultProfile?.targetAudience || 'B2B SaaS Founders and Engineering Leaders',
+              coreRoles: keywords,
+              isActive: true,
+            },
+          });
+
+          if (defaultProfile?.proofStories?.length) {
+            for (const ps of defaultProfile.proofStories) {
+              await this.prisma.proofStory.create({
+                data: {
+                  positioningProfileId: seededProfile.id,
+                  keyCode: ps.keyCode,
+                  companyOrProduct: ps.companyOrProduct,
+                  description: ps.description || '',
+                  impactMetric: ps.impactMetric,
+                  domainTags: ps.domainTags,
+                },
+              }).catch(() => {});
+            }
+          }
+
+          if (scrapeConfig) {
+            await this.prisma.scrapeConfig.update({
+              where: { id: scrapeConfig.id },
+              data: { searchKeywords: keywords },
+            });
+          } else {
+            await this.prisma.scrapeConfig.create({
+              data: {
+                tenantId,
+                searchKeywords: keywords,
+              },
+            }).catch(() => {});
+          }
+
+          this.logger.log(`[Auto-Provisioning] Tenant ${tenantId} auto-provisionado con perfil base y keywords: ${keywords.join(', ')}`);
+        } catch (seedErr: any) {
+          this.logger.warn(`[Auto-Provisioning] No se pudo persistir el seed para tenant ${tenantId}: ${seedErr.message}`);
+        }
       }
     }
 

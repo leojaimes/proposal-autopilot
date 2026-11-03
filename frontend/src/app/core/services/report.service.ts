@@ -174,7 +174,12 @@ export class ReportService {
       .pipe(
         catchError((err) => {
           console.error('Fallo iniciando batch:', err);
-          this.stopScrapingState('Error conectando con el servidor.');
+          const errorMsg =
+            (typeof err.error?.message === 'string' && err.error.message) ||
+            (Array.isArray(err.error?.message) && err.error.message.join(', ')) ||
+            err.message ||
+            'Error conectando con el servidor.';
+          this.stopScrapingState(errorMsg);
           return of(null);
         })
       )
