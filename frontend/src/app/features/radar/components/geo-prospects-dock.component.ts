@@ -171,7 +171,7 @@ import {
                           <span>Independiente</span>
                         </span>
                       }
-                      <span class="truncate max-w-[160px]">{{ lead.city }}</span>
+                      <span class="truncate max-w-[220px]" [title]="lead.address || lead.city">{{ lead.address || lead.city }}</span>
                     </div>
                   </td>
 
