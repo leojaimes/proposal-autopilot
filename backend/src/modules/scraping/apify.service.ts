@@ -41,10 +41,12 @@ export class ApifyService {
 
       this.logger.log(`Enviando ${sanitizedQueries.length} queries a Apify (máx 5 permitido por actor): ${sanitizedQueries.join(' | ')}`);
 
+      const apifySort = options?.sort === 'relevance' ? 'relevance' : 'newest';
+
       const run = await this.client.actor('flash_mage/upwork').call({
         query: sanitizedQueries,
-        limit: maxResults,
-        sort: options?.sort || 'recency',
+        limit: Math.max(maxResults, 5),
+        sort: apifySort,
         experience_level: options?.experienceLevel || ['EntryLevel', 'IntermediateLevel', 'ExpertLevel'],
         hourly: true,
         fixed: true,

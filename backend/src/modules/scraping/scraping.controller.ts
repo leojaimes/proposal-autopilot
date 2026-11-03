@@ -407,6 +407,11 @@ isActive: true,
             limit: maxResults,
             location: targetLocations?.[0] || 'United States',
           });
+
+          if (!rawJobs || rawJobs.length === 0) {
+            this.logger.warn(`[Batch ${batchRunId}] Lambda LinkedIn devolvió 0 empleos. Activando fallback a Apify...`);
+            rawJobs = await this.apifyService.runLinkedInScraper(keywords, maxResults, targetLocations);
+          }
         } catch (lambdaErr: any) {
           this.logger.warn(`[Batch ${batchRunId}] Falló Lambda LinkedIn Scraper (${lambdaErr.message}). Activando fallback a Apify...`);
           rawJobs = await this.apifyService.runLinkedInScraper(keywords, maxResults, targetLocations);
@@ -422,6 +427,11 @@ isActive: true,
           limit: maxResults,
           sort: 'recency',
         });
+
+        if (!rawJobs || rawJobs.length === 0) {
+          this.logger.warn(`[Batch ${batchRunId}] Lambda Upwork devolvió 0 empleos (posible Cloudflare challenge en IP datacenter AWS). Activando fallback automático a Apify...`);
+          rawJobs = await this.apifyService.runUpworkScraper(keywords, maxResults);
+        }
       } catch (lambdaErr: any) {
         this.logger.warn(`[Batch ${batchRunId}] Falló Lambda Upwork Scraper (${lambdaErr.message}). Activando fallback automático a Apify...`);
         rawJobs = await this.apifyService.runUpworkScraper(keywords, maxResults);
