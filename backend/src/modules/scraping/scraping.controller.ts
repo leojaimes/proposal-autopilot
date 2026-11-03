@@ -9,6 +9,7 @@ import { LinkedInJobAdapter } from './adapters/linkedin-job.adapter';
 import { ExternalJobExtractorService } from './services/external-job-extractor.service';
 import { CompanyEnricherService } from './services/company-enricher.service';
 import { LambdaUpworkScraperService } from './services/lambda-upwork-scraper.service';
+import { LambdaLinkedInScraperService } from './services/lambda-linkedin-scraper.service';
 import { FitCalculatorService } from '../scoring/services/fit-calculator.service';
 import { ClaudeProposalService } from '../proposals/claude-proposal.service';
 import { TechnicalProposalPdfService } from '../proposals/technical-proposal-pdf.service';
@@ -97,6 +98,7 @@ export class ScrapingController {
     @Optional() private readonly externalJobExtractor?: ExternalJobExtractorService,
     @Optional() private readonly companyEnricher?: CompanyEnricherService,
     @Optional() private readonly lambdaUpworkScraper?: LambdaUpworkScraperService,
+    @Optional() private readonly lambdaLinkedInScraper?: LambdaLinkedInScraperService,
   ) {}
 
   /**
@@ -357,15 +359,27 @@ isActive: true,
     platform: 'UPWORK' | 'LINKEDIN' = 'UPWORK',
   ): Promise<void> {
     const isLinkedIn = platform === 'LINKEDIN';
+    const linkedinProvider = (
+      process.env.LINKEDIN_SCRAPING_PROVIDER ||
+      process.env.SCRAPING_PROVIDER_LINKEDIN ||
+      'LAMBDA'
+    ).toUpperCase();
+    const upworkProvider = (
+      process.env.UPWORK_SCRAPING_PROVIDER ||
+      process.env.SCRAPING_PROVIDER_UPWORK ||
+      'LAMBDA'
+    ).toUpperCase();
 
-    // FASE 1: Scraper de Apify
+    const providerLabel = isLinkedIn
+      ? (linkedinProvider === 'LAMBDA' && this.lambdaLinkedInScraper ? 'AWS Lambda' : 'Apify')
+      : (upworkProvider === 'LAMBDA' && this.lambdaUpworkScraper ? 'AWS Lambda' : 'Apify');
+
+    // FASE 1: Scraper
     this.progressService.emitProgress({
       batchId: batchRunId,
       tenantId,
       step: 'APIFY_RUNNING',
-      message: isLinkedIn
-        ? `🕷️ Apify buscando hasta ${maxResults} vacantes frescas en LinkedIn...`
-        : `🕷️ Apify buscando hasta ${maxResults} vacantes frescas en Upwork...`,
+      message: `⚡ ${providerLabel} buscando hasta ${maxResults} vacantes frescas en ${platform}...`,
       percentage: 15,
     });
 
@@ -383,10 +397,23 @@ isActive: true,
     );
 
     let rawJobs: any[] = [];
-    const upworkProvider = (process.env.SCRAPING_PROVIDER_UPWORK || 'LAMBDA').toUpperCase();
 
     if (isLinkedIn) {
-      rawJobs = await this.apifyService.runLinkedInScraper(keywords, maxResults, targetLocations);
+      if (linkedinProvider === 'LAMBDA' && this.lambdaLinkedInScraper) {
+        try {
+          this.logger.log(`[Batch ${batchRunId}] Ejecutando LinkedIn Scraper vía AWS Lambda nativa (0 cost)...`);
+          rawJobs = await this.lambdaLinkedInScraper.scrapeJobs({
+            keywords,
+            limit: maxResults,
+            location: targetLocations?.[0] || 'United States',
+          });
+        } catch (lambdaErr: any) {
+          this.logger.warn(`[Batch ${batchRunId}] Falló Lambda LinkedIn Scraper (${lambdaErr.message}). Activando fallback a Apify...`);
+          rawJobs = await this.apifyService.runLinkedInScraper(keywords, maxResults, targetLocations);
+        }
+      } else {
+        rawJobs = await this.apifyService.runLinkedInScraper(keywords, maxResults, targetLocations);
+      }
     } else if (upworkProvider === 'LAMBDA' && this.lambdaUpworkScraper) {
       try {
         this.logger.log(`[Batch ${batchRunId}] Ejecutando Upwork Scraper vía AWS Lambda nativa (0 cost)...`);
