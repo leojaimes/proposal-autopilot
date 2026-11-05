@@ -6,7 +6,7 @@ import {
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { StudioStateService } from "../../store/studio-state.service";
-import { StudioDeviceMode } from "../../types/studio.types";
+import { StudioDeviceMode, StudioViewMode } from "../../types/studio.types";
 
 @Component({
   selector: "app-studio-toolbar",
@@ -22,6 +22,14 @@ export class StudioToolbarComponent {
 
   setDevice(mode: StudioDeviceMode): void {
     this.state.setDeviceMode(mode);
+  }
+
+  setViewMode(mode: StudioViewMode): void {
+    this.state.setViewMode(mode);
+  }
+
+  onExportAstro(): void {
+    this.state.exportAstroProject();
   }
 
   async onPublish(): Promise<void> {

@@ -2,12 +2,15 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
+  inject,
   input,
   output,
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router, ActivatedRoute } from '@angular/router';
 import {
   LucideAlertCircle,
   LucideBan,
@@ -453,7 +456,7 @@ import { WebsiteStudioModalComponent } from '../../../shared/modules/website-stu
                 <div class="flex items-center gap-1.5">
                   <button
                     type="button"
-                    (click)="isStudioOpen.set(true)"
+                    (click)="openStudio()"
                     class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white shadow-md transition-colors cursor-pointer"
                     title="Editar y personalizar demo en tiempo real con Studio"
                   >
@@ -742,7 +745,7 @@ import { WebsiteStudioModalComponent } from '../../../shared/modules/website-stu
     @if (isStudioOpen() && websiteDemo()?.slug) {
       <app-website-studio-modal
         [demoSlug]="websiteDemo()!.slug"
-        (closed)="isStudioOpen.set(false)"
+        (closed)="closeStudio()"
         (snapshotPublished)="onStudioSnapshotPublished($event)"
       ></app-website-studio-modal>
     }
@@ -840,8 +843,40 @@ export class GeoLeadInspectorComponent {
     }
   });
 
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+
   readonly isStudioOpen = signal<boolean>(false);
   readonly demoSnapshotUpdated = output<{ slug: string; screenshotUrl: string }>();
+
+  constructor() {
+    effect(() => {
+      const demo = this.websiteDemo();
+      const queryStudio = this.route.snapshot.queryParamMap.get('studio');
+      if (demo && queryStudio && queryStudio === demo.slug) {
+        this.isStudioOpen.set(true);
+      }
+    });
+  }
+
+  openStudio(): void {
+    this.isStudioOpen.set(true);
+    const slug = this.websiteDemo()?.slug;
+    if (slug) {
+      this.router.navigate([], {
+        queryParams: { studio: slug },
+        queryParamsHandling: 'merge',
+      });
+    }
+  }
+
+  closeStudio(): void {
+    this.isStudioOpen.set(false);
+    this.router.navigate([], {
+      queryParams: { studio: null },
+      queryParamsHandling: 'merge',
+    });
+  }
 
   onStudioSnapshotPublished(url: string): void {
     const demo = this.websiteDemo();

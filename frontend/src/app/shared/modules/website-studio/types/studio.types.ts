@@ -5,6 +5,22 @@
 
 export type StudioDeviceMode = "desktop" | "mobile";
 
+export type StudioViewMode = "preview" | "code";
+
+export type StudioSystemPersona =
+  | "high-conversion"
+  | "medical-empathy"
+  | "urgency"
+  | "minimalist";
+
+export interface StudioAstroFile {
+  path: string;
+  name: string;
+  language: "astro" | "javascript" | "css" | "json";
+  content: string;
+  isComponent: boolean;
+}
+
 export interface StudioSlot {
   slotId: string;
   sectionId: string;

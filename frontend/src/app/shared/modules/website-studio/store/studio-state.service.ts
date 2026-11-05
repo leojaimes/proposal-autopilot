@@ -13,7 +13,15 @@ import {
   StudioAiResponse,
   StudioSnapshotResult,
   StudioColorPalette,
+  StudioViewMode,
+  StudioSystemPersona,
+  StudioAstroFile,
 } from "../types/studio.types";
+
+import {
+  buildZipArchive,
+  triggerDownload,
+} from "../utils/export-astro-zip.util";
 
 export const PRESET_COLOR_PALETTES: StudioColorPalette[] = [
   {
@@ -64,7 +72,15 @@ export class StudioStateService {
   readonly selectedSlot = signal<StudioSlot | null>(null);
   readonly selectedSlotRect = signal<{ top: number; left: number; width: number; height: number } | null>(null);
   readonly deviceMode = signal<StudioDeviceMode>("desktop");
-  readonly activeTab = signal<"blocks" | "theme" | "history">("blocks");
+  readonly viewMode = signal<StudioViewMode>("preview");
+  readonly activeTab = signal<"blocks" | "files" | "theme" | "history">("blocks");
+  readonly systemPersona = signal<StudioSystemPersona>("high-conversion");
+  readonly telemetry = signal<{ tokensInput: number; tokensOutput: number; latencyMs: number }>({
+    tokensInput: 1420,
+    tokensOutput: 310,
+    latencyMs: 680,
+  });
+  readonly selectedAstroFilePath = signal<string>("src/pages/index.astro");
   readonly humanLockedFields = signal<string[]>([]);
   readonly revisions = signal<StudioRevision[]>([]);
   readonly currentRevisionNumber = signal<number>(1);
@@ -90,6 +106,171 @@ export class StudioStateService {
   readonly demoSlug = computed(() => this.session()?.demo?.slug || "");
 
   readonly previewUrl = computed(() => this.session()?.demo?.publicUrl || "");
+
+  /**
+   * Virtual Astro 5 Component Projection.
+   * Maps live studio sections to standard Astro components (src/components/*.astro)
+   * and layouts (src/pages/index.astro, src/layouts/Layout.astro).
+   */
+  readonly astroFiles = computed<StudioAstroFile[]>(() => {
+    const secs = this.sections();
+    const demo = this.session()?.demo;
+    const businessName = demo?.businessName || "Landing Page";
+
+    const toPascal = (name: string) => {
+      return name
+        .toLowerCase()
+        .replace(/(?:^|[-_])(\w)/g, (_, c) => c.toUpperCase());
+    };
+
+    const files: StudioAstroFile[] = [];
+
+    // 1. src/pages/index.astro
+    const imports = secs
+      .map((s) => `import ${toPascal(s.name)} from '../components/${toPascal(s.name)}.astro';`)
+      .join("\n");
+    const tags = secs.map((s) => `    <${toPascal(s.name)} />`).join("\n");
+
+    const indexContent = `---
+// src/pages/index.astro
+// Universal Website Studio - Astro 5 Component Tree
+import Layout from '../layouts/Layout.astro';
+${imports}
+---
+
+<Layout title="${businessName}">
+  <main class="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+${tags}
+  </main>
+</Layout>
+`;
+    files.push({
+      path: "src/pages/index.astro",
+      name: "index.astro",
+      language: "astro",
+      content: indexContent,
+      isComponent: false,
+    });
+
+    // 2. Component for each section
+    for (const sec of secs) {
+      const compName = toPascal(sec.name);
+      const compContent = `---
+// src/components/${compName}.astro
+// Component for section: ${sec.name} (Order: ${sec.order})
+interface Props {
+  className?: string;
+}
+const { className = "" } = Astro.props;
+---
+
+<div class={className}>
+  ${sec.rawHtml.trim()}
+</div>
+`;
+      files.push({
+        path: `src/components/${compName}.astro`,
+        name: `${compName}.astro`,
+        language: "astro",
+        content: compContent,
+        isComponent: true,
+      });
+    }
+
+    // 3. src/layouts/Layout.astro
+    files.push({
+      path: "src/layouts/Layout.astro",
+      name: "Layout.astro",
+      language: "astro",
+      content: `---
+interface Props {
+  title: string;
+}
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body class="bg-slate-950 text-slate-100 antialiased selection:bg-cyan-500 selection:text-black">
+    <slot />
+  </body>
+</html>
+`,
+      isComponent: false,
+    });
+
+    // 4. astro.config.mjs
+    files.push({
+      path: "astro.config.mjs",
+      name: "astro.config.mjs",
+      language: "javascript",
+      content: `// @ts-check
+import { defineConfig } from 'astro/config';
+import tailwind from '@astrojs/tailwind';
+
+// https://astro.build/config
+export default defineConfig({
+  integrations: [tailwind()],
+  output: 'static',
+});
+`,
+      isComponent: false,
+    });
+
+    // 5. package.json
+    files.push({
+      path: "package.json",
+      name: "package.json",
+      language: "json",
+      content: JSON.stringify(
+        {
+          name: demo?.slug || "website-demo",
+          type: "module",
+          version: "0.0.1",
+          scripts: {
+            dev: "astro dev",
+            start: "astro dev",
+            build: "astro check && astro build",
+            preview: "astro preview",
+          },
+          dependencies: {
+            astro: "^5.0.0",
+            "@astrojs/tailwind": "^5.1.0",
+            tailwindcss: "^3.4.0",
+          },
+        },
+        null,
+        2,
+      ),
+      isComponent: false,
+    });
+
+    return files;
+  });
+
+  readonly selectedAstroFile = computed<StudioAstroFile | null>(() => {
+    const path = this.selectedAstroFilePath();
+    return this.astroFiles().find((f) => f.path === path) || this.astroFiles()[0] || null;
+  });
+
+  setViewMode(mode: StudioViewMode): void {
+    this.viewMode.set(mode);
+  }
+
+  setSystemPersona(persona: StudioSystemPersona): void {
+    this.systemPersona.set(persona);
+  }
+
+  selectAstroFile(path: string): void {
+    this.selectedAstroFilePath.set(path);
+    this.viewMode.set("code");
+  }
 
   /**
    * Initializes or refreshes the studio session by loading sections from backend.
@@ -359,8 +540,51 @@ export class StudioStateService {
     this.deviceMode.set(mode);
   }
 
-  setActiveTab(tab: "blocks" | "theme" | "history"): void {
+  setActiveTab(tab: "blocks" | "files" | "theme" | "history"): void {
     this.activeTab.set(tab);
+  }
+
+  /**
+   * Generates and triggers instant browser download of the complete Astro 5 project .zip.
+   */
+  exportAstroProject(): void {
+    const files = this.astroFiles();
+    const slug = this.demoSlug() || "website-astro-demo";
+
+    const entries = files.map((f) => ({
+      path: f.path,
+      content: f.content,
+    }));
+
+    // Add README.md
+    entries.push({
+      path: "README.md",
+      content: `# ${this.session()?.demo?.businessName || slug} - Astro 5 Project
+
+Generated by Universal Website Studio (Google AI Studio Workbench).
+
+## Quick Start
+
+\`\`\`bash
+# 1. Install dependencies
+npm install
+
+# 2. Run local Astro development server
+npm run dev
+
+# 3. Build for production (Static / Cloudflare Pages / Vercel)
+npm run build
+\`\`\`
+
+## Architecture
+- \`src/pages/index.astro\`: Main landing page composed of isolated Astro components.
+- \`src/components/*.astro\`: Independent, modular section components with Tailwind CSS.
+- \`src/layouts/Layout.astro\`: Responsive semantic layout wrapper.
+`,
+    });
+
+    const blob = buildZipArchive(entries);
+    triggerDownload(blob, `${slug}-astro-project.zip`);
   }
 
   private async refreshRevisionHistory(slug: string): Promise<void> {

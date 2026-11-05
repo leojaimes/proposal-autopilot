@@ -1,0 +1,149 @@
+<div class="h-full flex flex-col bg-slate-900 border-l border-slate-800 text-slate-200 w-80 flex-shrink-0 select-none overflow-y-auto custom-scrollbar">
+
+  <!-- Header -->
+  <div class="p-3 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="w-6 h-6 rounded-lg bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-xs text-white shadow-sm font-bold">
+        ⚡
+      </div>
+      <div>
+        <h3 class="text-xs font-bold text-white tracking-wide">Inference & Runs</h3>
+        <span class="text-[10px] text-slate-400 font-mono">Google AI Studio Specs</span>
+      </div>
+    </div>
+    <span class="text-[9px] px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 font-mono border border-emerald-500/30 flex items-center gap-1">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+      Online
+    </span>
+  </div>
+
+  <div class="p-3 space-y-4">
+
+    <!-- Card 1: Model Specification -->
+    <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+      <div class="flex items-center justify-between text-[11px] text-slate-400">
+        <span class="font-medium">Modelo Principal</span>
+        <span class="font-mono text-cyan-400 text-[10px]">Gemini 3 Flash</span>
+      </div>
+
+      <div class="p-2 rounded-lg bg-slate-900 border border-slate-800/80 font-mono text-[11px] text-slate-200 flex items-center justify-between">
+        <span class="truncate">models/gemini-3-flash-preview</span>
+        <span class="text-xs text-purple-400">✨</span>
+      </div>
+
+      <div class="flex items-center justify-between text-[10px] text-slate-400 pt-1">
+        <span>Modo de Ejecución:</span>
+        <span class="font-bold text-slate-200 font-mono">JSON-Patch AST</span>
+      </div>
+    </div>
+
+    <!-- Card 2: System Persona / Instructions Selector -->
+    <div class="space-y-2">
+      <div class="flex items-center justify-between px-1">
+        <span class="text-[11px] font-bold text-slate-300">System Persona</span>
+        <span class="text-[10px] text-slate-500 font-mono">Directiva</span>
+      </div>
+
+      <div class="space-y-1.5">
+        @for (persona of personas; track persona.id) {
+          <div
+            (click)="onSelectPersona(persona.id)"
+            class="p-2.5 rounded-xl border text-xs cursor-pointer transition-all"
+            [ngClass]="state.systemPersona() === persona.id ? 'border-purple-500 bg-purple-950/30 text-white ring-1 ring-purple-500/40 shadow-sm' : 'border-slate-800 bg-slate-800/40 text-slate-300 hover:bg-slate-800 hover:border-slate-700'"
+          >
+            <div class="flex items-center justify-between mb-1">
+              <div class="flex items-center gap-1.5 font-bold">
+                <span>{{ persona.icon }}</span>
+                <span>{{ persona.label }}</span>
+              </div>
+              @if (state.systemPersona() === persona.id) {
+                <span class="text-[9px] px-1.5 py-0.2 rounded bg-purple-500 text-white font-mono uppercase">Activo</span>
+              }
+            </div>
+            <div class="text-[10px] text-slate-400 leading-snug">
+              {{ persona.desc }}
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Card 3: Inference Telemetry -->
+    <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2.5">
+      <div class="text-[11px] font-bold text-slate-300 flex items-center justify-between">
+        <span>Telemetría de Inferencia</span>
+        <span class="text-[10px] font-mono text-emerald-400">Zero-Shot</span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 text-[10px] font-mono">
+        <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+          <div class="text-slate-500">Tokens In</div>
+          <div class="text-xs font-bold text-slate-200 mt-0.5">{{ state.telemetry().tokensInput }}</div>
+        </div>
+        <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+          <div class="text-slate-500">Tokens Out</div>
+          <div class="text-xs font-bold text-slate-200 mt-0.5">{{ state.telemetry().tokensOutput }}</div>
+        </div>
+        <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+          <div class="text-slate-500">Latencia</div>
+          <div class="text-xs font-bold text-emerald-400 mt-0.5">~{{ state.telemetry().latencyMs }}ms</div>
+        </div>
+        <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+          <div class="text-slate-500">Temperatura</div>
+          <div class="text-xs font-bold text-amber-400 mt-0.5">0.20</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 4: Execution Runs / Revisions Ledger -->
+    <div class="space-y-2 pt-1">
+      <div class="flex items-center justify-between px-1">
+        <span class="text-[11px] font-bold text-slate-300">Historial de Runs</span>
+        <span class="text-[10px] font-mono text-slate-400">v{{ state.currentRevisionNumber() }}</span>
+      </div>
+
+      <div class="space-y-1.5 max-h-56 overflow-y-auto custom-scrollbar">
+        @for (rev of state.revisions(); track rev.revisionNumber) {
+          <div
+            class="p-2.5 rounded-xl border transition-all text-xs"
+            [ngClass]="rev.isCurrent ? 'border-emerald-500/60 bg-emerald-950/20 shadow-sm' : 'border-slate-800 bg-slate-800/40'"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5 font-mono">
+                <span class="font-bold" [ngClass]="rev.isCurrent ? 'text-emerald-400' : 'text-slate-300'">
+                  #{{ rev.revisionNumber }}
+                </span>
+                <span
+                  class="text-[9px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider"
+                  [ngClass]="rev.author === 'HUMAN' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'"
+                >
+                  {{ rev.author }}
+                </span>
+              </div>
+
+              @if (rev.isCurrent) {
+                <span class="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Actual
+                </span>
+              } @else {
+                <button
+                  type="button"
+                  (click)="onRevert(rev.revisionNumber)"
+                  class="text-[10px] px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors font-medium cursor-pointer"
+                >
+                  ↩️ Revert
+                </button>
+              }
+            </div>
+
+            <div class="text-[11px] text-slate-400 mt-1 line-clamp-2">
+              {{ rev.description }}
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+  </div>
+
+</div>

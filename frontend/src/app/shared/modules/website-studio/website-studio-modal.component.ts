@@ -7,13 +7,16 @@ import {
   ViewChild,
   inject,
   output,
+  signal,
   computed,
   ChangeDetectionStrategy,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
+import { FormsModule } from "@angular/forms";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 import { StudioStateService } from "./store/studio-state.service";
 import { StudioBlocksPanelComponent } from "./components/studio-blocks-panel/studio-blocks-panel.component";
+import { StudioInferencePanelComponent } from "./components/studio-inference-panel/studio-inference-panel.component";
 import { StudioAiPromptComponent } from "./components/studio-ai-prompt/studio-ai-prompt.component";
 import { StudioToolbarComponent } from "./components/studio-toolbar/studio-toolbar.component";
 import { GUEST_BRIDGE_SCRIPT } from "./bridge/studio-guest-bridge";
@@ -24,7 +27,9 @@ import { StudioSlot } from "./types/studio.types";
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     StudioBlocksPanelComponent,
+    StudioInferencePanelComponent,
     StudioAiPromptComponent,
     StudioToolbarComponent,
   ],
@@ -42,7 +47,15 @@ export class WebsiteStudioModalComponent implements OnInit, OnDestroy {
   readonly state = inject(StudioStateService);
   private readonly sanitizer = inject(DomSanitizer);
 
+  readonly selectedRoute = signal<string>("/");
+  readonly isCodeCopied = signal<boolean>(false);
+
   private messageHandler?: (event: MessageEvent) => void;
+
+  readonly codeLines = computed(() => {
+    const content = this.state.selectedAstroFile()?.content || "";
+    return content.split("\n");
+  });
 
   /**
    * Enriches the raw HTML with the guest bridge script for real-time inspection.
@@ -85,6 +98,46 @@ export class WebsiteStudioModalComponent implements OnInit, OnDestroy {
         },
         "*",
       );
+    }
+  }
+
+  onSelectRoute(route: string): void {
+    this.selectedRoute.set(route);
+    if (route === "/") {
+      const firstSec = this.state.sections()[0];
+      if (firstSec) this.onScrollToSection(firstSec.id);
+      return;
+    }
+    // Match hash with section name
+    const hash = route.replace("#", "").toLowerCase();
+    const match = this.state
+      .sections()
+      .find((s) => s.name.toLowerCase().includes(hash));
+    if (match) {
+      this.onScrollToSection(match.id);
+    }
+  }
+
+  onReloadFrame(): void {
+    const frame = this.studioFrame?.nativeElement;
+    if (frame) {
+      frame.srcdoc = "";
+      setTimeout(() => {
+        frame.srcdoc = this.state.rawHtml();
+      }, 50);
+    }
+  }
+
+  async onCopyCode(): Promise<void> {
+    const file = this.state.selectedAstroFile();
+    if (!file) return;
+
+    try {
+      await navigator.clipboard.writeText(file.content);
+      this.isCodeCopied.set(true);
+      setTimeout(() => this.isCodeCopied.set(false), 2000);
+    } catch {
+      // Fallback
     }
   }
 

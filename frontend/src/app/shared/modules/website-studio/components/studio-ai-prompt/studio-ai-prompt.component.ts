@@ -2,6 +2,7 @@ import {
   Component,
   inject,
   signal,
+  computed,
   ChangeDetectionStrategy,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
@@ -20,12 +21,48 @@ export class StudioAiPromptComponent {
 
   readonly userPrompt = signal<string>("");
 
-  readonly quickChips = [
+  readonly defaultChips = [
     { label: "🔥 Más Urgencia", prompt: "Haz el copy mucho más urgente y persuasivo, orientado a que llamen de inmediato." },
     { label: "⭐ Resaltar Garantía", prompt: "Agrega énfasis claro en garantía total, confianza y satisfacción del cliente." },
     { label: "💼 Más Formal & Pro", prompt: "Ajusta la redacción a un tono sobrio, elegante y corporativo de alta gama." },
     { label: "🎯 CTA Directo", prompt: "Reemplaza el llamado a la acción por uno más directo hacia WhatsApp o llamada inmediata." },
   ];
+
+  readonly contextualChips = computed(() => {
+    const sec = this.state.selectedSection();
+    if (!sec) return this.defaultChips;
+
+    const name = sec.name.toUpperCase();
+    if (name.includes("HERO")) {
+      return [
+        { label: "⚡ Titular Persuasivo", prompt: "Genera un titular de alto impacto con beneficio directo, urgencia y propuesta única de valor." },
+        { label: "🏆 Insignia 5 Estrellas", prompt: "Agrega una insignia de calificación 4.9/5 estrellas basada en más de 250 clientes satisfechos." },
+        { label: "🎯 CTA Urgente WhatsApp", prompt: "Optimiza el botón principal para llamada directa o WhatsApp con atención 24/7." },
+        { label: "🛡️ Garantía 100%", prompt: "Incluye una micro-garantía debajo del botón de llamada a la acción." },
+      ];
+    }
+    if (name.includes("SERVICE")) {
+      return [
+        { label: "🛠️ 3 Servicios Estrella", prompt: "Estructura la sección para destacar 3 servicios estrella con descripciones claras y precios desde." },
+        { label: "💎 Tarjetas Modernas", prompt: "Reescribe los títulos y descripciones con viñetas de beneficios concretos." },
+        { label: "⚡ Beneficio Inmediato", prompt: "Enfoca cada servicio en el dolor o problema que resuelve de inmediato." },
+      ];
+    }
+    if (name.includes("TESTIMONIAL") || name.includes("REVIEW")) {
+      return [
+        { label: "💬 Reseña Verificada Google", prompt: "Redacta un testimonio creíble y detallado mencionando puntualidad, trato humano y rapidez." },
+        { label: "⭐ Calificación Destacada", prompt: "Destaca una puntuación promedio de 4.9/5 estrellas en Google Maps." },
+      ];
+    }
+    return this.defaultChips;
+  });
+
+  onKeydown(event: KeyboardEvent): void {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      this.onSubmit();
+    }
+  }
 
   onSubmit(): void {
     const text = this.userPrompt().trim();

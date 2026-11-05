@@ -14,7 +14,11 @@ import {
   StudioStateService,
   PRESET_COLOR_PALETTES,
 } from "../../store/studio-state.service";
-import { StudioSection, StudioColorPalette } from "../../types/studio.types";
+import {
+  StudioSection,
+  StudioColorPalette,
+  StudioAstroFile,
+} from "../../types/studio.types";
 
 @Component({
   selector: "app-studio-blocks-panel",
@@ -39,6 +43,14 @@ export class StudioBlocksPanelComponent {
   onSelectSection(sec: StudioSection): void {
     this.state.selectSection(sec.id);
     this.scrollToSection.emit(sec.id);
+  }
+
+  onSelectAstroFile(path: string): void {
+    this.state.selectAstroFile(path);
+  }
+
+  onExportZip(): void {
+    this.state.exportAstroProject();
   }
 
   onSelectPalette(palette: StudioColorPalette): void {
