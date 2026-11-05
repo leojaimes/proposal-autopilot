@@ -342,6 +342,22 @@ model JobPost {
   @@map("job_posts")
 }
 
+model SharedUpworkJob {
+  id               String   @id @default(uuid()) @db.Uuid
+  externalUpworkId String   @unique @map("external_upwork_id") @db.VarChar(100)
+  title            String   @db.VarChar(255)
+  description      String   @db.Text
+  jobUrl           String   @map("job_url") @db.Text
+  postedAt         DateTime @map("posted_at")
+  rawApifyPayload  Json     @map("raw_apify_payload")
+  sourceRunId      String   @map("source_run_id") @db.VarChar(100)
+  sourceDatasetId  String   @map("source_dataset_id") @db.VarChar(100)
+  isProtected      Boolean  @default(true) @map("is_protected")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("shared_upwork_jobs")
+}
+
 model JobCategoryAssignment {
   id                String                      @id @default(uuid()) @db.Uuid
   tenantId          String                      @map("tenant_id") @db.Uuid

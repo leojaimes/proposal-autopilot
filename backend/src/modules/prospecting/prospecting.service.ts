@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit, Optional } from '@nestjs/common';
 import {
   BusinessOperationalStatus,
   BusinessOwnershipType,
@@ -14,6 +14,8 @@ import { TenantContextService } from '../../core/context/tenant-context.service'
 import { NominatimGeocodingService, GeocodedCityResult } from './services/nominatim-geocoding.service';
 import { CompanyPainAnalyzerService } from './services/company-pain-analyzer.service';
 import { LambdaGoogleProspectingService } from './services/lambda-google-prospecting.service';
+import { GooglePlacesOfficialService } from './services/google-places.service';
+import { ProspectingResilienceService, ProspectingProviderPort } from './services/resilience/prospecting-resilience.service';
 import { PhoneNormalizerService } from './services/phone-normalizer.service';
 import { ChainDetectorService } from './services/chain-detector.service';
 import { ProspectEnrichmentQueueService } from './services/prospect-enrichment-queue.service';
@@ -76,8 +78,9 @@ interface RawIngestCandidate {
 }
 
 @Injectable()
-export class ProspectingService {
+export class ProspectingService implements OnModuleInit {
   private readonly logger = new Logger(ProspectingService.name);
+  private resilienceService!: ProspectingResilienceService;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -89,9 +92,71 @@ export class ProspectingService {
     @Optional() private readonly enrichmentQueue?: ProspectEnrichmentQueueService,
     @Optional() private readonly contactCooldown?: ContactCooldownPolicyService,
     @Optional() private readonly lambdaGoogle?: LambdaGoogleProspectingService,
+    @Optional() private readonly googlePlaces?: GooglePlacesOfficialService,
     @Optional() private readonly streamService?: ProspectingStreamService,
     @Optional() private readonly deepEnricher?: OrionDeepProspectEnricherService,
   ) {}
+
+  onModuleInit() {
+    this.initResiliencePipeline();
+  }
+
+  private initResiliencePipeline() {
+    const self = this;
+    const providers: ProspectingProviderPort[] = [
+      {
+        id: 'LAMBDA',
+        get isReady() {
+          return Boolean(self.lambdaGoogle);
+        },
+        search: (opts) =>
+          self.lambdaGoogle!.scrapeGoogleBusinesses({
+            query: opts.query,
+            center: opts.center,
+            radiusKm: opts.radiusKm,
+            polygon: opts.polygon,
+            location: opts.city,
+            limit: opts.limit,
+          }),
+      },
+      {
+        id: 'PLACES_API',
+        get isReady() {
+          return Boolean(self.googlePlaces?.isConfigured);
+        },
+        search: (opts) =>
+          self.googlePlaces!.searchBusinesses({
+            query: opts.query,
+            center: opts.center,
+            radiusKm: opts.radiusKm,
+            city: opts.city,
+            state: opts.state,
+            country: opts.country,
+            limit: opts.limit,
+          }),
+      },
+      {
+        id: 'SYNTHETIC',
+        get isReady() {
+          return true;
+        },
+        search: (opts) =>
+          Promise.resolve(
+            self.generateAreaCandidates(
+              opts.query,
+              opts.center || { lat: 20.5888, lng: -100.3899 },
+              opts.radiusKm || 5,
+              opts.city || 'Querétaro',
+              opts.state || 'Querétaro',
+              opts.country || 'Mexico',
+              opts.polygon ? opts.polygon.map((p) => [p.lat, p.lng] as [number, number]) : undefined,
+            ),
+          ),
+      },
+    ];
+
+    this.resilienceService = new ProspectingResilienceService(providers);
+  }
 
   async geocodeCity(
     city: string,
@@ -262,73 +327,41 @@ export class ProspectingService {
       );
     }
 
-    let rawCandidates: RawIngestCandidate[] = [];
-    const provider = (process.env.GOOGLE_SCRAPING_PROVIDER || 'LAMBDA').toUpperCase();
-
-    if (provider === 'LAMBDA' && this.lambdaGoogle) {
-      try {
-        if (scanId && this.streamService) {
-          this.streamService.emitEvent({
-            scanId,
-            tenantId,
-            type: 'RADAR_HEARTBEAT',
-            message: `🤖 Navegando Google Maps con Chromium Stealth en [${effectiveCenter.lat}, ${effectiveCenter.lng}]...`,
-            progressPct: 35,
-          });
-        }
-
-        const polygonCoords = normalizedPolygon
-          ? normalizedPolygon.map((p) => ({ lat: p[0], lng: p[1] }))
-          : undefined;
-
-        rawCandidates = await this.lambdaGoogle.scrapeGoogleBusinesses({
-          query: sector,
-          center: effectiveCenter,
-          radiusKm,
-          polygon: polygonCoords,
-          location: city,
-          limit: 20,
-        });
-
-        if (!rawCandidates || rawCandidates.length === 0) {
-          this.logger.warn(
-            `Lambda Google scraper returned 0 results for "${sector}" in ${city}. Activating area candidate generator fallback.`,
-          );
-          rawCandidates = this.generateAreaCandidates(
-            sector,
-            effectiveCenter,
-            radiusKm,
-            city,
-            state,
-            country,
-            normalizedPolygon && normalizedPolygon.length >= 3 ? normalizedPolygon : undefined,
-          );
-        }
-      } catch (err: any) {
-        this.logger.warn(
-          `Lambda Google scraping failed (${err?.message}). Activating local simulation fallback.`,
-        );
-        rawCandidates = this.generateAreaCandidates(
-          sector,
-          effectiveCenter,
-          radiusKm,
-          city,
-          state,
-          country,
-          normalizedPolygon && normalizedPolygon.length >= 3 ? normalizedPolygon : undefined,
-        );
-      }
-    } else {
-      rawCandidates = this.generateAreaCandidates(
-        sector,
-        effectiveCenter,
-        radiusKm,
-        city,
-        state,
-        country,
-        normalizedPolygon && normalizedPolygon.length >= 3 ? normalizedPolygon : undefined,
-      );
+    if (!this.resilienceService) {
+      this.initResiliencePipeline();
     }
+
+    if (scanId && this.streamService) {
+      this.streamService.emitEvent({
+        scanId,
+        tenantId,
+        type: 'RADAR_HEARTBEAT',
+        message: `📡 Ejecutando matriz de resiliencia multi-proveedor para ${sector} en ${city}...`,
+        progressPct: 35,
+      });
+    }
+
+    const polygonCoords = normalizedPolygon
+      ? normalizedPolygon.map((p) => ({ lat: p[0], lng: p[1] }))
+      : undefined;
+
+    const scanResult = await this.resilienceService.executeScan({
+      query: sector,
+      center: effectiveCenter,
+      radiusKm,
+      city,
+      state,
+      country,
+      polygon: polygonCoords,
+      limit: 20,
+      scanId,
+      tenantId,
+    });
+
+    const rawCandidates: RawIngestCandidate[] = scanResult.leads;
+    this.logger.log(
+      `[ScanArea] Resuelto por "${scanResult.resolvedBy}" en ${scanResult.latencyMs}ms (${rawCandidates.length} prospectos, ${scanResult.totalAttempted} proveedores intentados).`,
+    );
 
     if (scanId && this.streamService) {
       this.streamService.emitEvent({
