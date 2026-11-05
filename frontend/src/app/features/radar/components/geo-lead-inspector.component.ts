@@ -415,6 +415,73 @@ import {
           }
         </section>
 
+        <!-- SECTION: INTERACTIVE WEBSITE DEMO TEASER (Website Factory) -->
+        <section class="p-3 rounded-xl bg-surface-elevated/70 border border-border-subtle space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-cyan-400">
+              <svg lucideGlobe class="w-3.5 h-3.5 text-cyan-400"></svg>
+              <span>Demo Web Interactivo</span>
+            </span>
+            @if (websiteDemo()) {
+              <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                PUBLICADO R2
+              </span>
+            }
+          </div>
+
+          @if (websiteDemo()) {
+            <!-- Snapshot Preview Card -->
+            <div class="relative group rounded-lg overflow-hidden border border-cyan-500/20 bg-black/40">
+              @if (websiteDemo()?.screenshotUrl) {
+                <img
+                  [src]="websiteDemo()!.screenshotUrl"
+                  alt="Snapshot Demo Web"
+                  class="w-full h-32 object-cover object-top transition-transform duration-300 group-hover:scale-105"
+                />
+              } @else {
+                <div class="w-full h-24 flex items-center justify-center text-content-muted text-xs font-mono">
+                  <span>Sin captura disponible</span>
+                </div>
+              }
+              <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2 justify-between">
+                <span class="text-[10px] font-mono text-white/90 truncate max-w-[200px]">
+                  {{ websiteDemo()?.slug }}
+                </span>
+                <a
+                  [href]="websiteDemo()!.demoUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-cyan-500 hover:bg-cyan-400 text-black shadow-md transition-colors"
+                >
+                  <svg lucideExternalLink class="w-3 h-3"></svg>
+                  <span>Ver Demo</span>
+                </a>
+              </div>
+            </div>
+          } @else {
+            <!-- Empty state with 1-click generator button -->
+            <div class="p-2.5 rounded-lg border border-dashed border-border-subtle bg-app/50 text-center space-y-2">
+              <p class="text-[11px] text-content-muted">
+                Landing page de alta conversión personalizada en Cloudflare R2 para este prospecto.
+              </p>
+              <button
+                type="button"
+                (click)="generateDemoRequested.emit()"
+                [disabled]="isGeneratingDemo()"
+                class="w-full py-1.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+              >
+                @if (isGeneratingDemo()) {
+                  <svg lucideSparkles class="w-3.5 h-3.5 animate-spin"></svg>
+                  <span>Fabricando Demo en Publications...</span>
+                } @else {
+                  <svg lucideSparkles class="w-3.5 h-3.5"></svg>
+                  <span>⚡ Fabricar Demo Web Interactiva</span>
+                }
+              </button>
+            </div>
+          }
+        </section>
+
         <!-- SECTION 2: 3-TONE COMMERCIAL PITCH & QUICK CTAS -->
         <section class="space-y-2">
           <div class="flex items-center justify-between">
@@ -679,12 +746,14 @@ export class GeoLeadInspectorComponent {
   readonly contactError = input.required<string | null>();
   readonly isConfirmingBlacklist = input.required<boolean>();
   readonly isEnrichingDeep = input<boolean>(false);
+  readonly isGeneratingDemo = input<boolean>(false);
 
   readonly painSelected = output<string>();
   readonly painDismissed = output<{ pain: ProspectedBusinessPainItem; event: MouseEvent }>();
   readonly pitchToneChanged = output<PitchToneKey>();
   readonly copyRequested = output<void>();
   readonly enrichRequested = output<void>();
+  readonly generateDemoRequested = output<void>();
   readonly channelChanged = output<ContactChannel>();
   readonly outcomeChanged = output<ContactOutcome>();
   readonly notesChanged = output<string>();
@@ -716,6 +785,7 @@ export class GeoLeadInspectorComponent {
   readonly priceTier = computed(() => formatPriceTier(this.lead().priceLevel));
   readonly cleanPhone = computed(() => cleanPhoneDigits(this.lead().phone));
   readonly deepIntelligence = computed(() => this.lead().rawGoogleData?.deepIntelligence || null);
+  readonly websiteDemo = computed(() => this.lead().painAnalysis?.websiteDemo || null);
 
   readonly verifiedContacts = computed(() => {
     const lead = this.lead();

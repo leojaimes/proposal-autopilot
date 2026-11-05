@@ -255,6 +255,13 @@ export interface ProspectedBusiness {
       sentimentScore: string;
     };
     sampleReviews?: string[];
+    websiteDemo?: {
+      slug: string;
+      demoUrl: string;
+      screenshotUrl?: string;
+      status?: string;
+      generatedAt?: string;
+    };
   };
   suggestedOffer?: string | null;
   salesPitchDraft?: string | null;
@@ -718,6 +725,39 @@ export class ProspectingService {
               rawGoogleData: {
                 ...(currentSelected.rawGoogleData || {}),
                 deepIntelligence: intelligence,
+              },
+            });
+          }
+        }),
+      );
+  }
+
+  generateDemoForLead(leadId: string): Observable<any> {
+    return this.http
+      .post<any>(`/api/prospecting/leads/${leadId}/generate-demo`, {})
+      .pipe(
+        tap((demo) => {
+          this.leads.update((current) =>
+            current.map((l) => {
+              if (l.id !== leadId) return l;
+              const pain = l.painAnalysis || {};
+              return {
+                ...l,
+                painAnalysis: {
+                  ...pain,
+                  websiteDemo: demo,
+                },
+              };
+            }),
+          );
+          if (this.selectedLead()?.id === leadId) {
+            const cur = this.selectedLead()!;
+            const pain = cur.painAnalysis || {};
+            this.selectedLead.set({
+              ...cur,
+              painAnalysis: {
+                ...pain,
+                websiteDemo: demo,
               },
             });
           }

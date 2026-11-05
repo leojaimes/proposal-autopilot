@@ -11,12 +11,16 @@ import {
   Query,
   Sse,
   UseGuards,
-} from '@nestjs/common';
-import { ProspectingService } from './prospecting.service';
-import { ProspectingStreamService } from './services/prospecting-stream.service';
-import { GeocodeCityDto } from './dto/geocode-city.dto';
-import { ScanAreaDto } from './dto/scan-area.dto';
-import { ProspectingWebhookPayloadDto } from './dto/prospecting-webhook.dto';
+} from "@nestjs/common";
+import { ProspectingService } from "./prospecting.service";
+import { ProspectingStreamService } from "./services/prospecting-stream.service";
+import { WebsiteFactoryClientService } from "./services/website-factory-client.service";
+import { GeocodeCityDto } from "./dto/geocode-city.dto";
+import { ScanAreaDto } from "./dto/scan-area.dto";
+import {
+  ProspectingWebhookPayloadDto,
+  WebsiteDemoReadyWebhookDto,
+} from "./dto/prospecting-webhook.dto";
 import {
   BlacklistLeadDto,
   CreateContactLogDto,
@@ -25,136 +29,162 @@ import {
   UpdateBusinessPainStatusDto,
   UpdateLeadStatusDto,
   UpsertPainCatalogDto,
-} from './dto/prospecting-enterprise.dto';
-import { HmacWebhookGuard, WebhookSource } from './guards/hmac-webhook.guard';
-import { AdminRoleGuard } from '../../core/guards/admin-role.guard';
+} from "./dto/prospecting-enterprise.dto";
+import { HmacWebhookGuard, WebhookSource } from "./guards/hmac-webhook.guard";
+import { AdminRoleGuard } from "../../core/guards/admin-role.guard";
 
-@Controller('api/prospecting')
+@Controller("api/prospecting")
 export class ProspectingController {
   constructor(
     private readonly prospectingService: ProspectingService,
     private readonly prospectingStreamService: ProspectingStreamService,
+    private readonly websiteFactoryClient: WebsiteFactoryClientService,
   ) {}
 
-  @Post('webhook/progress')
+  @Post("webhooks/demo-ready")
   @UseGuards(HmacWebhookGuard)
-  @WebhookSource('LAMBDA')
+  @WebhookSource("LAMBDA")
+  @HttpCode(HttpStatus.OK)
+  async handleDemoReadyWebhook(@Body() payload: WebsiteDemoReadyWebhookDto) {
+    return this.websiteFactoryClient.handleDemoReadyWebhook(payload);
+  }
+
+  @Post("leads/:id/generate-demo")
+  @HttpCode(HttpStatus.OK)
+  async generateLeadDemo(@Param("id", ParseUUIDPipe) id: string) {
+    return this.websiteFactoryClient.generateDemoForLead(id);
+  }
+
+  @Post("webhook/progress")
+  @UseGuards(HmacWebhookGuard)
+  @WebhookSource("LAMBDA")
   @HttpCode(HttpStatus.OK)
   async handleWebhookProgress(@Body() payload: ProspectingWebhookPayloadDto) {
     return this.prospectingService.handleWebhookPayload(payload);
   }
 
-  @Post('webhooks/email')
+  @Post("webhooks/email")
   @UseGuards(HmacWebhookGuard)
-  @WebhookSource('EMAIL')
+  @WebhookSource("EMAIL")
   @HttpCode(HttpStatus.OK)
   async handleEmailTelemetryWebhook(@Body() payload: EmailWebhookEventDto) {
     return this.prospectingService.handleEmailWebhook(payload);
   }
 
-  @Post('geocode-city')
+  @Post("geocode-city")
   async geocodeCity(@Body() dto: GeocodeCityDto) {
-    return this.prospectingService.geocodeCity(dto.city, dto.state, dto.country);
+    return this.prospectingService.geocodeCity(
+      dto.city,
+      dto.state,
+      dto.country,
+    );
   }
 
-  @Get('geo-presets')
-  async getGeoPresets(@Query('country') country?: string) {
+  @Get("geo-presets")
+  async getGeoPresets(@Query("country") country?: string) {
     return this.prospectingService.getGeoPresets(country);
   }
 
-  @Get('pains')
-  async getPainCatalog(@Query('includeInactive') includeInactive?: string) {
-    return this.prospectingService.getPainCatalog(includeInactive === 'true');
+  @Get("pains")
+  async getPainCatalog(@Query("includeInactive") includeInactive?: string) {
+    return this.prospectingService.getPainCatalog(includeInactive === "true");
   }
 
-  @Post('pains')
+  @Post("pains")
   @UseGuards(AdminRoleGuard)
   @HttpCode(HttpStatus.CREATED)
   async upsertPainCatalog(@Body() dto: UpsertPainCatalogDto) {
     return this.prospectingService.upsertPainCatalog(dto);
   }
 
-  @Post('scan-area')
+  @Post("scan-area")
   async scanArea(@Body() dto: ScanAreaDto) {
     return this.prospectingService.scanArea(dto);
   }
 
-  @Sse('scan-stream/:scanId')
-  streamScanEvents(@Param('scanId') scanId: string) {
+  @Sse("scan-stream/:scanId")
+  streamScanEvents(@Param("scanId") scanId: string) {
     return this.prospectingStreamService.getScanStream(scanId);
   }
 
-  @Get('leads')
+  @Get("leads")
   async getLeads(@Query() query: GetLeadsQueryDto) {
     return this.prospectingService.getLeads(query);
   }
 
-  @Patch('leads/:id/status')
+  @Patch("leads/:id/status")
   async updateStatus(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: UpdateLeadStatusDto,
   ) {
     return this.prospectingService.updateLeadStatus(id, dto.status);
   }
 
-  @Get('leads/:id/pains')
-  async getBusinessPains(@Param('id', ParseUUIDPipe) id: string) {
+  @Get("leads/:id/pains")
+  async getBusinessPains(@Param("id", ParseUUIDPipe) id: string) {
     return this.prospectingService.getBusinessPains(id);
   }
 
-  @Patch('leads/:id/pains/:painId/status')
+  @Patch("leads/:id/pains/:painId/status")
   async updateBusinessPainStatus(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Param('painId') painId: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("painId") painId: string,
     @Body() dto: UpdateBusinessPainStatusDto,
   ) {
     return this.prospectingService.updateBusinessPainStatus(id, painId, dto);
   }
 
-  @Get('leads/:id/contacts')
-  async getBusinessContacts(@Param('id', ParseUUIDPipe) id: string) {
+  @Get("leads/:id/contacts")
+  async getBusinessContacts(@Param("id", ParseUUIDPipe) id: string) {
     return this.prospectingService.getBusinessContacts(id);
   }
 
-  @Post('leads/:id/contacts')
+  @Post("leads/:id/contacts")
   @HttpCode(HttpStatus.CREATED)
   async createBusinessContact(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: CreateContactLogDto,
   ) {
     return this.prospectingService.recordBusinessContact(id, dto);
   }
 
-  @Post('leads/:id/blacklist')
+  @Post("leads/:id/blacklist")
   @HttpCode(HttpStatus.OK)
   async blacklistBusiness(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: BlacklistLeadDto,
   ) {
     return this.prospectingService.blacklistBusiness(id, dto.reason);
   }
 
-  @Get('brands')
-  async getCorporateBrands(@Query('onlyTenantBranches') onlyTenantBranches?: string) {
-    return this.prospectingService.getCorporateBrands(onlyTenantBranches === 'true');
+  @Get("brands")
+  async getCorporateBrands(
+    @Query("onlyTenantBranches") onlyTenantBranches?: string,
+  ) {
+    return this.prospectingService.getCorporateBrands(
+      onlyTenantBranches === "true",
+    );
   }
 
-  @Get('brands/:id/branches')
-  async getCorporateBrandBranches(@Param('id', ParseUUIDPipe) id: string) {
+  @Get("brands/:id/branches")
+  async getCorporateBrandBranches(@Param("id", ParseUUIDPipe) id: string) {
     return this.prospectingService.getCorporateBrandBranches(id);
   }
 
-  @Get('analytics/funnel')
+  @Get("analytics/funnel")
   async getProspectingFunnelAnalytics() {
     return this.prospectingService.getProspectingFunnelAnalytics();
   }
 
-  @Post('leads/:id/enrich-deep')
+  @Post("leads/:id/enrich-deep")
   @HttpCode(HttpStatus.OK)
   async enrichLeadDeeply(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Query('force') force?: string,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Query("force") force?: string,
   ) {
-    return this.prospectingService.enrichLeadDeeply(id, force === 'true' || force === '1');
+    return this.prospectingService.enrichLeadDeeply(
+      id,
+      force === "true" || force === "1",
+    );
   }
 }

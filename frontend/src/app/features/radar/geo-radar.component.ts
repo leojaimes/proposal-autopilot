@@ -453,6 +453,7 @@ function escapeHtml(raw: string): string {
           [contactNotes]="contactNotesInput()"
           [isSavingContact]="isSavingContact()"
           [isEnrichingDeep]="isEnrichingDeep()"
+          [isGeneratingDemo]="isGeneratingDemo()"
           [feedbackMessage]="crmFeedbackMessage()"
           [contactError]="contactErrorMessage()"
           [isConfirmingBlacklist]="isConfirmingBlacklist()"
@@ -461,6 +462,7 @@ function escapeHtml(raw: string): string {
           (pitchToneChanged)="selectedPitchTone.set($event)"
           (copyRequested)="copyPitch(currentPitchText(activeLead))"
           (enrichRequested)="triggerDeepEnrichment(activeLead, true)"
+          (generateDemoRequested)="triggerDemoGeneration(activeLead)"
           (channelChanged)="contactChannelInput.set($event)"
           (outcomeChanged)="contactOutcomeInput.set($event)"
           (notesChanged)="contactNotesInput.set($event)"
@@ -660,6 +662,7 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly copiedPitch = signal<boolean>(false);
   readonly isSavingContact = signal<boolean>(false);
   readonly isEnrichingDeep = signal<boolean>(false);
+  readonly isGeneratingDemo = signal<boolean>(false);
   readonly crmFeedbackMessage = signal<string | null>(null);
   readonly contactErrorMessage = signal<string | null>(null);
   readonly isConfirmingBlacklist = signal<boolean>(false);
@@ -1606,6 +1609,29 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
       });
   }
 
+  triggerDemoGeneration(lead: ProspectedBusiness): void {
+    if (this.isGeneratingDemo()) return;
+    this.isGeneratingDemo.set(true);
+    this.crmFeedbackMessage.set(null);
+    this.contactErrorMessage.set(null);
+
+    this.prospecting
+      .generateDemoForLead(lead.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (demo) => {
+          this.isGeneratingDemo.set(false);
+          this.crmFeedbackMessage.set('¡Demo web interactivo generado con éxito en Cloudflare R2!');
+          setTimeout(() => this.crmFeedbackMessage.set(null), 4000);
+        },
+        error: (err) => {
+          this.isGeneratingDemo.set(false);
+          const msg = err?.error?.message || err?.message || 'Error al fabricar demo web.';
+          this.contactErrorMessage.set(Array.isArray(msg) ? msg.join(', ') : msg);
+        },
+      });
+  }
+
   highlightMapMarker(lead: ProspectedBusiness): void {
     this.highlightedLeadId.set(lead.id);
     this.renderLeadMarkers(this.prospecting.leads());
@@ -1879,28 +1905,33 @@ export class GeoRadarComponent implements OnInit, AfterViewInit, OnDestroy {
   currentPitchText(lead: ProspectedBusiness): string {
     const activePain = this.currentActivePain();
     const tone = this.selectedPitchTone();
+    let pitch = '';
 
     if (activePain) {
       if (tone === 'GATEKEEPER' && activePain.customPitchGatekeeper) {
-        return activePain.customPitchGatekeeper;
-      }
-      if (tone === 'ENTERPRISE' && activePain.customPitchEnterprise) {
-        return activePain.customPitchEnterprise;
-      }
-      if (activePain.customPitchOwner) {
+        pitch = activePain.customPitchGatekeeper;
+      } else if (tone === 'ENTERPRISE' && activePain.customPitchEnterprise) {
+        pitch = activePain.customPitchEnterprise;
+      } else if (activePain.customPitchOwner) {
         const greeting = this.buildDecisionMakerGreeting(lead);
-        return activePain.customPitchOwner.replace(/^Hola[^,\n.]*[,.]/i, greeting);
+        pitch = activePain.customPitchOwner.replace(/^Hola[^,\n.]*[,.]/i, greeting);
       }
     }
 
-    const greeting = this.buildDecisionMakerGreeting(lead);
-    if (lead.salesPitchDraft) {
-      return lead.salesPitchDraft.replace(/^Hola[^,\n.]*[,.]/i, greeting);
+    if (!pitch) {
+      const greeting = this.buildDecisionMakerGreeting(lead);
+      if (lead.salesPitchDraft) {
+        pitch = lead.salesPitchDraft.replace(/^Hola[^,\n.]*[,.]/i, greeting);
+      } else {
+        pitch = `${greeting} revisamos su presencia en Google Maps en ${lead.city} y preparamos una propuesta para optimizar su captación digital. ¿Con quién podemos compartirla?`;
+      }
     }
 
-    return (
-      `${greeting} revisamos su presencia en Google Maps en ${lead.city} y preparamos una propuesta para optimizar su captación digital. ¿Con quién podemos compartirla?`
-    );
+    if (lead.painAnalysis?.websiteDemo?.demoUrl) {
+      pitch += `\n\nAquí pueden ver un demo interactivo exclusivo que preparamos para ustedes: ${lead.painAnalysis.websiteDemo.demoUrl}`;
+    }
+
+    return pitch;
   }
 
   buildWhatsappUrl(lead: ProspectedBusiness): string {

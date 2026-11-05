@@ -164,3 +164,21 @@ export class ProspectingWebhookPayloadDto {
   @IsOptional()
   error?: string;
 }
+
+export class WebsiteDemoReadyWebhookDto {
+  @IsString()
+  @IsNotEmpty()
+  leadId!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  demoUrl!: string;
+
+  @IsString()
+  @IsOptional()
+  screenshotUrl?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  slug!: string;
+}
