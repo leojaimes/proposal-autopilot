@@ -1,0 +1,67 @@
+<div class="fixed inset-0 z-50 flex flex-col bg-slate-950 font-sans antialiased overflow-hidden">
+
+  <!-- Top Navigation Toolbar -->
+  <app-studio-toolbar
+    (close)="onClose()"
+    (published)="onPublished($event)"
+  ></app-studio-toolbar>
+
+  <!-- Loading Overlay -->
+  @if (state.isLoading()) {
+    <div class="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400 bg-slate-950">
+      <div class="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+      <p class="text-sm font-semibold tracking-wide">Cargando sesión del Universal Website Studio...</p>
+    </div>
+  } @else if (state.error()) {
+    <div class="flex-1 flex flex-col items-center justify-center p-6 text-center bg-slate-950">
+      <div class="w-12 h-12 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center text-xl mb-3">
+        ⚠️
+      </div>
+      <h3 class="text-base font-bold text-white mb-2">Error al Cargar Studio</h3>
+      <p class="text-sm text-slate-400 max-w-md mb-4">{{ state.error() }}</p>
+      <button
+        (click)="state.loadSession(demoSlug)"
+        class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 transition-colors"
+      >
+        Reintentar Carga
+      </button>
+    </div>
+  } @else {
+
+    <!-- Main Workspace (Panels + Canvas) -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+      <!-- Left Sidebar: Hostinger-style Section Blocks & Palettes -->
+      <app-studio-blocks-panel
+        (scrollToSection)="onScrollToSection($event)"
+      ></app-studio-blocks-panel>
+
+      <!-- Center: Responsive Preview Canvas -->
+      <main class="flex-1 bg-slate-900/50 overflow-auto p-4 flex items-center justify-center relative">
+
+        <!-- Device Wrapper (Desktop 100% vs Mobile 375px) -->
+        <div
+          class="h-full transition-all duration-300 flex items-center justify-center"
+          [ngClass]="state.deviceMode() === 'mobile' ? 'w-[375px] max-h-[812px] rounded-[3rem] border-[10px] border-slate-800 shadow-2xl bg-white overflow-hidden ring-4 ring-slate-950' : 'w-full max-w-7xl rounded-xl shadow-xl bg-white overflow-hidden border border-slate-800'"
+        >
+          <!-- Live Preview IFrame with Guest Bridge -->
+          <iframe
+            #studioFrame
+            [srcdoc]="enrichedHtml()"
+            class="w-full h-full border-0 bg-white"
+            title="Website Preview"
+          ></iframe>
+        </div>
+
+        <!-- Floating AI Copilot (Lovable Micro-Prompt Bubble) -->
+        <div class="absolute bottom-6 right-6 z-30">
+          <app-studio-ai-prompt></app-studio-ai-prompt>
+        </div>
+
+      </main>
+
+    </div>
+  }
+
+</div>
+

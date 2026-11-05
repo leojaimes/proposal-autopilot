@@ -4,6 +4,7 @@ import {
   computed,
   input,
   output,
+  signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -43,6 +44,7 @@ import {
   isChainLead,
   isLeadInCooldown,
 } from './geo-radar.models';
+import { WebsiteStudioModalComponent } from '../../../shared/modules/website-studio';
 
 @Component({
   selector: 'app-geo-lead-inspector',
@@ -50,6 +52,7 @@ import {
   imports: [
     CommonModule,
     FormsModule,
+    WebsiteStudioModalComponent,
     LucideBuilding2,
     LucideStore,
     LucideSmartphone,
@@ -444,18 +447,28 @@ import {
                 </div>
               }
               <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2 justify-between">
-                <span class="text-[10px] font-mono text-white/90 truncate max-w-[200px]">
+                <span class="text-[10px] font-mono text-white/90 truncate max-w-[150px]">
                   {{ websiteDemo()?.slug }}
                 </span>
-                <a
-                  [href]="websiteDemo()!.demoUrl"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-cyan-500 hover:bg-cyan-400 text-black shadow-md transition-colors"
-                >
-                  <svg lucideExternalLink class="w-3 h-3"></svg>
-                  <span>Ver Demo</span>
-                </a>
+                <div class="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    (click)="isStudioOpen.set(true)"
+                    class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white shadow-md transition-colors cursor-pointer"
+                    title="Editar y personalizar demo en tiempo real con Studio"
+                  >
+                    <span>✏️ Studio</span>
+                  </button>
+                  <a
+                    [href]="websiteDemo()!.demoUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-cyan-500 hover:bg-cyan-400 text-black shadow-md transition-colors"
+                  >
+                    <svg lucideExternalLink class="w-3 h-3"></svg>
+                    <span>Ver</span>
+                  </a>
+                </div>
               </div>
             </div>
           } @else {
@@ -725,6 +738,14 @@ import {
         }
       </div>
     </aside>
+
+    @if (isStudioOpen() && websiteDemo()?.slug) {
+      <app-website-studio-modal
+        [demoSlug]="websiteDemo()!.slug"
+        (closed)="isStudioOpen.set(false)"
+        (snapshotPublished)="onStudioSnapshotPublished($event)"
+      ></app-website-studio-modal>
+    }
   `,
 })
 export class GeoLeadInspectorComponent {
@@ -818,6 +839,17 @@ export class GeoLeadInspectorComponent {
         return 'Dueño / Decisor';
     }
   });
+
+  readonly isStudioOpen = signal<boolean>(false);
+  readonly demoSnapshotUpdated = output<{ slug: string; screenshotUrl: string }>();
+
+  onStudioSnapshotPublished(url: string): void {
+    const demo = this.websiteDemo();
+    if (demo) {
+      demo.screenshotUrl = url;
+      this.demoSnapshotUpdated.emit({ slug: demo.slug, screenshotUrl: url });
+    }
+  }
 
   onDismissClick(pain: ProspectedBusinessPainItem, event: MouseEvent): void {
     event.stopPropagation();

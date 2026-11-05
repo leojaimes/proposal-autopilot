@@ -1,0 +1,80 @@
+<header class="h-14 bg-slate-950 border-b border-slate-800 px-4 flex items-center justify-between text-slate-100 select-none z-20">
+  <!-- Left: Branding & Demo Info -->
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white text-sm shadow-md">
+      WS
+    </div>
+
+    <div>
+      <div class="flex items-center gap-2">
+        <h2 class="text-xs sm:text-sm font-bold text-white tracking-tight">
+          {{ state.session()?.demo?.businessName || 'Editor Visual' }}
+        </h2>
+        <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono">
+          {{ state.session()?.demo?.vertical || 'general' }}
+        </span>
+      </div>
+      <div class="text-[10px] text-slate-400 font-mono truncate max-w-[200px] sm:max-w-xs">
+        slug: {{ state.demoSlug() }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Center: Device Mode Switcher (Desktop / Mobile) -->
+  <div class="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1 gap-1">
+    <button
+      (click)="setDevice('desktop')"
+      class="px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5"
+      [ngClass]="state.deviceMode() === 'desktop' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
+      title="Vista Escritorio (100% Ancho)"
+    >
+      <span>🖥️</span>
+      <span class="hidden sm:inline">Desktop</span>
+    </button>
+
+    <button
+      (click)="setDevice('mobile')"
+      class="px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5"
+      [ngClass]="state.deviceMode() === 'mobile' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
+      title="Vista Móvil (375px)"
+    >
+      <span>📱</span>
+      <span class="hidden sm:inline">Mobile</span>
+    </button>
+  </div>
+
+  <!-- Right: Status, Publish & Exit -->
+  <div class="flex items-center gap-3">
+    <!-- Revision Badge -->
+    <div class="hidden md:flex items-center gap-1.5 text-xs text-slate-400">
+      <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+      <span class="font-mono">Rev #{{ state.currentRevisionNumber() }}</span>
+    </div>
+
+    <!-- Snapshot / Publish CTA -->
+    <button
+      (click)="onPublish()"
+      [disabled]="state.isPublishing()"
+      class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
+    >
+      @if (state.isPublishing()) {
+        <span class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+        <span>Renderizando WebP...</span>
+      } @else {
+        <span>📸 Publicar Snapshot</span>
+      }
+    </button>
+
+    <!-- Close Editor Button -->
+    <button
+      (click)="close.emit()"
+      class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+      title="Cerrar Editor"
+    >
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+</header>
+

@@ -1,0 +1,168 @@
+<div class="h-full flex flex-col bg-slate-900 border-r border-slate-800 text-slate-200 w-80 flex-shrink-0 select-none">
+  <!-- Tabs Header -->
+  <div class="flex items-center border-b border-slate-800 p-2 gap-1 bg-slate-950/60">
+    <button
+      (click)="state.setActiveTab('blocks')"
+      class="flex-1 py-2 px-3 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5"
+      [ngClass]="state.activeTab() === 'blocks' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'"
+    >
+      <span>🧩 Bloques</span>
+      <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">{{ state.sections().length }}</span>
+    </button>
+
+    <button
+      (click)="state.setActiveTab('theme')"
+      class="flex-1 py-2 px-3 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5"
+      [ngClass]="state.activeTab() === 'theme' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'"
+    >
+      <span>🎨 Paleta</span>
+    </button>
+
+    <button
+      (click)="state.setActiveTab('history')"
+      class="flex-1 py-2 px-3 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5"
+      [ngClass]="state.activeTab() === 'history' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'"
+    >
+      <span>⏱️ Revisiones</span>
+      <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">v{{ state.currentRevisionNumber() }}</span>
+    </button>
+  </div>
+
+  <!-- Content Body -->
+  <div class="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+
+    <!-- TAB 1: BLOCKS (CDK DRAG DROP) -->
+    @if (state.activeTab() === 'blocks') {
+      <div class="space-y-2">
+        <div class="flex items-center justify-between text-[11px] text-slate-400 font-medium px-1">
+          <span>Arrastra para reordenar la página</span>
+          @if (state.isSaving()) {
+            <span class="text-amber-400 animate-pulse text-[10px]">Guardando...</span>
+          }
+        </div>
+
+        <div
+          cdkDropList
+          (cdkDropListDropped)="onDrop($event)"
+          class="space-y-2"
+        >
+          @for (sec of state.sections(); track sec.id) {
+            <div
+              cdkDrag
+              (click)="onSelectSection(sec)"
+              class="group flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer bg-slate-800/70 hover:bg-slate-800"
+              [ngClass]="state.selectedSectionId() === sec.id ? 'border-blue-500 bg-blue-950/20 shadow-md ring-1 ring-blue-500/40' : 'border-slate-700/80 hover:border-slate-600'"
+            >
+              <div class="flex items-center gap-3">
+                <!-- Drag Handle -->
+                <div cdkDragHandle class="cursor-grab active:cursor-grabbing text-slate-500 group-hover:text-slate-300 p-1 rounded hover:bg-slate-700/60">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M7 2a2 2 0 10.001 4.001A2 2 0 007 2zm0 6a2 2 0 10.001 4.001A2 2 0 007 8zm0 6a2 2 0 10.001 4.001A2 2 0 007 14zm6-12a2 2 0 10.001 4.001A2 2 0 0013 2zm0 6a2 2 0 10.001 4.001A2 2 0 0013 8zm0 6a2 2 0 10.001 4.001A2 2 0 0013 14z" />
+                  </svg>
+                </div>
+
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm">{{ getSectionIcon(sec.name) }}</span>
+                    <span class="text-xs font-bold text-slate-100 tracking-wide uppercase">{{ sec.name }}</span>
+                  </div>
+                  <div class="text-[10px] text-slate-400 mt-0.5">
+                    {{ sec.slots.length }} elementos editables
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quick Action / Status -->
+              <div class="flex items-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                @if (state.selectedSectionId() === sec.id) {
+                  <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- TAB 2: PALETTES & THEME -->
+    @if (state.activeTab() === 'theme') {
+      <div class="space-y-4">
+        <div class="text-xs text-slate-400 px-1">
+          Aplica armonías cromáticas probadas para conversión comercial:
+        </div>
+
+        <div class="space-y-2.5">
+          @for (palette of palettes; track palette.id) {
+            <div
+              (click)="onSelectPalette(palette)"
+              class="p-3 rounded-xl border border-slate-700/80 bg-slate-800/70 hover:bg-slate-800 hover:border-slate-600 transition-all cursor-pointer group"
+            >
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-slate-100">{{ palette.name }}</span>
+                <span class="text-[10px] text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">Aplicar ✨</span>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg shadow-sm border border-white/10" [style.background-color]="palette.primary" title="Primario"></div>
+                <div class="w-7 h-7 rounded-lg shadow-sm border border-white/10" [style.background-color]="palette.secondary" title="Secundario"></div>
+                <div class="w-7 h-7 rounded-lg shadow-sm border border-white/10" [style.background-color]="palette.accent" title="Acento"></div>
+                <div class="ml-auto font-mono text-[10px] text-slate-400">{{ palette.primary }}</div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- TAB 3: REVISIONS (UNDO / REDO) -->
+    @if (state.activeTab() === 'history') {
+      <div class="space-y-3">
+        <div class="text-xs text-slate-400 px-1">
+          Historial inmutable de cambios (Human & AI Ledger):
+        </div>
+
+        <div class="space-y-2">
+          @for (rev of state.revisions(); track rev.revisionNumber) {
+            <div
+              class="p-3 rounded-xl border transition-all"
+              [ngClass]="rev.isCurrent ? 'border-emerald-500/60 bg-emerald-950/20 shadow-sm' : 'border-slate-700/80 bg-slate-800/50'"
+            >
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1.5">
+                  <span class="font-mono text-xs font-bold" [ngClass]="rev.isCurrent ? 'text-emerald-400' : 'text-slate-300'">
+                    #{{ rev.revisionNumber }}
+                  </span>
+                  <span
+                    class="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"
+                    [ngClass]="rev.author === 'HUMAN' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'"
+                  >
+                    {{ rev.author }}
+                  </span>
+                </div>
+
+                @if (rev.isCurrent) {
+                  <span class="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Actual
+                  </span>
+                } @else {
+                  <button
+                    (click)="onRevert(rev.revisionNumber)"
+                    class="text-[10px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors font-medium"
+                  >
+                    Restaurar ↩️
+                  </button>
+                }
+              </div>
+
+              <div class="text-xs text-slate-300 mt-1.5 line-clamp-2">
+                {{ rev.description }}
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+  </div>
+</div>
+
