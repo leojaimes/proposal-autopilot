@@ -72,7 +72,7 @@ export class StudioStateService {
   readonly selectedSlotRect = signal<{ top: number; left: number; width: number; height: number } | null>(null);
   readonly deviceMode = signal<StudioDeviceMode>("desktop");
   readonly viewMode = signal<StudioViewMode>("preview");
-  readonly activeTab = signal<"blocks" | "files" | "theme" | "history">("blocks");
+  readonly activeTab = signal<"blocks" | "files" | "assets" | "theme" | "history">("blocks");
   readonly systemPersona = signal<StudioSystemPersona>("high-conversion");
   readonly telemetry = signal<{ tokensInput: number; tokensOutput: number; latencyMs: number }>({
     tokensInput: 1420,
@@ -105,6 +105,10 @@ export class StudioStateService {
   readonly demoSlug = computed(() => this.session()?.demo?.slug || "");
 
   readonly previewUrl = computed(() => this.session()?.demo?.publicUrl || "");
+
+  readonly extractedAssets = computed(
+    () => this.session()?.demo?.extractedAssets || [],
+  );
 
   /**
    * Virtual Astro 5 Component Projection.
@@ -249,6 +253,27 @@ export default defineConfig({
       ),
       isComponent: false,
     });
+
+    // 6. src/data/ui-layout.json (if R2 extracted assets exist)
+    const assets = demo?.extractedAssets || [];
+    if (assets.length > 0) {
+      files.push({
+        path: "src/data/ui-layout.json",
+        name: "ui-layout.json",
+        language: "json",
+        content: JSON.stringify(
+          {
+            slug: demo?.slug,
+            businessName,
+            totalAssets: assets.length,
+            assets,
+          },
+          null,
+          2,
+        ),
+        isComponent: false,
+      });
+    }
 
     return files;
   });
@@ -539,7 +564,7 @@ export default defineConfig({
     this.deviceMode.set(mode);
   }
 
-  setActiveTab(tab: "blocks" | "files" | "theme" | "history"): void {
+  setActiveTab(tab: "blocks" | "files" | "assets" | "theme" | "history"): void {
     this.activeTab.set(tab);
   }
 

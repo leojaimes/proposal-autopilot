@@ -67,6 +67,26 @@ export interface StudioDemoMeta {
   };
   publicUrl?: string;
   screenshotUrl?: string;
+  extractedAssets?: StudioExtractedAsset[];
+}
+
+export type StudioAssetCategory =
+  | "branding"
+  | "hero"
+  | "content"
+  | "social-proof";
+
+export interface StudioExtractedAsset {
+  id: string;
+  category: StudioAssetCategory;
+  slotId: string;
+  r2Path: string;
+  publicUrl: string;
+  width: number;
+  height: number;
+  byteSize: number;
+  hash: string;
+  originalUrl?: string;
 }
 
 export interface StudioSession {

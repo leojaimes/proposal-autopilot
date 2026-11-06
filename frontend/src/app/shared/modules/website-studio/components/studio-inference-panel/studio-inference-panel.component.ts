@@ -53,3 +53,4 @@ export class StudioInferencePanelComponent {
     this.state.revertToRevision(revNum);
   }
 }
+

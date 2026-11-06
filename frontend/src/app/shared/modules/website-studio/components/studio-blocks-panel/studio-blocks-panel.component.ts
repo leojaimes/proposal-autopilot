@@ -2,6 +2,7 @@ import {
   Component,
   inject,
   output,
+  signal,
   ChangeDetectionStrategy,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
@@ -18,6 +19,7 @@ import {
   StudioSection,
   StudioColorPalette,
   StudioAstroFile,
+  StudioExtractedAsset,
 } from "../../types/studio.types";
 
 @Component({
@@ -32,6 +34,52 @@ export class StudioBlocksPanelComponent {
   readonly scrollToSection = output<string>();
 
   readonly palettes = PRESET_COLOR_PALETTES;
+  readonly copiedAssetId = signal<string | null>(null);
+
+  copyAssetUrl(asset: StudioExtractedAsset): void {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(asset.publicUrl);
+      this.copiedAssetId.set(asset.id);
+      setTimeout(() => this.copiedAssetId.set(null), 2000);
+    }
+  }
+
+  formatBytes(bytes: number): string {
+    if (!bytes) return "0 B";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  getCategoryBadge(category: string): { label: string; class: string } {
+    switch (category) {
+      case "branding":
+        return {
+          label: "Logo / Brand",
+          class: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+        };
+      case "hero":
+        return {
+          label: "Hero / Banner",
+          class: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+        };
+      case "content":
+        return {
+          label: "Servicios / Contenido",
+          class: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+        };
+      case "social-proof":
+        return {
+          label: "Testimonios / Equipo",
+          class: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+        };
+      default:
+        return {
+          label: category,
+          class: "bg-slate-500/20 text-slate-300 border-slate-500/30",
+        };
+    }
+  }
 
   onDrop(event: CdkDragDrop<StudioSection[]>): void {
     const items = [...this.state.sections()];
