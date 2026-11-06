@@ -7,9 +7,11 @@ import {
   StudioAiResponse,
   StudioSnapshotResult,
   StudioSection,
+  StudioNielsenFinding,
 } from "../types/studio.types";
 
 export interface IStudioApiClient {
+  setBaseUrl?(url: string): void;
   loadSession(idOrSlug: string): Observable<StudioSession>;
   applyPatch(
     idOrSlug: string,
@@ -33,6 +35,16 @@ export interface IStudioApiClient {
     revertedTo: number;
     newRevisionNumber: number;
     sections: StudioSection[];
+  }>;
+  autoFixNielsen(
+    idOrSlug: string,
+    finding: StudioNielsenFinding,
+  ): Observable<{
+    success: boolean;
+    revisionNumber: number;
+    description: string;
+    appliedPatches: unknown[];
+    publicUrl?: string;
   }>;
 }
 

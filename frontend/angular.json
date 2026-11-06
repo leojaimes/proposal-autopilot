@@ -58,6 +58,23 @@
           },
           "defaultConfiguration": "production"
         },
+        "element": {
+          "builder": "@angular-devkit/build-angular:application",
+          "options": {
+            "outputPath": "dist/element",
+            "index": "src/index.element.html",
+            "browser": "src/main.element.ts",
+            "polyfills": [
+              "zone.js"
+            ],
+            "tsConfig": "tsconfig.element.json",
+            "styles": [
+              "src/styles.css"
+            ],
+            "outputHashing": "none",
+            "optimization": true
+          }
+        },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {

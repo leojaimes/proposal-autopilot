@@ -9,6 +9,7 @@ import {
   StudioAiResponse,
   StudioSnapshotResult,
   StudioSection,
+  StudioNielsenFinding,
 } from "../types/studio.types";
 
 export const STUDIO_API_BASE_URL = new InjectionToken<string>(
@@ -30,7 +31,13 @@ export const STUDIO_API_BASE_URL = new InjectionToken<string>(
 })
 export class HttpStudioApiAdapter implements IStudioApiClient {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = inject(STUDIO_API_BASE_URL);
+  private baseUrl = inject(STUDIO_API_BASE_URL);
+
+  setBaseUrl(url: string): void {
+    if (typeof url === "string") {
+      this.baseUrl = url.endsWith("/") ? url.slice(0, -1) : url;
+    }
+  }
 
   loadSession(idOrSlug: string): Observable<StudioSession> {
     return this.http.get<StudioSession>(`${this.baseUrl}/${idOrSlug}/studio`);
@@ -87,6 +94,25 @@ export class HttpStudioApiAdapter implements IStudioApiClient {
     }>(`${this.baseUrl}/${idOrSlug}/revert`, {
       targetRevisionNumber,
     });
+  }
+
+  autoFixNielsen(
+    idOrSlug: string,
+    finding: StudioNielsenFinding,
+  ): Observable<{
+    success: boolean;
+    revisionNumber: number;
+    description: string;
+    appliedPatches: unknown[];
+    publicUrl?: string;
+  }> {
+    return this.http.post<{
+      success: boolean;
+      revisionNumber: number;
+      description: string;
+      appliedPatches: unknown[];
+      publicUrl?: string;
+    }>(`${this.baseUrl}/${idOrSlug}/ai/autofix`, finding);
   }
 }
 

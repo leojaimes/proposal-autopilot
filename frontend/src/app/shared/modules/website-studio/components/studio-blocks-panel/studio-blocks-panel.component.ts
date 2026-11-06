@@ -20,6 +20,7 @@ import {
   StudioColorPalette,
   StudioAstroFile,
   StudioExtractedAsset,
+  StudioNielsenFinding,
 } from "../../types/studio.types";
 
 @Component({
@@ -121,6 +122,35 @@ export class StudioBlocksPanelComponent {
     if (n.includes("TESTIMONIAL") || n.includes("REVIEW")) return "💬";
     if (n.includes("FOOTER") || n.includes("CONTACT")) return "📍";
     return "📄";
+  }
+
+  onApplyNielsenAutoFix(finding: StudioNielsenFinding, index: number): void {
+    this.state.applyNielsenAutoFix(finding, index);
+  }
+
+  getNielsenScoreBadge(score: number): { text: string; bg: string; textClass: string } {
+    if (score >= 80) {
+      return { text: "Excelente", bg: "bg-emerald-500/20 border-emerald-500/40", textClass: "text-emerald-400" };
+    }
+    if (score >= 60) {
+      return { text: "Aceptable", bg: "bg-amber-500/20 border-amber-500/40", textClass: "text-amber-400" };
+    }
+    return { text: "Crítico", bg: "bg-rose-500/20 border-rose-500/40", textClass: "text-rose-400" };
+  }
+
+  getFindingSeverityBadge(severity?: string): { label: string; class: string } {
+    switch (severity) {
+      case "CRITICAL":
+        return { label: "Crítico", class: "bg-rose-500/20 text-rose-300 border-rose-500/30" };
+      case "HIGH":
+        return { label: "Alto", class: "bg-amber-500/20 text-amber-300 border-amber-500/30" };
+      case "MEDIUM":
+        return { label: "Medio", class: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30" };
+      case "LOW":
+        return { label: "Bajo", class: "bg-blue-500/20 text-blue-300 border-blue-500/30" };
+      default:
+        return { label: "Aviso", class: "bg-slate-500/20 text-slate-300 border-slate-500/30" };
+    }
   }
 }
 

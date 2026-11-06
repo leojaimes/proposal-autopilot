@@ -16,6 +16,7 @@ import {
   StudioViewMode,
   StudioSystemPersona,
   StudioAstroFile,
+  StudioNielsenFinding,
 } from "../types/studio.types";
 import {
   buildZipArchive,
@@ -72,7 +73,8 @@ export class StudioStateService {
   readonly selectedSlotRect = signal<{ top: number; left: number; width: number; height: number } | null>(null);
   readonly deviceMode = signal<StudioDeviceMode>("desktop");
   readonly viewMode = signal<StudioViewMode>("preview");
-  readonly activeTab = signal<"blocks" | "files" | "assets" | "theme" | "history">("blocks");
+  readonly activeTab = signal<"blocks" | "files" | "assets" | "theme" | "history" | "nielsen">("blocks");
+  readonly fixingFindingIndex = signal<number | null>(null);
   readonly systemPersona = signal<StudioSystemPersona>("high-conversion");
   readonly telemetry = signal<{ tokensInput: number; tokensOutput: number; latencyMs: number }>({
     tokensInput: 1420,
@@ -564,8 +566,37 @@ export default defineConfig({
     this.deviceMode.set(mode);
   }
 
-  setActiveTab(tab: "blocks" | "files" | "assets" | "theme" | "history"): void {
+  setActiveTab(tab: "blocks" | "files" | "assets" | "theme" | "history" | "nielsen"): void {
     this.activeTab.set(tab);
+  }
+
+  setApiUrl(url: string): void {
+    if (this.apiClient.setBaseUrl) {
+      this.apiClient.setBaseUrl(url);
+    }
+  }
+
+  async applyNielsenAutoFix(finding: StudioNielsenFinding, index?: number): Promise<void> {
+    const slug = this.demoSlug();
+    if (!slug) return;
+
+    if (index !== undefined) {
+      this.fixingFindingIndex.set(index);
+    }
+    this.isSaving.set(true);
+    this.error.set(null);
+    try {
+      const res = await firstValueFrom(this.apiClient.autoFixNielsen(slug, finding));
+      this.currentRevisionNumber.set(res.revisionNumber);
+      // Reload session to reflect updated sections, HTML and revisions
+      await this.loadSession(slug);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.error.set(`Failed to auto-fix Nielsen issue: ${msg}`);
+    } finally {
+      this.fixingFindingIndex.set(null);
+      this.isSaving.set(false);
+    }
   }
 
   /**

@@ -90,6 +90,22 @@ export interface StudioExtractedAsset {
   originalUrl?: string;
 }
 
+export interface StudioNielsenFinding {
+  heuristicNumber: number;
+  heuristicTitle: string;
+  issue: string;
+  recommendation: string;
+  targetSectionName?: string;
+  severity?: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+  somMarkId?: number;
+}
+
+export interface StudioNielsenAudit {
+  score: number;
+  frictionsCount: number;
+  findings: StudioNielsenFinding[];
+}
+
 export interface StudioSession {
   demo: StudioDemoMeta;
   sections: StudioSection[];
@@ -97,6 +113,7 @@ export interface StudioSession {
   revisions: StudioRevision[];
   humanLockedFields: string[];
   html: string;
+  nielsenAudit?: StudioNielsenAudit;
 }
 
 export interface StudioPatchPayload {

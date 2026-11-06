@@ -1,10 +1,20 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  inject,
+  signal,
+  Injector,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, Router, NavigationEnd } from '@angular/router';
+import { createCustomElement } from '@angular/elements';
 import { filter } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AppSidebarComponent } from './features/navigation/app-sidebar.component';
-import { DispatchHeaderComponent, AppViewMode } from './features/dispatch/dispatch-header.component';
+import {
+  DispatchHeaderComponent,
+  AppViewMode,
+} from './features/dispatch/dispatch-header.component';
 import { EngineSettingsDrawerComponent } from './features/dispatch/engine-settings-drawer.component';
 import { LiveScrapeProgressComponent } from './features/dispatch/live-scrape-progress.component';
 import { ReportService } from './core/services/report.service';
@@ -27,15 +37,23 @@ import { WebsiteStudioModalComponent } from './shared/modules/website-studio';
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (!auth.isAuthenticated()) {
+    @if (directStudioSlug()) {
+      <app-website-studio-modal
+        [demoSlug]="directStudioSlug()!"
+        (closed)="closeDirectStudio()"
+      ></app-website-studio-modal>
+    } @else if (!auth.isAuthenticated()) {
       <app-register-card></app-register-card>
     } @else {
-      <div class="flex h-screen w-screen overflow-hidden bg-app text-content-primary">
+      <div
+        class="flex h-screen w-screen overflow-hidden bg-app text-content-primary"
+      >
         <!-- Collapsible Rail Sidebar -->
         <app-sidebar
           [activeView]="currentView()"
           (viewModeChange)="navigateByViewMode($event)"
-          (openSettings)="isSettingsOpen.set(true)">
+          (openSettings)="isSettingsOpen.set(true)"
+        >
         </app-sidebar>
 
         <!-- Main Viewport (Header + Live Progress + Routed Content) -->
@@ -44,7 +62,8 @@ import { WebsiteStudioModalComponent } from './shared/modules/website-studio';
           <app-dispatch-header
             [activeView]="currentView()"
             (viewModeChange)="navigateByViewMode($event)"
-            (openSettings)="isSettingsOpen.set(true)">
+            (openSettings)="isSettingsOpen.set(true)"
+          >
           </app-dispatch-header>
 
           <!-- Live SSE Scraping Activity Banner -->
@@ -59,18 +78,12 @@ import { WebsiteStudioModalComponent } from './shared/modules/website-studio';
         <!-- Calibration Settings Drawer -->
         <app-engine-settings-drawer
           [isOpen]="isSettingsOpen()"
-          (closeDrawer)="isSettingsOpen.set(false)">
+          (closeDrawer)="isSettingsOpen.set(false)"
+        >
         </app-engine-settings-drawer>
-
-        @if (directStudioSlug()) {
-          <app-website-studio-modal
-            [demoSlug]="directStudioSlug()!"
-            (closed)="closeDirectStudio()"
-          ></app-website-studio-modal>
-        }
       </div>
     }
-  `
+  `,
 })
 export class AppComponent {
   public readonly auth = inject(AuthService);
@@ -80,15 +93,42 @@ export class AppComponent {
   public readonly currentView = signal<AppViewMode>('TERMINAL');
   public readonly isSettingsOpen = signal<boolean>(false);
   public readonly directStudioSlug = signal<string | null>(null);
+  private readonly injector = inject(Injector);
 
   constructor() {
+    if (
+      typeof window !== 'undefined' &&
+      typeof customElements !== 'undefined' &&
+      !customElements.get('studio-workbench')
+    ) {
+      try {
+        const StudioWorkbenchElement = createCustomElement(
+          WebsiteStudioModalComponent,
+          {
+            injector: this.injector,
+          },
+        );
+        customElements.define('studio-workbench', StudioWorkbenchElement);
+        console.info(
+          '⚡ [StudioWorkbench] Registered <studio-workbench> Custom Element.',
+        );
+      } catch (e) {
+        console.warn(
+          'Could not register <studio-workbench> Custom Element:',
+          e,
+        );
+      }
+    }
+
     this.syncCurrentView(this.router.url);
     this.syncStudioParam();
 
     this.router.events
       .pipe(
-        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
-        takeUntilDestroyed()
+        filter(
+          (event): event is NavigationEnd => event instanceof NavigationEnd,
+        ),
+        takeUntilDestroyed(),
       )
       .subscribe((event) => {
         this.syncCurrentView(event.urlAfterRedirects || event.url);
@@ -131,7 +171,11 @@ export class AppComponent {
       this.currentView.set('WORKBENCH');
     } else if (cleanUrl.startsWith('/profile')) {
       this.currentView.set('PROFILE');
-    } else if (cleanUrl.startsWith('/dispatch') || cleanUrl === '/' || cleanUrl === '') {
+    } else if (
+      cleanUrl.startsWith('/dispatch') ||
+      cleanUrl === '/' ||
+      cleanUrl === ''
+    ) {
       this.currentView.set('TERMINAL');
     }
   }

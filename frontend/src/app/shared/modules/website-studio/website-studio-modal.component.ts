@@ -39,6 +39,8 @@ import { StudioSlot } from "./types/studio.types";
 })
 export class WebsiteStudioModalComponent implements OnInit, OnDestroy {
   @Input({ required: true }) demoSlug!: string;
+  @Input() apiUrl?: string;
+  @Input() authToken?: string;
   @ViewChild("studioFrame") studioFrame?: ElementRef<HTMLIFrameElement>;
 
   readonly closed = output<void>();
@@ -80,6 +82,9 @@ export class WebsiteStudioModalComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    if (this.apiUrl !== undefined) {
+      this.state.setApiUrl(this.apiUrl);
+    }
     if (this.demoSlug) {
       this.state.loadSession(this.demoSlug);
     }
