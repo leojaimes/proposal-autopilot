@@ -89,10 +89,18 @@ export class ZeroStateOnboardingComponent {
     }
   }
 
+  private static readonly MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
+
   private handleFile(file: File): void {
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     if (!['.pdf', '.txt', '.md'].includes(ext)) {
       this.errorMessage.set('Formato no soportado. Por favor sube un archivo .pdf, .txt o .md');
+      return;
+    }
+
+    if (file.size > ZeroStateOnboardingComponent.MAX_FILE_SIZE_BYTES) {
+      this.errorMessage.set('El archivo supera el tamaño máximo permitido de 25MB.');
+      this.clearFile();
       return;
     }
 
@@ -172,7 +180,7 @@ Flutter mobile application built with Clean Architecture for high testability an
           },
           error: (err) => {
             this.isSynthesizing.set(false);
-            this.errorMessage.set(err.error?.message || 'Error sintetizando perfil con IA.');
+            this.errorMessage.set(this.extractErrorMessage(err));
           }
         });
     } else {
@@ -186,10 +194,26 @@ Flutter mobile application built with Clean Architecture for high testability an
           },
           error: (err) => {
             this.isSynthesizing.set(false);
-            this.errorMessage.set(err.error?.message || 'Error sintetizando perfil con IA.');
+            this.errorMessage.set(this.extractErrorMessage(err));
           }
         });
     }
+  }
+
+  private extractErrorMessage(err: any): string {
+    if (err?.status === 413) {
+      return 'El archivo o contenido es demasiado grande. El límite máximo es 25MB.';
+    }
+    if (err?.status === 502 || err?.status === 504) {
+      return 'El servicio de IA o gateway tardó demasiado en responder. Por favor intenta de nuevo.';
+    }
+    if (typeof err?.error?.message === 'string') {
+      return err.error.message;
+    }
+    if (typeof err?.message === 'string' && !err.message.includes('Unexpected token')) {
+      return err.message;
+    }
+    return 'Error sintetizando perfil con IA. Por favor intenta de nuevo.';
   }
 
   public resetSynthesis(): void {

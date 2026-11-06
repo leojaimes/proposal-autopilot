@@ -277,10 +277,17 @@ Built a conversational event search chatbot for Facebook Messenger using Graph A
     }
   }
 
+  private static readonly MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
+
   private handleFile(file: File): void {
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     if (!['.pdf', '.txt', '.md'].includes(ext)) {
       this.errorMessage.set('Formato no soportado (.pdf, .txt o .md).');
+      return;
+    }
+    if (file.size > DispatchHeaderComponent.MAX_FILE_SIZE_BYTES) {
+      this.errorMessage.set('El archivo supera el tamaño máximo permitido de 25MB.');
+      this.clearFile();
       return;
     }
     this.errorMessage.set('');

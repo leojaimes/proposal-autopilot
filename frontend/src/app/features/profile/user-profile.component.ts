@@ -128,7 +128,13 @@ export class UserProfileComponent {
     }
   }
 
+  private static readonly MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
+
   private setFile(file: File): void {
+    if (file.size > UserProfileComponent.MAX_FILE_SIZE_BYTES) {
+      alert('El archivo supera el tamaño máximo permitido de 25MB.');
+      return;
+    }
     this.selectedCvFile.set(file);
     this.selectedFileName.set(file.name);
   }
