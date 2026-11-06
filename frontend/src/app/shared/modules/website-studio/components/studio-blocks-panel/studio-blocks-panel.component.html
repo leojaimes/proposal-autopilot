@@ -78,6 +78,12 @@
                   <div class="flex items-center gap-2">
                     <span class="text-sm">{{ getSectionIcon(sec.name) }}</span>
                     <span class="text-xs font-bold text-slate-100 tracking-wide uppercase">{{ sec.name }}</span>
+                    @if (sec.originalSectionImageUrl) {
+                      <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono flex items-center gap-1 border border-emerald-500/30" title="Recorte original disponible en R2">
+                        <span>📸</span>
+                        <span>Recorte</span>
+                      </span>
+                    }
                   </div>
                   <div class="text-[10px] text-slate-400 mt-0.5">
                     {{ sec.slots.length }} elementos editables

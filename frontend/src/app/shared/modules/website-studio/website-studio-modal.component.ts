@@ -49,6 +49,14 @@ export class WebsiteStudioModalComponent implements OnInit, OnDestroy {
 
   readonly selectedRoute = signal<string>("/");
   readonly isCodeCopied = signal<boolean>(false);
+  readonly showOriginalCrop = signal<boolean>(false);
+
+  readonly activeOriginalImageUrl = computed(() => {
+    const sec = this.state.selectedSection();
+    if (sec?.originalSectionImageUrl) return sec.originalSectionImageUrl;
+    const firstWithImage = this.state.sections().find((s) => s.originalSectionImageUrl);
+    return firstWithImage?.originalSectionImageUrl || null;
+  });
 
   private messageHandler?: (event: MessageEvent) => void;
 

@@ -10,6 +10,7 @@ import { LiveScrapeProgressComponent } from './features/dispatch/live-scrape-pro
 import { ReportService } from './core/services/report.service';
 import { AuthService } from './core/services/auth.service';
 import { RegisterCardComponent } from './features/auth/register-card.component';
+import { WebsiteStudioModalComponent } from './shared/modules/website-studio';
 
 @Component({
   selector: 'app-root',
@@ -22,6 +23,7 @@ import { RegisterCardComponent } from './features/auth/register-card.component';
     DispatchHeaderComponent,
     EngineSettingsDrawerComponent,
     LiveScrapeProgressComponent,
+    WebsiteStudioModalComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -59,6 +61,13 @@ import { RegisterCardComponent } from './features/auth/register-card.component';
           [isOpen]="isSettingsOpen()"
           (closeDrawer)="isSettingsOpen.set(false)">
         </app-engine-settings-drawer>
+
+        @if (directStudioSlug()) {
+          <app-website-studio-modal
+            [demoSlug]="directStudioSlug()!"
+            (closed)="closeDirectStudio()"
+          ></app-website-studio-modal>
+        }
       </div>
     }
   `
@@ -70,9 +79,11 @@ export class AppComponent {
 
   public readonly currentView = signal<AppViewMode>('TERMINAL');
   public readonly isSettingsOpen = signal<boolean>(false);
+  public readonly directStudioSlug = signal<string | null>(null);
 
   constructor() {
     this.syncCurrentView(this.router.url);
+    this.syncStudioParam();
 
     this.router.events
       .pipe(
@@ -81,6 +92,7 @@ export class AppComponent {
       )
       .subscribe((event) => {
         this.syncCurrentView(event.urlAfterRedirects || event.url);
+        this.syncStudioParam();
       });
   }
 
@@ -122,5 +134,20 @@ export class AppComponent {
     } else if (cleanUrl.startsWith('/dispatch') || cleanUrl === '/' || cleanUrl === '') {
       this.currentView.set('TERMINAL');
     }
+  }
+
+  private syncStudioParam(): void {
+    if (typeof window === 'undefined') return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const studio = urlParams.get('studio');
+    this.directStudioSlug.set(studio);
+  }
+
+  public closeDirectStudio(): void {
+    this.directStudioSlug.set(null);
+    this.router.navigate([], {
+      queryParams: { studio: null },
+      queryParamsHandling: 'merge',
+    });
   }
 }

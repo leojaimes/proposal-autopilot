@@ -1,0 +1,45 @@
+{
+  "version": 2,
+  "viewport": { "width": 1440, "height": 900 },
+  "maxDiffPixels": 1000000,
+  "stepTimeoutMs": 30000,
+  "scenarioTimeoutMs": 120000,
+  "storageState": ".sandbox/fixtures/auth-state.json",
+  "scenarios": [
+    {
+      "id": "universal-website-studio-verification",
+      "profile": "nielsen",
+      "steps": [
+        { "action": "goto", "path": "/?studio=icon-dental-sf-3920d4" },
+        { "action": "waitFor", "selector": "h2:has-text('Astro Workbench')", "state": "visible" },
+        { "action": "waitFor", "selector": "iframe[title='Website Live Preview']", "state": "visible" },
+        { "action": "waitFor", "selector": "button:has-text('Bloques')", "state": "visible" },
+        {
+          "action": "screenshot",
+          "id": "01-studio-modal-live-preview",
+          "checkpoint": "Universal Website Studio modal loads the cloned demo with live interactive HTML preview.",
+          "fullPage": true,
+          "captureOnly": true
+        },
+        { "action": "click", "selector": "button:has-text('R2')" },
+        { "action": "waitFor", "selector": "text=Assets en Cloudflare R2", "state": "visible" },
+        {
+          "action": "screenshot",
+          "id": "02-studio-r2-assets-taxonomy",
+          "checkpoint": "Extracted R2 assets panel displays logos, hero, and content assets with WebP optimization.",
+          "fullPage": true,
+          "captureOnly": true
+        },
+        { "action": "click", "selector": "button:has-text('Bloques')" },
+        { "action": "waitFor", "selector": "app-studio-blocks-panel >> text=Arrastra para reordenar la página", "state": "visible" },
+        {
+          "action": "screenshot",
+          "id": "03-studio-semantic-blocks",
+          "checkpoint": "Blocks panel displays parsed sections ready for drag-and-drop reordering with original crop badges.",
+          "fullPage": true,
+          "captureOnly": true
+        }
+      ]
+    }
+  ]
+}

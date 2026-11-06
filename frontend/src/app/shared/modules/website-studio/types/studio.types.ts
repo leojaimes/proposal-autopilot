@@ -38,6 +38,7 @@ export interface StudioSection {
   startIndex: number;
   endIndex: number;
   slots: StudioSlot[];
+  originalSectionImageUrl?: string;
 }
 
 export interface StudioRevision {

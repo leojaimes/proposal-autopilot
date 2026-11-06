@@ -488,7 +488,10 @@ import { WebsiteStudioModalComponent } from '../../../shared/modules/website-stu
               >
                 @if (isGeneratingDemo()) {
                   <svg lucideSparkles class="w-3.5 h-3.5 animate-spin"></svg>
-                  <span>Fabricando Demo en Publications...</span>
+                  <span>{{ lead().websiteUrl ? 'Clonando Website a R2 & Studio...' : 'Fabricando Demo en Publications...' }}</span>
+                } @else if (lead().websiteUrl) {
+                  <svg lucideSparkles class="w-3.5 h-3.5"></svg>
+                  <span>⚡ Clonar Website a Studio (R2)</span>
                 } @else {
                   <svg lucideSparkles class="w-3.5 h-3.5"></svg>
                   <span>⚡ Fabricar Demo Web Interactiva</span>

@@ -85,7 +85,10 @@ async function click(page, scenario, step, captured) {
 
 for (const scenario of plan.scenarios) {
   test.describe(`visual plan: ${scenario.id}`, () => {
-    test.use({ viewport: plan.viewport });
+    test.use({
+      viewport: plan.viewport,
+      ...(plan.storageState ? { storageState: plan.storageState } : {}),
+    });
 
     test(scenario.id, async ({ page }) => {
       test.setTimeout(plan.scenarioTimeoutMs);
