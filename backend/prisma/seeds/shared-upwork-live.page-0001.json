@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "sourceKind": "LIVE",
+  "actorId": "hyperbach/upwork-scraper-ai",
+  "runId": "TfGKurtsouOPZUUu5",
+  "datasetId": "a7KR9NLfldacp8zRo",
+  "query": {
+    "date_posted": "<=2026-11-05",
+    "limit": 2500,
+    "notifications_only": false
+  },
+  "page": {
+    "number": 1,
+    "size": 2499,
+    "nextPage": "MjAyNi0xMS0wNCAxMjoxMDoyMS4yMjQyM3wzOTY2NjA1"
+  },
+  "range": {
+    "from": "2026-10-21T05:57:46.607Z",
+    "to": "2026-11-04T23:59:53.471Z"
+  }
+}

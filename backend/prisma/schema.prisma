@@ -352,10 +352,63 @@ model SharedUpworkJob {
   rawApifyPayload  Json     @map("raw_apify_payload")
   sourceRunId      String   @map("source_run_id") @db.VarChar(100)
   sourceDatasetId  String   @map("source_dataset_id") @db.VarChar(100)
+  sourceKind       SharedUpworkSourceKind @default(HISTORICAL) @map("source_kind")
+  sourceActorId    String   @default("hyperbach/upwork-jobs-history") @map("source_actor_id") @db.VarChar(100)
+  sourceObservedAt DateTime? @map("source_observed_at")
+  sourceSegment    String?  @map("source_segment") @db.VarChar(50)
   isProtected      Boolean  @default(true) @map("is_protected")
   createdAt        DateTime @default(now()) @map("created_at")
+  segments         SharedUpworkJobSegment[]
 
+  @@index([sourceKind, postedAt])
+  @@index([sourceSegment, postedAt])
   @@map("shared_upwork_jobs")
+}
+
+enum SharedUpworkSourceKind {
+  HISTORICAL
+  LIVE
+}
+
+model SharedUpworkJobSegment {
+  jobId     String   @map("job_id") @db.Uuid
+  segment   String   @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+  job       SharedUpworkJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@id([jobId, segment])
+  @@index([segment])
+  @@map("shared_upwork_job_segments")
+}
+
+model MarketRadarCoverageWindow {
+  id            String                    @id @default(uuid()) @db.Uuid
+  windowStartAt DateTime                  @map("window_start_at")
+  windowEndAt   DateTime                  @map("window_end_at")
+  createdAt     DateTime                  @default(now()) @map("created_at")
+  pages         MarketRadarCoveragePage[]
+
+  @@unique([windowStartAt, windowEndAt])
+  @@map("market_radar_coverage_windows")
+}
+
+model MarketRadarCoveragePage {
+  id               String                    @id @default(uuid()) @db.Uuid
+  coverageWindowId String                    @map("coverage_window_id") @db.Uuid
+  segment          String                    @db.VarChar(50)
+  queryFingerprint String                    @map("query_fingerprint") @db.VarChar(255)
+  actorInput       Json?                     @map("actor_input")
+  inputCursor      String?                   @map("input_cursor") @db.Text
+  outputCursor     String?                   @map("output_cursor") @db.Text
+  apifyRunId       String                    @map("apify_run_id") @db.VarChar(100)
+  apifyDatasetId   String                    @map("apify_dataset_id") @db.VarChar(100)
+  oldestObservedAt DateTime                  @map("oldest_observed_at")
+  recordedAt       DateTime                  @default(now()) @map("recorded_at")
+  coverageWindow   MarketRadarCoverageWindow @relation(fields: [coverageWindowId], references: [id], onDelete: Cascade)
+
+  @@unique([coverageWindowId, segment, inputCursor])
+  @@index([coverageWindowId, segment, recordedAt])
+  @@map("market_radar_coverage_pages")
 }
 
 model JobCategoryAssignment {

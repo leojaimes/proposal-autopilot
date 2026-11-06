@@ -54,3 +54,6 @@ tests/sandbox-visual/evidence/
 *.db_integrity_baseline.json
 POST_MORTEM_*.md
 graphify-out/cache/
+
+# Local market-data backups: raw payloads and restoration dumps must not enter Git
+/backups/market-radar/

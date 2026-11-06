@@ -23,6 +23,7 @@ test('creates a protected shared Upwork catalog in PostgreSQL', async () => {
     assert.deepEqual(columns.map((column) => column.column_name), [
       'id', 'external_upwork_id', 'title', 'description', 'job_url', 'posted_at',
       'raw_apify_payload', 'source_run_id', 'source_dataset_id', 'is_protected', 'created_at',
+      'source_kind', 'source_actor_id', 'source_observed_at', 'source_segment',
     ]);
   } finally {
     await prisma.$disconnect();
@@ -98,9 +99,13 @@ test('persists the raw Apify payload through the seed importer', async () => {
   };
 
   try {
+    const catalog = new PrismaSharedUpworkCatalogRepository(prisma);
     const importer = new UpworkHistorySeedImporter(
       { async getMostRecent() { return { runId: 'run-importer', datasetId: 'dataset-importer', items: [rawPayload] }; } },
-      new PrismaSharedUpworkCatalogRepository(prisma),
+      {
+        async hasCompletedProtectedSeed() { return false; },
+        saveProtected: (rows, provenance) => catalog.saveProtected(rows, provenance),
+      },
     );
 
     assert.deepEqual(await importer.importOnce(), { imported: 1, runId: 'run-importer', datasetId: 'dataset-importer' });
@@ -138,6 +143,69 @@ test('runs the portable seed command against PostgreSQL', async () => {
     await prisma.$executeRaw`
       UPDATE shared_upwork_jobs SET is_protected = false WHERE external_upwork_id = ${externalUpworkId}
     `;
+    await prisma.sharedUpworkJob.deleteMany({ where: { externalUpworkId } });
+    await prisma.$disconnect();
+  }
+});
+
+test('stores live catalog rows as provisional with explicit source lineage', async () => {
+  const externalUpworkId = `live-source-test-${randomUUID()}`;
+  try {
+    const saved = await prisma.sharedUpworkJob.create({ data: {
+      externalUpworkId,
+      title: 'Live source test job',
+      description: 'A live job stays provisional until historical reconciliation.',
+      jobUrl: `https://www.upwork.com/jobs/~${externalUpworkId}`,
+      postedAt: new Date('2026-11-04T23:59:00Z'),
+      rawApifyPayload: { id: externalUpworkId },
+      sourceRunId: 'live-run-1',
+      sourceDatasetId: 'live-dataset-1',
+      sourceKind: 'LIVE',
+      sourceActorId: 'hyperbach/upwork-scraper-ai',
+      sourceObservedAt: new Date('2026-11-05T00:00:00Z'),
+      sourceSegment: 'ux-ui',
+      isProtected: false,
+    } });
+
+    assert.equal(saved.sourceKind, 'LIVE');
+    assert.equal(saved.sourceActorId, 'hyperbach/upwork-scraper-ai');
+    assert.equal(saved.sourceSegment, 'ux-ui');
+    assert.equal(saved.isProtected, false);
+  } finally {
+    await prisma.sharedUpworkJob.deleteMany({ where: { externalUpworkId } });
+    await prisma.$disconnect();
+  }
+});
+
+test('keeps every matching segment for a live catalog job', async () => {
+  const externalUpworkId = `live-segments-test-${randomUUID()}`;
+  const repository = new PrismaSharedUpworkCatalogRepository(prisma);
+  const liveRow = (sourceSegment: string) => ({
+    externalUpworkId,
+    title: 'Live segmented test job',
+    description: 'A live job can satisfy more than one market category.',
+    jobUrl: `https://www.upwork.com/jobs/~${externalUpworkId}`,
+    postedAt: new Date('2026-11-04T23:59:00Z'),
+    rawApifyPayload: { id: externalUpworkId },
+    sourceObservedAt: new Date('2026-11-05T00:00:00Z'),
+    sourceSegment,
+  });
+
+  try {
+    const first = await repository.saveLive([liveRow('ux-ui')], { actorId: 'hyperbach/upwork-scraper-ai', runId: 'live-run-1', datasetId: 'live-dataset-1' });
+    const second = await repository.saveLive([liveRow('design-systems')], { actorId: 'hyperbach/upwork-scraper-ai', runId: 'live-run-2', datasetId: 'live-dataset-2' });
+    const repeated = await repository.saveLive([liveRow('design-systems')], { actorId: 'hyperbach/upwork-scraper-ai', runId: 'live-run-2', datasetId: 'live-dataset-2' });
+
+    assert.deepEqual(first, { newJobs: 1, newSegmentAssignments: 1 });
+    assert.deepEqual(second, { newJobs: 0, newSegmentAssignments: 1 });
+    assert.deepEqual(repeated, { newJobs: 0, newSegmentAssignments: 0 });
+
+    const saved = await prisma.sharedUpworkJob.findUniqueOrThrow({
+      where: { externalUpworkId },
+      include: { segments: { orderBy: { segment: 'asc' } } },
+    });
+    assert.deepEqual(saved.segments.map((segment) => segment.segment), ['design-systems', 'ux-ui']);
+  } finally {
     await prisma.sharedUpworkJob.deleteMany({ where: { externalUpworkId } });
     await prisma.$disconnect();
   }

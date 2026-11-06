@@ -1,6 +1,16 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { readApifyDatasetPages } from './apify-dataset-reader';
+import { findOldestApifyJobPostedAt, readApifyDatasetPages } from './apify-dataset-reader';
+
+test('finds the earliest valid job posting date in an Apify dataset', () => {
+  const oldest = findOldestApifyJobPostedAt([
+    { id: 'newest', date_posted: '2026-11-05T14:00:00.000Z' },
+    { id: 'invalid', date_posted: 'not-a-date' },
+    { id: 'oldest', date_posted: '2026-10-22T01:00:00.000Z' },
+  ]);
+
+  assert.deepEqual(oldest, new Date('2026-10-22T01:00:00.000Z'));
+});
 
 test('reads every Apify dataset page in stable offset order', async () => {
   const requestedUrls: string[] = [];

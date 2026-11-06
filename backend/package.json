@@ -19,7 +19,8 @@
     "test": "node --test -r ts-node/register/transpile-only src/modules/scoring/services/fit-calculator.spec.ts src/modules/prospecting/prospecting-enterprise.spec.ts src/modules/prospecting/services/email-validation.service.spec.ts src/modules/prospecting/services/orion-deep-prospect-enricher.service.spec.ts",
     "prisma:seed": "ts-node prisma/seed.ts",
     "seed:shared-upwork-history": "ts-node --transpile-only scripts/seed-shared-upwork-history.ts",
-    "import:shared-upwork-history-page": "ts-node --transpile-only scripts/import-apify-history-dataset-page.ts"
+    "import:shared-upwork-history-page": "ts-node --transpile-only scripts/import-apify-history-dataset-page.ts",
+    "import:apify-live-dataset": "ts-node --transpile-only scripts/import-apify-live-dataset.ts"
   },
   "prisma": {
     "seed": "ts-node --transpile-only --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"

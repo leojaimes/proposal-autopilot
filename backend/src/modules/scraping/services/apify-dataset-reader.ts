@@ -1,6 +1,17 @@
 type ApifyResponse = { ok: boolean; json(): Promise<unknown> };
 type FetchPage = (url: string) => Promise<ApifyResponse>;
 
+export function findOldestApifyJobPostedAt(items: Record<string, unknown>[]): Date | null {
+  let oldest: Date | null = null;
+  for (const item of items) {
+    if (typeof item.date_posted !== 'string') continue;
+    const postedAt = new Date(item.date_posted);
+    if (Number.isNaN(postedAt.valueOf())) continue;
+    if (!oldest || postedAt < oldest) oldest = postedAt;
+  }
+  return oldest;
+}
+
 export async function readApifyDatasetPages(
   datasetId: string,
   token: string,
