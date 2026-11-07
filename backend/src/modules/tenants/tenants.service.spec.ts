@@ -95,3 +95,52 @@ test('updateProfileCv persists baseCv JSON in positioningProfile', async () => {
   assert.equal(res.success, true);
   assert.equal(savedData.baseCv.name, 'Updated Leonardo CV ATS');
 });
+
+test('synthesizeProfileFromCv rejects PDF without %PDF magic bytes', async () => {
+  const service = new TenantsService({} as any, {} as any);
+  await assert.rejects(
+    async () => {
+      await service.synthesizeProfileFromCv('tenant-1', undefined, {
+        buffer: Buffer.from('NOT_A_PDF_DATA_CONTENT'),
+        originalname: 'corrupt.pdf',
+      });
+    },
+    (err: any) => {
+      assert.equal(err.status, 400);
+      assert.match(err.message, /firma binaria inválida/);
+      return true;
+    },
+  );
+});
+
+test('synthesizeProfileFromCv rejects text or document with less than 50 characters', async () => {
+  const service = new TenantsService({} as any, {} as any);
+  await assert.rejects(
+    async () => {
+      await service.synthesizeProfileFromCv('tenant-1', 'Demasiado corto', undefined);
+    },
+    (err: any) => {
+      assert.equal(err.status, 400);
+      assert.match(err.message, /menos de 50 caracteres legibles/);
+      return true;
+    },
+  );
+});
+
+test('synthesizeProfileFromCv processes valid text input and delegates to claudeProposal', async () => {
+  let invokedText = '';
+  const mockClaude = {
+    synthesizeProfileFromCv: async (text: string) => {
+      invokedText = text;
+      return { personaName: 'Senior Architect', headline: 'AI Systems' };
+    },
+  };
+  const service = new TenantsService({} as any, mockClaude as any);
+  const sampleCvText = 'Experienced Fullstack Systems Architect with more than 10 years building distributed applications in TypeScript, Node, and Python.';
+  const result = await service.synthesizeProfileFromCv('tenant-1', sampleCvText, undefined);
+
+  assert.equal(result.success, true);
+  assert.equal(result.data.personaName, 'Senior Architect');
+  assert.equal(invokedText, sampleCvText);
+});
+

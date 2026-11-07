@@ -634,14 +634,32 @@ export class TenantsService {
   }
 
   /**
-   * Sintetiza el perfil completo a partir de texto o archivo (.pdf, .txt, .md)
+   * Extrae y valida texto de un archivo CV (.pdf, .txt, .md) o texto sin formato.
+   * Aplica validación de Magic Bytes (%PDF-1.) y descarta documentos sin texto digital reconocible.
    */
-  async synthesizeProfileFromCv(tenantId: string, rawText?: string, file?: { buffer: Buffer; originalname: string }) {
+  private async extractTextFromCvInput(
+    rawText?: string,
+    file?: { buffer: Buffer; originalname: string },
+  ): Promise<string> {
     let textToProcess = rawText || '';
 
     if (file && file.buffer) {
       const ext = (file.originalname || '').toLowerCase();
       if (ext.endsWith('.pdf')) {
+        // Validación de Magic Bytes (%PDF-1.)
+        const isPdfMagic =
+          file.buffer.length >= 4 &&
+          file.buffer[0] === 0x25 && // %
+          file.buffer[1] === 0x50 && // P
+          file.buffer[2] === 0x44 && // D
+          file.buffer[3] === 0x46;   // F
+
+        if (!isPdfMagic) {
+          throw new BadRequestException(
+            'El archivo subido no es un PDF válido o está corrupto (firma binaria inválida).',
+          );
+        }
+
         try {
           const pdfModule = require('pdf-parse');
           if (typeof pdfModule === 'function') {
@@ -658,6 +676,7 @@ export class TenantsService {
             throw new Error('Módulo de parseo de PDF no expone un método compatible');
           }
         } catch (err: any) {
+          if (err instanceof BadRequestException) throw err;
           throw new BadRequestException(`Error procesando archivo PDF: ${err.message}`);
         }
       } else {
@@ -665,10 +684,25 @@ export class TenantsService {
       }
     }
 
-    if (!textToProcess.trim()) {
-      throw new BadRequestException('Se requiere texto de CV o un archivo (.pdf, .txt, .md) válido.');
+    const trimmed = textToProcess.trim();
+    if (!trimmed) {
+      throw new BadRequestException('Se requiere texto de CV o un archivo (.pdf, .txt, .md) legible.');
     }
 
+    if (trimmed.length < 50) {
+      throw new BadRequestException(
+        'El archivo o texto proporcionado contiene menos de 50 caracteres legibles (parece ser una imagen o escaneo sin capa OCR). Por favor proporciona un CV con texto digital seleccionable.',
+      );
+    }
+
+    return trimmed;
+  }
+
+  /**
+   * Sintetiza el perfil completo a partir de texto o archivo (.pdf, .txt, .md)
+   */
+  async synthesizeProfileFromCv(tenantId: string, rawText?: string, file?: { buffer: Buffer; originalname: string }) {
+    const textToProcess = await this.extractTextFromCvInput(rawText, file);
     const synthesis = await this.claudeProposal.synthesizeProfileFromCv(textToProcess);
 
     return {
@@ -737,37 +771,7 @@ export class TenantsService {
     rawText?: string,
     file?: { buffer: Buffer; originalname: string },
   ) {
-    let textToProcess = rawText || '';
-
-    if (file && file.buffer) {
-      const ext = (file.originalname || '').toLowerCase();
-      if (ext.endsWith('.pdf')) {
-        try {
-          const pdfModule = require('pdf-parse');
-          if (typeof pdfModule === 'function') {
-            const pdfData = await pdfModule(file.buffer);
-            textToProcess = pdfData?.text || '';
-          } else if (pdfModule.PDFParse) {
-            const parser = new pdfModule.PDFParse({ data: file.buffer });
-            const res = await parser.getText();
-            textToProcess = (res && typeof res === 'object' && res.text) ? res.text : (typeof res === 'string' ? res : '');
-          } else if (pdfModule.default && typeof pdfModule.default === 'function') {
-            const pdfData = await pdfModule.default(file.buffer);
-            textToProcess = pdfData?.text || '';
-          } else {
-            throw new Error('Módulo de parseo de PDF no expone un método compatible');
-          }
-        } catch (err: any) {
-          throw new BadRequestException(`Error procesando archivo PDF: ${err.message}`);
-        }
-      } else {
-        textToProcess = file.buffer.toString('utf-8');
-      }
-    }
-
-    if (!textToProcess.trim()) {
-      throw new BadRequestException('Se requiere texto de CV o un archivo (.pdf, .txt, .md) válido.');
-    }
+    const textToProcess = await this.extractTextFromCvInput(rawText, file);
 
     let profile = profileId
       ? await this.prisma.positioningProfile.findFirst({ where: { id: profileId, tenantId } })

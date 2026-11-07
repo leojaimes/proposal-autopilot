@@ -157,10 +157,10 @@ export class TenantsController {
   /**
    * POST /api/config/synthesize-profile-from-cv
    * Sintetiza el perfil completo, taxonomía 4 capas, queries de Upwork y rationale de scoring
-   * a partir de texto plano o archivo subido (.pdf, .txt, .md).
+   * a partir de texto plano o archivo subido (.pdf, .txt, .md). Límite de 25MB para documentos complejos.
    */
   @Post('synthesize-profile-from-cv')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024 } }))
   async synthesizeProfileFromCv(
     @Body('rawText') rawText?: string,
     @UploadedFile() file?: any,
@@ -195,10 +195,10 @@ export class TenantsController {
   /**
    * POST /api/config/cv/parse-and-save
    * Recibe un CV (en PDF o texto plano), lo procesa con IA generando ambas versiones (ES/EN)
-   * y lo guarda en PostgreSQL bajo el esquema exacto de Publications (ats-cv).
+   * y lo guarda en PostgreSQL bajo el esquema exacto de Publications (ats-cv). Límite de 25MB.
    */
   @Post('cv/parse-and-save')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024 } }))
   async parseAndSaveCv(
     @Body('profileId') profileId?: string,
     @Body('rawText') rawText?: string,
