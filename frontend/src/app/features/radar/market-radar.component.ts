@@ -87,6 +87,14 @@ export interface MarketTrend {
   overallOpportunityDelta: number | null;
 }
 
+export interface SharedMarketEvidence {
+  segment: string;
+  sampleJobs: number;
+  oldestPostedAt: string;
+  newestPostedAt: string;
+  coverage: 'COMPLETE' | 'PARTIAL';
+}
+
 export interface RadarData {
   kpis: {
     totalJobsSampled: number;
@@ -96,6 +104,7 @@ export interface RadarData {
     activeProfileName: string | null;
   };
   operationalHealth: MarketRadarOperationalHealth;
+  sharedMarketEvidence: SharedMarketEvidence[];
   categories: MarketCategoryRow[];
   methodology: Record<string, string>;
 }

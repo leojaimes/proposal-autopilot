@@ -1,4 +1,4 @@
-type ApifyResponse = { ok: boolean; json(): Promise<unknown> };
+type ApifyResponse = { ok: boolean; status?: number; json(): Promise<unknown> };
 type Fetcher = (url: string, init: RequestInit) => Promise<ApifyResponse>;
 
 export class ApifyActorRunClient {
@@ -22,27 +22,50 @@ export class ApifyActorRunClient {
     options?: { maxTotalChargeUsd?: number },
   ): Promise<{ runId: string; datasetId: string; keyValueStoreId?: string }> {
     const maxCharge = options?.maxTotalChargeUsd == null ? '' : `&maxTotalChargeUsd=${options.maxTotalChargeUsd}`;
+    const actorReference = actorId.replace('/', '~');
     const response = await this.fetcher(
-      `https://api.apify.com/v2/acts/${actorId.replace('/', '~')}/runs?waitForFinish=60${maxCharge}`,
+      `https://api.apify.com/v2/acts/${actorReference}/runs?waitForFinish=60${maxCharge}`,
       {
         method: 'POST',
         headers: { authorization: `Bearer ${this.token}`, 'content-type': 'application/json' },
         body: JSON.stringify(input),
       },
     );
-    if (!response.ok) throw new Error('Apify actor run could not be started');
-    const payload = await response.json() as {
+    if (!response.ok) {
+      const failure = await response.json() as { error?: { message?: unknown } };
+      const message = typeof failure.error?.message === 'string'
+        ? `Apify actor run could not be started: ${failure.error.message}`
+        : 'Apify actor run could not be started';
+      throw Object.assign(new Error(message), { status: response.status });
+    }
+    let payload = await response.json() as {
       data?: { id?: unknown; status?: unknown; defaultDatasetId?: unknown; defaultKeyValueStoreId?: unknown };
     };
-    if (typeof payload.data?.status !== 'string') {
+    if (typeof payload.data?.id !== 'string' || typeof payload.data.status !== 'string') {
       throw new Error('Apify actor run returned an invalid response');
+    }
+    for (let attempt = 0; ['READY', 'RUNNING'].includes(payload.data.status) && attempt < 10; attempt += 1) {
+      const pollResponse = await this.fetcher(
+        `https://api.apify.com/v2/acts/${actorReference}/runs/${payload.data.id}?waitForFinish=60`,
+        { headers: { authorization: `Bearer ${this.token}` } },
+      );
+      if (!pollResponse.ok) {
+        throw Object.assign(new Error('Apify actor run could not be polled'), {
+          stage: 'polling',
+          runId: payload.data.id,
+          datasetId: typeof payload.data.defaultDatasetId === 'string' ? payload.data.defaultDatasetId : undefined,
+        });
+      }
+      payload = await pollResponse.json() as typeof payload;
+      if (typeof payload.data?.id !== 'string' || typeof payload.data.status !== 'string') {
+        throw new Error('Apify actor run returned an invalid response');
+      }
     }
     if (payload.data.status !== 'SUCCEEDED') {
       throw new Error('Apify actor run did not succeed');
     }
     if (
-      typeof payload.data.id !== 'string'
-      || typeof payload.data.defaultDatasetId !== 'string'
+      typeof payload.data.defaultDatasetId !== 'string'
     ) {
       throw new Error('Apify actor run returned an invalid response');
     }

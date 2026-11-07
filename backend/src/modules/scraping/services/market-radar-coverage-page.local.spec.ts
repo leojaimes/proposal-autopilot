@@ -9,11 +9,13 @@ import { PrismaMarketRadarCoverageRepository } from './prisma-market-radar-cover
 test('persists a local coverage workflow page and restores its cursor', async () => {
   const prisma = new PrismaClient();
   const fingerprint = `translation:${randomUUID()}`;
+  const windowStartAt = new Date();
+  const windowEndAt = new Date(windowStartAt.valueOf() + 1);
   let windowId: string | undefined;
   try {
     const window = await prisma.marketRadarCoverageWindow.create({ data: {
-      windowStartAt: new Date('2026-10-22T00:00:00.000Z'),
-      windowEndAt: new Date('2026-11-05T23:59:59.999Z'),
+      windowStartAt,
+      windowEndAt,
     } });
     windowId = window.id;
     const repository = new PrismaMarketRadarCoverageRepository(prisma);
@@ -25,6 +27,7 @@ test('persists a local coverage workflow page and restores its cursor', async ()
         },
       },
       { async read() { return [{ date_posted: '2026-10-22T00:00:00.000Z' }]; } },
+      { async importDataset() { return { newJobs: 1, newSegmentAssignments: 1 }; } },
     );
 
     await workflow.execute({

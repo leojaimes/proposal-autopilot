@@ -2,6 +2,7 @@ type ActorRunClient = {
   callWithOutputStore(
     actorId: string,
     input: Record<string, unknown>,
+    options?: { maxTotalChargeUsd?: number },
   ): Promise<{ runId: string; datasetId: string; keyValueStoreId: string }>;
 };
 
@@ -15,8 +16,8 @@ export class MarketRadarApifyPageClient {
     private readonly outputReader: OutputReader,
   ) {}
 
-  async execute(input: Record<string, unknown>) {
-    const run = await this.actorRunClient.callWithOutputStore('hyperbach/upwork-scraper-ai', input);
+  async execute(input: Record<string, unknown>, options?: { maxTotalChargeUsd?: number }) {
+    const run = await this.actorRunClient.callWithOutputStore('hyperbach/upwork-scraper-ai', input, options);
     const output = await this.outputReader.read(run.keyValueStoreId);
     return {
       runId: run.runId,

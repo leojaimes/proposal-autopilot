@@ -18,6 +18,7 @@ import { MarketTaxonomyAssignmentService } from './services/market-taxonomy-assi
 import { MarketRadarOperationsService } from './services/market-radar-operations.service';
 import { MarketRadarDecisionService } from './services/market-radar-decision.service';
 import { MarketTrendCalculator } from './services/market-trend-calculator.service';
+import { SharedMarketEvidenceService } from './services/shared-market-evidence.service';
 import { TaxonomyClassificationEventsService } from './services/taxonomy-classification-events.service';
 import { TaxonomyClassificationWorkService } from './services/taxonomy-classification-work.service';
 import { PrismaService } from '../../core/database/prisma.service';
@@ -835,7 +836,7 @@ isActive: true,
   async getPersistedMarketRadar(@Query('personaName') personaNameQuery?: string) {
     const tenantId = this.tenantContext.getTenantId();
     const profile = await this.resolveActiveProfile(personaNameQuery);
-    const [snapshots, operationalHealth, decisions] = await Promise.all([
+    const [snapshots, operationalHealth, decisions, sharedMarketEvidence] = await Promise.all([
       this.prisma.marketCategorySnapshot.findMany({
       where: { tenantId, isCurrent: true },
       orderBy: { asOf: 'desc' },
@@ -860,7 +861,7 @@ isActive: true,
           },
         },
         profileOpportunities: {
-          where: { profileId: profile?.id ?? '__no_active_profile__' },
+          where: { profileId: profile?.id ?? '00000000-0000-0000-0000-000000000000' },
           select: {
             lane: true,
             profileFit: true,
@@ -877,10 +878,11 @@ isActive: true,
       }),
       this.marketRadarOperations.getHealth(tenantId),
       this.prisma.marketRadarDecision.findMany({
-        where: { tenantId, positioningProfileId: profile?.id ?? '__no_active_profile__' },
+        where: { tenantId, positioningProfileId: profile?.id ?? '00000000-0000-0000-0000-000000000000' },
         orderBy: { createdAt: 'desc' },
         include: { outcome: true },
       }),
+      new SharedMarketEvidenceService(this.prisma).list(),
     ]);
     const trendByTaxonomyNode = this.marketTrendCalculator.calculate(snapshots.map((snapshot) => ({
       taxonomyNodeId: snapshot.taxonomyNodeId,
@@ -989,6 +991,7 @@ isActive: true,
           latestSnapshotAsOf: operationalHealth.latestSnapshotAsOf?.toISOString().slice(0, 10) ?? null,
           latestCompletedScrapeAt: operationalHealth.latestCompletedScrapeAt?.toISOString() ?? null,
         },
+        sharedMarketEvidence,
         categories,
         methodology: {
           demand: 'Unique classified jobs with an observed posting date in the trailing 7 and 30 days.',

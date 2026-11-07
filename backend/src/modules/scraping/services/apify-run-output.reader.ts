@@ -21,6 +21,6 @@ export class ApifyRunOutputReader {
     const isNotificationMode = output.is_notification_mode ?? output.metadata?.is_notification_mode;
     if (typeof isNotificationMode !== 'boolean') throw new Error('Apify OUTPUT record is invalid');
     if (nextPage != null && typeof nextPage !== 'string') throw new Error('Apify OUTPUT record is invalid');
-    return { nextPage: nextPage ?? null, isNotificationMode };
+    return { nextPage: typeof nextPage === 'string' ? nextPage : null, isNotificationMode };
   }
 }

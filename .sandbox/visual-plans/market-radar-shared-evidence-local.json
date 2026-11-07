@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "viewport": { "width": 1440, "height": 900 },
+  "maxDiffPixels": 1000000,
+  "storageState": ".sandbox/fixtures/auth-state.json",
+  "stepTimeoutMs": 30000,
+  "scenarioTimeoutMs": 90000,
+  "scenarios": [
+    {
+      "id": "market-radar-shared-evidence-local",
+      "profile": "nielsen",
+      "steps": [
+        { "action": "goto", "path": "/radar/market" },
+        { "action": "waitFor", "selector": "[aria-label='Shared market evidence']", "state": "visible" },
+        { "action": "waitFor", "selector": "[aria-label='Shared market evidence']:has-text('social-media-content'):has-text('Partial coverage')", "state": "visible" },
+        { "action": "screenshot", "id": "shared-market-evidence", "checkpoint": "Shared market evidence is visible and partial coverage is explicit.", "fullPage": true, "captureOnly": true }
+      ]
+    }
+  ]
+}

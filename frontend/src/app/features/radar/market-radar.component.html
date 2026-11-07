@@ -67,6 +67,28 @@
       </span>
     </section>
 
+    @if (data.sharedMarketEvidence.length > 0) {
+      <section aria-label="Shared market evidence" class="rounded-2xl border border-border-subtle bg-surface-elevated p-4">
+        <div>
+          <h2 class="font-semibold text-content-primary">Shared market evidence</h2>
+          <p class="mt-1 text-xs text-content-muted">Global catalog evidence is separate from tenant-specific fit and opportunity scores.</p>
+        </div>
+        <div class="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          @for (evidence of data.sharedMarketEvidence; track evidence.segment) {
+            <article class="rounded-xl border border-border-subtle p-3">
+              <div class="flex items-center justify-between gap-2">
+                <p class="font-medium text-content-primary">{{ evidence.segment }}</p>
+                <span class="rounded-full px-2 py-1 text-xs font-semibold" [class]="evidence.coverage === 'COMPLETE' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'">
+                  {{ evidence.coverage === 'COMPLETE' ? 'Complete coverage' : 'Partial coverage' }}
+                </span>
+              </div>
+              <p class="mt-2 text-xs text-content-muted">{{ evidence.sampleJobs }} jobs · {{ evidence.oldestPostedAt | date:'yyyy-MM-dd' }} to {{ evidence.newestPostedAt | date:'yyyy-MM-dd' }}</p>
+            </article>
+          }
+        </div>
+      </section>
+    }
+
     <section class="rounded-2xl border border-border-subtle bg-surface-elevated p-4">
       <div class="flex flex-col gap-3 md:flex-row md:items-end">
         <label class="flex-1 text-xs text-content-muted">Decision owner

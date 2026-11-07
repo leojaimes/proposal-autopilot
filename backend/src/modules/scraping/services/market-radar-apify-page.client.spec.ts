@@ -32,3 +32,23 @@ test('reads nextPage from the completed run OUTPUT', async () => {
     isNotificationMode: false,
   });
 });
+
+test('passes the approved USD cap to the historical actor run', async () => {
+  let receivedOptions: unknown;
+  const client = new MarketRadarApifyPageClient(
+    {
+      async callWithOutputStore(_actorId, _input, options) {
+        receivedOptions = options;
+        return { runId: 'run-1', datasetId: 'dataset-1', keyValueStoreId: 'output-store-1' };
+      },
+    },
+    { async read() { return { nextPage: null, isNotificationMode: false }; } },
+  );
+
+  await client.execute(
+    { limit: 1000, category_name: 'Design & Creative' },
+    { maxTotalChargeUsd: 1 },
+  );
+
+  assert.deepEqual(receivedOptions, { maxTotalChargeUsd: 1 });
+});
