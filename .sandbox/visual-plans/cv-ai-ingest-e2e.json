@@ -5,16 +5,17 @@
     "height": 900
   },
   "maxDiffPixels": 1000,
+  "storageState": ".sandbox/fixtures/auth-state.json",
   "stepTimeoutMs": 20000,
   "scenarioTimeoutMs": 120000,
   "scenarios": [
     {
       "id": "cv-ai-ingest-flow",
-      "profile": "proposal-autopilot",
+      "profile": "nielsen",
       "steps": [
         {
           "action": "goto",
-          "path": "http://localhost:7001"
+          "path": "/"
         },
         {
           "action": "waitFor",
@@ -37,7 +38,8 @@
         {
           "action": "screenshot",
           "id": "01-profile-modal-ai-tab",
-          "checkpoint": "Modal de creación de perfil abierto en pestaña de Ingesta Inteligente con IA"
+          "checkpoint": "Modal de creación de perfil abierto en pestaña de Ingesta Inteligente con IA",
+          "captureOnly": true
         },
         {
           "action": "click",
@@ -46,7 +48,8 @@
         {
           "action": "screenshot",
           "id": "02-cv-loaded-in-modal",
-          "checkpoint": "CV de Leonardo Jaimes cargado en el área de texto"
+          "checkpoint": "CV de Leonardo Jaimes cargado en el área de texto",
+          "captureOnly": true
         },
         {
           "action": "click",
@@ -61,7 +64,8 @@
         {
           "action": "screenshot",
           "id": "03-ai-synthesis-preview",
-          "checkpoint": "Preview en tiempo real del perfil sintetizado con Proof Stories y Scoring Rationale"
+          "checkpoint": "Preview en tiempo real del perfil sintetizado con Proof Stories y Scoring Rationale",
+          "captureOnly": true
         },
         {
           "action": "click",
@@ -76,11 +80,12 @@
         {
           "action": "screenshot",
           "id": "04-activated-cabina-despacho",
-          "checkpoint": "Cabina de Despacho con Leads Oro evaluados para el perfil de Leonardo"
+          "checkpoint": "Cabina de Despacho con Leads Oro evaluados para el perfil de Leonardo",
+          "captureOnly": true
         },
         {
           "action": "click",
-          "selector": "button:has-text('Motor de Búsqueda')"
+          "selector": "app-sidebar nav button:nth-child(2)"
         },
         {
           "action": "waitFor",
@@ -90,7 +95,8 @@
         {
           "action": "screenshot",
           "id": "05-motor-busqueda-scored-leads",
-          "checkpoint": "Motor de búsqueda con leads puntuados según la afinidad técnica de Leonardo"
+          "checkpoint": "Motor de búsqueda con leads puntuados según la afinidad técnica de Leonardo",
+          "captureOnly": true
         }
       ]
     }
