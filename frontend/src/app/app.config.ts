@@ -3,6 +3,7 @@ import { provideRouter, withComponentInputBinding, withViewTransitions } from '@
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { sreTelemetryInterceptor } from './core/interceptors/sre-telemetry.interceptor';
 import { STUDIO_API_CLIENT } from './shared/modules/website-studio/ports/studio-api-client.port';
 import { HttpStudioApiAdapter } from './shared/modules/website-studio/adapters/http-studio-api.adapter';
 
@@ -10,7 +11,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes, withComponentInputBinding(), withViewTransitions()),
-    provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
+    provideHttpClient(withFetch(), withInterceptors([authInterceptor, sreTelemetryInterceptor])),
     {
       provide: STUDIO_API_CLIENT,
       useClass: HttpStudioApiAdapter,
