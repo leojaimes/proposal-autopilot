@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaService } from './core/database/prisma.service';
 import { TenantContextService } from './core/context/tenant-context.service';
 import { TenantMiddleware } from './core/middleware/tenant.middleware';
+import { SreCorrelationMiddleware } from './core/middleware/sre-correlation.middleware';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { ScrapingModule } from './modules/scraping/scraping.module';
 import { ScoringModule } from './modules/scoring/scoring.module';
@@ -25,6 +26,6 @@ import { ProspectingModule } from './modules/prospecting/prospecting.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TenantMiddleware).forRoutes('*');
+    consumer.apply(SreCorrelationMiddleware, TenantMiddleware).forRoutes('*');
   }
 }

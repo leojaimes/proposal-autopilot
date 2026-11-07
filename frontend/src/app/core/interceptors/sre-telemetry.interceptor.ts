@@ -2,21 +2,55 @@ import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { catchError, throwError } from 'rxjs';
 
 /**
+ * Generates an RFC-compliant W3C Trace Context (traceparent)
+ * Format: 00-${traceId:32hex}-${spanId:16hex}-01
+ */
+function generateW3cTraceContext(): { traceparent: string; traceId: string; spanId: string } {
+  const bytes = new Uint8Array(24);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 24; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  const traceId = Array.from(bytes.slice(0, 16))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  const spanId = Array.from(bytes.slice(16, 24))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  return {
+    traceparent: `00-${traceId}-${spanId}-01`,
+    traceId,
+    spanId,
+  };
+}
+
+/**
  * SRE Telemetry & Ingress Resilience Interceptor
  * 
- * 1. Attaches correlation tracing headers (X-Request-Id) to every outgoing HTTP request.
+ * 1. Attaches correlation tracing headers (W3C traceparent + X-Request-Id) to every outgoing HTTP request.
  * 2. Normalizes non-JSON proxy/HTML gateway failures (413, 502, 504, 500) into structured
  *    JSON error objects so client components never crash on JSON.parse / Unexpected token '<'.
  */
 export const sreTelemetryInterceptor: HttpInterceptorFn = (req, next) => {
+  const { traceparent, traceId } = generateW3cTraceContext();
   const requestId = typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
     : `req-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
+  const headersToSet: Record<string, string> = {
+    'X-Request-Id': requestId,
+  };
+
+  if (!req.headers.has('traceparent')) {
+    headersToSet['traceparent'] = traceparent;
+  }
+
   const modifiedReq = req.clone({
-    setHeaders: {
-      'X-Request-Id': requestId,
-    },
+    setHeaders: headersToSet,
   });
 
   return next(modifiedReq).pipe(
@@ -45,6 +79,7 @@ export const sreTelemetryInterceptor: HttpInterceptorFn = (req, next) => {
               code: err.status === 413 ? 'PAYLOAD_TOO_LARGE' : 'GATEWAY_ERROR',
               message: fallbackMessage,
               requestId,
+              traceId,
             },
             headers: err.headers,
             status: err.status,
