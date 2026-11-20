@@ -29,6 +29,7 @@ import {
   LucideMapPin,
   LucideSmartphone,
   LucideStore,
+  LucideFileDown,
 } from '@lucide/angular';
 
 import { I18nPipe } from '../../core/pipes/i18n.pipe';
@@ -66,6 +67,7 @@ export type AppViewMode = 'TERMINAL' | 'EXPLORER' | 'RADAR' | 'PROFILE' | 'WORKB
     LucideMapPin,
     LucideSmartphone,
     LucideStore,
+    LucideFileDown,
   ],
   templateUrl: './dispatch-header.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -116,6 +118,10 @@ export class DispatchHeaderComponent {
   public readonly geoPipelineUsd = computed(() => {
     return this.prospecting.leads().reduce((sum, l) => sum + (Number(l.estimatedTicketUsd) || 450), 0);
   });
+
+  public downloadExcel(): void {
+    this.report.downloadExcelReport();
+  }
 
   // Profile Switcher Dropdown & Modal State
   public readonly isProfileDropdownOpen = signal<boolean>(false);

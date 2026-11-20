@@ -27,12 +27,19 @@ describe('MarketRadarComponent', () => {
       operationalHealth: { state: 'NO_SNAPSHOTS', latestSnapshotAsOf: null, latestSnapshotRevision: null, latestCompletedScrapeAt: null, ageDays: null, expectedCategories: 9, latestSnapshotCategories: 0, retainedSnapshots: 0, retentionDays: 180, staleAfterDays: 2 },
       categories: [], methodology: {},
       sharedMarketEvidence: [{ segment: 'social-media-content', sampleJobs: 759, oldestPostedAt: '2026-11-06T02:03:43.850Z', newestPostedAt: '2026-11-07T15:07:14.651Z', coverage: 'PARTIAL' }],
+      historicalEstimates: [{ segment: 'n8n-automation', category: 'n8n / automation', postingsPerMonth: 605, shareYearOverYearPct: -20.5, shareMomentumPct: -10.2, period: '2026-07 to 2026-09', baselineYear: '2025-07 to 2025-09', priorPeriod: '2026-04 to 2026-06', source: 'hyperbach/upwork-jobs-history', runId: 'run-1', observedAt: '2026-11-20T14:00:00Z', filter: { skills: ['n8n'] }, filterLabel: 'n8n' }],
     } });
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Shared market evidence');
     expect(fixture.nativeElement.textContent).toContain('social-media-content');
     expect(fixture.nativeElement.textContent).toContain('Partial coverage');
+    const history = fixture.nativeElement.querySelector('[aria-label="Historical market comparison"]')?.textContent ?? '';
+    expect(history).toContain('n8n / automation');
+    expect(history).toContain('605');
+    const pageText = fixture.nativeElement.textContent as string;
+    expect(pageText.indexOf('Category opportunities')).toBeLessThan(pageText.indexOf('Upwork-wide historical comparison'));
+    expect(pageText).toContain('No tenant category snapshots are available');
     const sharedEvidence = fixture.nativeElement.querySelector('[aria-label="Shared market evidence"]')?.textContent ?? '';
     expect(sharedEvidence).not.toContain('Profile fit');
   });

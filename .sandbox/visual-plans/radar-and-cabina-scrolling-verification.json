@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "viewport": { "width": 1600, "height": 950 },
+  "maxDiffPixels": 1000000,
+  "storageState": ".sandbox/fixtures/auth-state-armando.json",
+  "stepTimeoutMs": 30000,
+  "scenarioTimeoutMs": 120000,
+  "scenarios": [
+    {
+      "id": "radar-and-cabina-scrolling-verification",
+      "profile": "nielsen",
+      "steps": [
+        { "action": "goto", "path": "/radar/market" },
+        { "action": "waitFor", "selector": "h2:has-text('Comparativa Macro Upwork Mes a Mes')", "state": "visible", "timeoutMs": 25000 },
+        { "action": "screenshot", "id": "15-radar-macro-and-leaderboard-top-view", "checkpoint": "Comparativa Macro Mes a Mes y Leaderboard Estratégico", "captureOnly": true },
+        { "action": "waitFor", "selector": "h2:has-text('Matriz Estratégica Market Radar (29 Columnas)')", "state": "visible" },
+        { "action": "click", "selector": "h2:has-text('Matriz Estratégica Market Radar (29 Columnas)')" },
+        { "action": "screenshot", "id": "16-radar-29-columns-scrolled-matrix", "checkpoint": "Matriz Estratégica de 29 Columnas visible tras scroll vertical", "captureOnly": true },
+        { "action": "goto", "path": "/dispatch" },
+        { "action": "waitFor", "selector": "div:has-text('UI/UX Designer for Execution Hub')", "state": "visible", "timeoutMs": 25000 },
+        { "action": "screenshot", "id": "17-cabina-despacho-scrolling-ready", "checkpoint": "Cabina de Despacho con feeds independientes y vacantes frescas", "captureOnly": true }
+      ]
+    }
+  ]
+}

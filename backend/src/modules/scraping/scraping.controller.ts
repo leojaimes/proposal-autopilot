@@ -19,8 +19,11 @@ import { MarketRadarOperationsService } from './services/market-radar-operations
 import { MarketRadarDecisionService } from './services/market-radar-decision.service';
 import { MarketTrendCalculator } from './services/market-trend-calculator.service';
 import { SharedMarketEvidenceService } from './services/shared-market-evidence.service';
+import { MarketHistoricalEstimateService } from './services/market-historical-estimate.service';
 import { TaxonomyClassificationEventsService } from './services/taxonomy-classification-events.service';
 import { TaxonomyClassificationWorkService } from './services/taxonomy-classification-work.service';
+import { MarketRadarMatrixService } from './services/market-radar-matrix.service';
+import { ExcelExportService } from './services/excel-export.service';
 import { PrismaService } from '../../core/database/prisma.service';
 import { TenantContextService } from '../../core/context/tenant-context.service';
 import { BudgetType, JobStatus, MarketRadarDecisionStatus, StrategicLane, FitTier } from '@prisma/client';
@@ -94,6 +97,8 @@ export class ScrapingController {
     private readonly marketRadarDecisions: MarketRadarDecisionService,
     private readonly taxonomyClassificationEvents: TaxonomyClassificationEventsService,
     private readonly taxonomyClassificationWork: TaxonomyClassificationWorkService,
+    private readonly marketRadarMatrix: MarketRadarMatrixService,
+    private readonly excelExportService: ExcelExportService,
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     @Optional() private readonly externalJobExtractor?: ExternalJobExtractorService,
@@ -836,7 +841,7 @@ isActive: true,
   async getPersistedMarketRadar(@Query('personaName') personaNameQuery?: string) {
     const tenantId = this.tenantContext.getTenantId();
     const profile = await this.resolveActiveProfile(personaNameQuery);
-    const [snapshots, operationalHealth, decisions, sharedMarketEvidence] = await Promise.all([
+    const [snapshots, operationalHealth, decisions, sharedMarketEvidence, historicalEstimates, matrix] = await Promise.all([
       this.prisma.marketCategorySnapshot.findMany({
       where: { tenantId, isCurrent: true },
       orderBy: { asOf: 'desc' },
@@ -883,6 +888,8 @@ isActive: true,
         include: { outcome: true },
       }),
       new SharedMarketEvidenceService(this.prisma).list(),
+      new MarketHistoricalEstimateService(this.prisma).list(),
+      this.marketRadarMatrix.calculateMatrix(tenantId),
     ]);
     const trendByTaxonomyNode = this.marketTrendCalculator.calculate(snapshots.map((snapshot) => ({
       taxonomyNodeId: snapshot.taxonomyNodeId,
@@ -979,6 +986,7 @@ isActive: true,
     return {
       success: true,
       data: {
+        matrix,
         kpis: {
           totalJobsSampled: categories.reduce((total, category) => total + category.sampleJobs, 0),
           topCategory: categories[0]?.category ?? null,
@@ -992,6 +1000,7 @@ isActive: true,
           latestCompletedScrapeAt: operationalHealth.latestCompletedScrapeAt?.toISOString() ?? null,
         },
         sharedMarketEvidence,
+        historicalEstimates,
         categories,
         methodology: {
           demand: 'Unique classified jobs with an observed posting date in the trailing 7 and 30 days.',
@@ -1127,6 +1136,7 @@ isActive: true,
         postedDate: postedAt || undefined,
         targetCountries: scrapeConfig?.targetCountries || ['United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'Ireland'],
         excludedCountries: scrapeConfig?.excludedCountries || [],
+        geoFilterMode: (activeProfile?.geoFilterMode as any) || 'WEIGHTED_PREFERENCE',
       });
 
       if (activeProfile) {
@@ -2203,6 +2213,42 @@ isActive: true,
     ].join(','));
 
     return [headers.join(','), ...rows].join('\n');
+  }
+
+  /**
+   * GET /api/scraping/export/excel
+   * Descarga el reporte completo en libro de Excel (.xlsx) con 3 hojas:
+   * 1. Pipeline: Todas las vacantes evaluadas con su score y enlaces
+   * 2. Today: Vacantes scrapeadas hoy (últimas 24h)
+   * 3. Leaderboard: Matriz cuantitativa de Market Radar con 29 columnas
+   */
+  @Get('export/excel')
+  async exportExcel(
+    @Query('personaName') personaNameQuery: string | undefined,
+    @Query('platform') platformQuery: string | undefined,
+    @Res() res: Response,
+  ) {
+    const tenantId = this.tenantContext.getTenantId();
+    const activeProfile = await this.resolveActiveProfile(personaNameQuery);
+    const personaName = activeProfile?.personaName || personaNameQuery || 'Armando Russi';
+
+    const [jobs, radarMatrix] = await Promise.all([
+      this.getDailyReport(personaNameQuery, platformQuery),
+      this.marketRadarMatrix.calculateMatrix(tenantId),
+    ]);
+
+    const buffer = await this.excelExportService.generateReportWorkbook(
+      jobs as any,
+      radarMatrix,
+      personaName,
+    );
+
+    const safeFilename = `Proposal_Autopilot_Report_${personaName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
   }
 
   /**

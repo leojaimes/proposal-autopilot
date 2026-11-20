@@ -40,6 +40,7 @@
     "class-validator": "^0.14.1",
     "country-state-city": "^3.2.1",
     "dotenv": "^16.4.7",
+    "exceljs": "^4.4.0",
     "pdf-parse": "^2.4.5",
     "prisma": "^6.4.1",
     "reflect-metadata": "^0.2.2",
@@ -51,6 +52,7 @@
     "@nestjs/cli": "^10.4.9",
     "@nestjs/schematics": "^10.2.3",
     "@types/bcryptjs": "^2.4.6",
+    "@types/exceljs": "^0.5.3",
     "@types/express": "^5.0.0",
     "@types/node": "^22.13.5",
     "@types/pdf-parse": "^1.1.5"

@@ -22,6 +22,8 @@ import { MarketRadarDecisionService } from './services/market-radar-decision.ser
 import { TaxonomyClassificationEventsService } from './services/taxonomy-classification-events.service';
 import { MarketRadarRebuildQueueService } from './services/market-radar-rebuild-queue.service';
 import { TaxonomyClassificationWorkService } from './services/taxonomy-classification-work.service';
+import { MarketRadarMatrixService } from './services/market-radar-matrix.service';
+import { ExcelExportService } from './services/excel-export.service';
 
 @Module({
   imports: [ScoringModule, ProposalsModule],
@@ -42,6 +44,8 @@ import { TaxonomyClassificationWorkService } from './services/taxonomy-classific
     MarketRadarOperationsService,
     MarketRadarDecisionService,
     MarketRadarRebuildQueueService,
+    MarketRadarMatrixService,
+    ExcelExportService,
     TaxonomyClassificationWorkService,
     TaxonomyClassificationEventsService,
     PrismaService, 
@@ -58,6 +62,8 @@ import { TaxonomyClassificationWorkService } from './services/taxonomy-classific
     ExternalJobExtractorService,
     OrionSearchService,
     CompanyEnricherService,
+    MarketRadarMatrixService,
+    ExcelExportService,
   ],
 })
 export class ScrapingModule {}

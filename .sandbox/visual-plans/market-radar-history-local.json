@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "viewport": { "width": 1440, "height": 900 },
+  "maxDiffPixels": 1000000,
+  "storageState": ".sandbox/fixtures/auth-state.json",
+  "stepTimeoutMs": 30000,
+  "scenarioTimeoutMs": 90000,
+  "scenarios": [
+    {
+      "id": "market-radar-history-local",
+      "profile": "nielsen",
+      "steps": [
+        { "action": "goto", "path": "/radar/market" },
+        { "action": "waitFor", "selector": "[aria-label='Category opportunities table']", "state": "visible" },
+        { "action": "waitFor", "selector": "[aria-label='Historical market comparison'] tbody tr:nth-child(9)", "state": "visible" },
+        { "action": "waitFor", "selector": "[aria-label='Historical market comparison'] tbody tr:has-text('GoHighLevel'):has-text('Insufficient data')", "state": "visible" },
+        { "action": "waitFor", "selector": "[aria-label='Historical market comparison']:has-text('hyperbach/upwork-jobs-history'):has-text('Filter:')", "state": "visible" },
+        { "action": "waitFor", "selector": "[aria-label='Shared market evidence']", "state": "visible" },
+        { "action": "screenshot", "id": "historical-market-comparison", "checkpoint": "Nine archive estimates and data limits are visible beside separate shared evidence.", "fullPage": true, "captureOnly": true }
+      ]
+    }
+  ]
+}

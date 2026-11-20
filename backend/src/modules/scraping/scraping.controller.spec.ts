@@ -46,6 +46,7 @@ test('returns shared market evidence independently of tenant snapshots', async (
       marketRadarCoveragePage: {
         findMany: async () => [{ segment: 'social-media-content', outputCursor: 'next-page' }],
       },
+      marketHistoricalEstimate: { findMany: async () => [] },
     },
   }) as ScrapingController;
 

@@ -1,4 +1,4 @@
-<div class="flex min-h-full flex-col space-y-6 bg-app p-6">
+<div class="flex-1 h-full w-full overflow-y-auto bg-app p-6 space-y-6">
   <header class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
     <div class="flex items-center gap-3">
       <div class="flex h-9 w-9 items-center justify-center rounded-2xl border border-brand-primary/30 bg-brand-primary/10 text-brand-primary">
@@ -67,6 +67,342 @@
       </span>
     </section>
 
+    @if (data.historicalEstimates?.length) {
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- CARD 1: COMPARATIVA MACRO UPWORK MES A MES (FIDELIDAD EXACTA A CAPTURA DEL USUARIO) -->
+        <section aria-label="Comparativa Macro Upwork Mes a Mes" class="rounded-2xl border border-border-subtle bg-[#0c101b] p-5 shadow-lg flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between pb-3 mb-2 border-b border-border-subtle/50">
+              <h2 class="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                <span>Comparativa Macro Upwork Mes a Mes</span>
+              </h2>
+              <span class="rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-mono font-bold text-cyan-300">
+                Apify Historical Archive
+              </span>
+            </div>
+            
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-[#1f293d] text-xs font-semibold text-[#cbd5e1]">
+                    <th class="py-2.5 px-3 text-left">Category</th>
+                    <th class="py-2.5 px-3 text-right">Postings/mo</th>
+                    <th class="py-2.5 px-3 text-right">Share vs a year ago</th>
+                    <th class="py-2.5 px-3 text-right">Last 3 mo vs prior 3</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-[#182030] text-xs">
+                  @for (estimate of data.historicalEstimates; track estimate.segment) {
+                    <tr class="hover:bg-white/[0.03] transition-colors">
+                      <td class="py-2.5 px-3 font-medium text-white">
+                        {{ estimate.category }}
+                      </td>
+                      <td class="py-2.5 px-3 text-right font-medium text-white">
+                        {{ formatMacroPostings(estimate.postingsPerMonth) }}
+                      </td>
+                      <td class="py-2.5 px-3 text-right font-medium" [class]="estimate.shareYearOverYearPct == null ? 'text-content-muted' : ((estimate.shareYearOverYearPct ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400')">
+                        {{ formatMacroShare(estimate.shareYearOverYearPct) }}
+                      </td>
+                      <td class="py-2.5 px-3 text-right font-medium" [class]="estimate.shareMomentumPct == null ? 'text-content-muted' : ((estimate.shareMomentumPct ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400')">
+                        {{ formatMacroMomentum(estimate.shareMomentumPct) }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <p class="mt-3 text-[10px] text-content-muted pt-2 border-t border-border-subtle/40">
+            Estimaciones macro agregadas normalizadas contra el denominador global de Upwork.
+          </p>
+        </section>
+
+        <!-- CARD 2: LEADERBOARD ESTRATÉGICO (TOP 9 RUNS AVERAGED) -->
+        <section aria-label="Leaderboard Estratégico" class="rounded-2xl border border-border-subtle bg-[#0c101b] p-5 shadow-lg flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between pb-3 mb-2 border-b border-border-subtle/50">
+              <h2 class="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                <span>Leaderboard Estratégico (Top 9 Categorías)</span>
+              </h2>
+              <span class="rounded-md border border-brand-primary/30 bg-brand-primary/10 px-2 py-0.5 text-[10px] font-mono font-bold text-brand-primary">
+                Arbitraje Ponderado
+              </span>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-[#1f293d] text-xs font-semibold text-[#cbd5e1]">
+                    <th class="py-2.5 px-2 text-center w-8">#</th>
+                    <th class="py-2.5 px-3 text-left">Category</th>
+                    <th class="py-2.5 px-2.5 text-center font-bold text-brand-primary">Overall</th>
+                    <th class="py-2.5 px-2.5 text-center">Opportunity</th>
+                    <th class="py-2.5 px-2.5 text-center">Your fit</th>
+                    <th class="py-2.5 px-3 text-right text-emerald-400">Yield $/hr IA</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-[#182030] text-xs">
+                  @for (row of matrixRows(); track row.category) {
+                    <tr class="hover:bg-white/[0.03] transition-colors">
+                      <td class="py-2.5 px-2 text-center font-mono font-bold text-content-muted">
+                        {{ row.rank }}
+                      </td>
+                      <td class="py-2.5 px-3 font-medium text-white flex items-center gap-1.5">
+                        <span class="truncate">{{ row.category }}</span>
+                        <span class="rounded px-1.5 py-0.2 text-[9px] font-bold"
+                              [ngClass]="row.lane === 'Core' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : (row.lane === 'Adjacent' ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30' : 'bg-slate-700/30 text-slate-400 border border-slate-600/30')">
+                          {{ row.lane }}
+                        </span>
+                      </td>
+                      <td class="py-2.5 px-2.5 text-center">
+                        <span class="inline-block px-2 py-0.5 rounded font-mono font-bold text-xs"
+                              [ngClass]="row.overallScore >= 70 ? 'bg-emerald-500/20 text-emerald-300' : (row.overallScore >= 55 ? 'bg-cyan-500/20 text-cyan-300' : 'bg-amber-500/20 text-amber-300')">
+                          {{ row.overallScore }}
+                        </span>
+                      </td>
+                      <td class="py-2.5 px-2.5 text-center font-mono font-semibold text-content-primary">
+                        {{ row.opportunityScore }}
+                      </td>
+                      <td class="py-2.5 px-2.5 text-center font-mono font-semibold text-content-primary">
+                        {{ row.personalFitScore }}
+                      </td>
+                      <td class="py-2.5 px-3 text-right font-mono font-bold text-emerald-400">
+                        ${{ row.effectiveHourlyYield }}/hr
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <p class="mt-3 text-[10px] text-content-muted pt-2 border-t border-border-subtle/40">
+            Overall = Oportunidad de mercado (volumen + baja saturación) + Personal fit del perfil.
+          </p>
+        </section>
+
+      </div>
+    }
+
+    <section class="rounded-2xl border border-border-subtle bg-surface-elevated p-4">
+      <div class="flex flex-col gap-3 md:flex-row md:items-end">
+        <label class="flex-1 text-xs text-content-muted">Decision owner
+          <input #decisionOperator type="text" class="mt-1 w-full rounded-lg border border-border-subtle bg-app px-3 py-2 text-sm text-content-primary" placeholder="Your name" />
+        </label>
+        <label class="flex-[2] text-xs text-content-muted">Decision rationale
+          <input #decisionRationale type="text" class="mt-1 w-full rounded-lg border border-border-subtle bg-app px-3 py-2 text-sm text-content-primary" placeholder="Why this category should be prioritized, watched, or dismissed" />
+        </label>
+      </div>
+      @if (decisionMessage()) {
+        <p class="mt-2 text-xs text-content-muted" aria-live="polite">{{ decisionMessage() }}</p>
+      }
+    </section>
+
+    <section class="rounded-2xl border border-border-subtle bg-surface-elevated">
+      <div class="flex flex-col gap-3 border-b border-border-subtle p-4 md:flex-row md:items-center md:justify-between">
+        <div class="flex items-center gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="font-semibold text-content-primary">Matriz Estratégica Market Radar</h2>
+              <span class="rounded-md border border-brand-primary/30 bg-brand-primary/10 px-2 py-0.5 text-[10px] font-mono font-bold text-brand-primary uppercase">Zero Mocks · PostgreSQL Real</span>
+            </div>
+            <p class="mt-1 text-xs text-content-muted">Consolidación cuantitativa de 8,600+ vacantes reales, cuotas históricas de Upwork y arbitraje de rendimiento por hora asistido por IA.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button (click)="downloadExcelReport()"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/25 transition-all shadow-sm"
+                  title="Descargar libro de trabajo Excel (.xlsx) con Pipeline, Today y Leaderboard">
+            <svg lucideFileDown class="h-3.5 w-3.5 text-emerald-400"></svg>
+            <span>Exportar Excel</span>
+          </button>
+          <div class="inline-flex rounded-lg border border-border-subtle bg-app p-0.5">
+            <button (click)="viewMode.set('MATRIX_29')" class="rounded-md px-3 py-1 text-xs font-medium transition-all" [class]="viewMode() === 'MATRIX_29' ? 'bg-surface-elevated text-brand-primary font-semibold shadow' : 'text-content-muted hover:text-content-primary'">
+              Matriz Estratégica
+            </button>
+            <button (click)="viewMode.set('TENANT_SNAPSHOTS')" class="rounded-md px-3 py-1 text-xs font-medium transition-all" [class]="viewMode() === 'TENANT_SNAPSHOTS' ? 'bg-surface-elevated text-brand-primary font-semibold shadow' : 'text-content-muted hover:text-content-primary'">
+              Vista Instantáneas
+            </button>
+          </div>
+          <button (click)="filterLane.set(filterLane() === 'ALL' ? 'CORE_ADJACENT' : 'ALL')" class="rounded-lg border border-border-subtle px-3 py-1.5 text-xs text-content-muted hover:text-content-primary">
+            {{ filterLane() === 'ALL' ? 'Hide excluded' : 'Show all lanes' }}
+          </button>
+        </div>
+      </div>
+
+      @if (viewMode() === 'MATRIX_29') {
+        <div class="overflow-auto max-h-[580px] border-t border-border-subtle relative rounded-b-2xl" role="region" aria-label="Unified Market Radar Quantitative Matrix" tabindex="0">
+          <table class="w-full min-w-[2200px] border-collapse text-left text-xs">
+            <caption class="sr-only">Unified Market Radar Quantitative Matrix</caption>
+            <thead class="sticky top-0 z-30 border-b border-border-subtle bg-[#0f131d] text-[11px] font-semibold uppercase tracking-wider text-content-muted shadow-sm">
+              <tr>
+                <th class="sticky left-0 top-0 z-40 w-12 min-w-12 bg-[#0f131d] px-3 py-3 border-r border-border-subtle text-center">#</th>
+                <th class="sticky left-12 top-0 z-40 min-w-[200px] bg-[#0f131d] px-4 py-3 border-r border-border-subtle">Category</th>
+                <th class="px-3 py-3 text-center">Lane</th>
+                <th class="px-3 py-3 text-center font-bold text-brand-primary bg-brand-primary/5">Overall</th>
+                <th class="px-3 py-3 text-center">Opp. (Market)</th>
+                <th class="px-3 py-3 text-center">Personal Fit</th>
+                <th class="px-2.5 py-3 text-center">Recency</th>
+                <th class="px-2.5 py-3 text-center">Trending</th>
+                <th class="px-2.5 py-3 text-center">Supply Press.</th>
+                <th class="px-2.5 py-3 text-center">Submissions</th>
+                <th class="px-2.5 py-3 text-center">Client Qual.</th>
+                <th class="px-3 py-3 text-right">New jobs/hr</th>
+                <th class="px-3 py-3 text-right">Share YoY</th>
+                <th class="px-3 py-3 text-right">Momentum</th>
+                <th class="px-3 py-3 text-right">Postings/mo</th>
+                <th class="px-3 py-3 text-right">vs Peak</th>
+                <th class="px-3 py-3 text-right">Scrape Δ</th>
+                <th class="px-3 py-3 text-right">Age (hrs)</th>
+                <th class="px-3 py-3 text-right">% 25+ bids</th>
+                <th class="px-3 py-3 text-right">Med. bids</th>
+                <th class="px-3 py-3 text-right">Med. spend</th>
+                <th class="px-3 py-3 text-right">% Verified</th>
+                <th class="px-3 py-3 text-right">Med. $/hr</th>
+                <th class="px-3 py-3 text-right">Med. Fixed</th>
+                <th class="px-2.5 py-3 text-center">Skill Affinity</th>
+                <th class="px-2.5 py-3 text-center">AI Ease</th>
+                <th class="px-3 py-3 text-right">Sample</th>
+                <th class="px-2.5 py-3 text-center">Runs</th>
+                <th class="px-3 py-3 text-center">Updated</th>
+                <th class="px-3 py-3 text-right font-bold text-emerald-400 bg-emerald-500/10">Yield $/hr (IA)</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border-subtle/60 font-mono">
+              @for (row of matrixRows(); track row.slug) {
+                <tr class="hover:bg-surface-hover/80 transition-colors">
+                  <td class="sticky left-0 z-10 w-12 min-w-12 bg-[#0f131d] px-3 py-2.5 border-r border-border-subtle text-center font-bold text-content-primary">{{ row.rank }}</td>
+                  <td class="sticky left-12 z-10 min-w-[200px] bg-[#0f131d] px-4 py-2.5 border-r border-border-subtle font-sans font-medium text-content-primary whitespace-nowrap">{{ row.category }}</td>
+                  <td class="px-3 py-2.5 text-center font-sans">
+                    <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold" [class]="getLaneBadgeClass(row.lane)">{{ row.lane }}</span>
+                  </td>
+                  <td class="px-3 py-2.5 text-center bg-brand-primary/5">
+                    <span class="inline-block min-w-8 rounded px-1.5 py-0.5 text-xs font-bold" [class]="getScoreBadgeClass(row.overallScore)">{{ row.overallScore }}</span>
+                  </td>
+                  <td class="px-3 py-2.5 text-center font-medium" [class]="getScoreColorClass(row.opportunityScore)">{{ row.opportunityScore }}</td>
+                  <td class="px-3 py-2.5 text-center font-medium" [class]="getScoreColorClass(row.personalFitScore)">{{ row.personalFitScore }}</td>
+                  <td class="px-2.5 py-2.5 text-center text-content-muted">{{ row.recencyScore }}</td>
+                  <td class="px-2.5 py-2.5 text-center text-content-muted">{{ row.trendingScore }}</td>
+                  <td class="px-2.5 py-2.5 text-center text-content-muted">{{ row.supplyPressureScore }}</td>
+                  <td class="px-2.5 py-2.5 text-center text-content-muted">{{ row.submissionsScore }}</td>
+                  <td class="px-2.5 py-2.5 text-center text-content-muted">{{ row.clientQualityScore }}</td>
+                  <td class="px-3 py-2.5 text-right text-content-primary">{{ row.newJobsPerHour | number:'1.2-2' }}</td>
+                  <td class="px-3 py-2.5 text-right font-medium" [class]="(row.shareYearOverYearPct ?? 0) >= 0 ? 'text-emerald-400' : 'text-amber-400'">
+                    {{ row.shareYearOverYearPct == null ? 'N/A' : (row.shareYearOverYearPct > 0 ? '+' : '') + row.shareYearOverYearPct + '%' }}
+                  </td>
+                  <td class="px-3 py-2.5 text-right font-medium" [class]="(row.shareMomentumPct ?? 0) >= 0 ? 'text-emerald-400' : 'text-amber-400'">
+                    {{ row.shareMomentumPct == null ? 'N/A' : (row.shareMomentumPct > 0 ? '+' : '') + row.shareMomentumPct + '%' }}
+                  </td>
+                  <td class="px-3 py-2.5 text-right text-content-primary">{{ row.postingsPerMonth == null ? 'N/A' : (row.postingsPerMonth | number:'1.0-0') }}</td>
+                  <td class="px-3 py-2.5 text-right text-amber-300">{{ row.postingsVsPeakPct == null ? 'N/A' : row.postingsVsPeakPct + '%' }}</td>
+                  <td class="px-3 py-2.5 text-right text-content-muted">{{ row.changeVsPreviousScrapePct == null ? '0%' : (row.changeVsPreviousScrapePct > 0 ? '+' : '') + row.changeVsPreviousScrapePct + '%' }}</td>
+                  <td class="px-3 py-2.5 text-right text-content-muted">{{ row.medianListingAgeHours | number:'1.1-1' }}h</td>
+                  <td class="px-3 py-2.5 text-right" [class]="(row.pctJobsWith25PlusProposals ?? 0) > 50 ? 'text-amber-400' : 'text-emerald-400'">{{ row.pctJobsWith25PlusProposals }}%</td>
+                  <td class="px-3 py-2.5 text-right font-medium" [class]="(row.medianProposals ?? 0) <= 15 ? 'text-emerald-400' : 'text-amber-400'">{{ row.medianProposals }}</td>
+                  <td class="px-3 py-2.5 text-right text-content-primary font-medium">{{ row.medianClientSpend | currency:'USD':'symbol':'1.0-0' }}</td>
+                  <td class="px-3 py-2.5 text-right" [class]="(row.verifiedClientsPct ?? 0) >= 80 ? 'text-emerald-400' : 'text-content-muted'">{{ row.verifiedClientsPct }}%</td>
+                  <td class="px-3 py-2.5 text-right text-content-primary font-medium">{{ row.medianHourlyRate | currency:'USD':'symbol':'1.0-0' }}/h</td>
+                  <td class="px-3 py-2.5 text-right text-content-primary font-bold">{{ row.medianFixedBudget | currency:'USD':'symbol':'1.0-0' }}</td>
+                  <td class="px-2.5 py-2.5 text-center text-content-muted">{{ row.skillAffinity }}</td>
+                  <td class="px-2.5 py-2.5 text-center font-medium text-purple-300">{{ row.aiEase }}</td>
+                  <td class="px-3 py-2.5 text-right text-content-muted">{{ row.sampleJobs }}</td>
+                  <td class="px-2.5 py-2.5 text-center text-content-muted">{{ row.runsAveraged }}</td>
+                  <td class="px-3 py-2.5 text-center text-content-muted font-sans text-[10px]">{{ row.updated }}</td>
+                  <td class="px-3 py-2.5 text-right font-bold text-emerald-400 bg-emerald-500/10">
+                    {{ row.effectiveHourlyYield | currency:'USD':'symbol':'1.0-0' }}/h
+                  </td>
+                </tr>
+              } @empty {
+                <tr><td colspan="30" class="px-4 py-8 text-center text-content-muted">No se pudieron cargar las filas de la matriz unificada.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="overflow-x-auto" role="region" aria-label="Category opportunities table" tabindex="0">
+          <table class="w-full min-w-[980px] text-left text-sm">
+            <caption class="sr-only">Category opportunities from tenant snapshots</caption>
+            <thead class="border-b border-border-subtle text-xs uppercase tracking-wide text-content-muted">
+              <tr>
+                <th class="px-4 py-3">#</th>
+                <th class="px-4 py-3">Category</th>
+                <th class="px-4 py-3">Profile eligibility</th>
+                <th class="px-4 py-3">AI leverage</th>
+                <th class="px-4 py-3">Demand 7d / 30d</th>
+                <th class="px-4 py-3">Observed proposals</th>
+                <th class="px-4 py-3">Fixed budget median</th>
+                <th class="px-4 py-3">Verified clients</th>
+                <th class="px-4 py-3">Profile fit</th>
+                <th class="px-4 py-3">Opportunity</th>
+                <th class="px-4 py-3">Confidence</th>
+                <th class="px-4 py-3">Trend</th>
+                <th class="px-4 py-3">Decision</th>
+                <th class="px-4 py-3">Evidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (category of categories(); track category.slug) {
+                <tr class="border-b border-border-subtle/70 hover:bg-surface-hover">
+                  <td class="px-4 py-3 text-content-muted">{{ category.rank }}</td>
+                  <td class="px-4 py-3">
+                    <p class="font-medium text-content-primary">{{ category.category }}</p>
+                    <p class="mt-0.5 text-xs text-content-muted">{{ category.lane }} · {{ category.sampleJobs }} jobs · {{ category.asOf }}</p>
+                  </td>
+                  <td class="px-4 py-3"><span class="rounded-full px-2 py-1 text-xs font-semibold" [class]="getEligibilityBadgeClass(category.profileEligibility)">{{ getEligibilityLabel(category.profileEligibility) }}</span></td>
+                  <td class="px-4 py-3">
+                    <span class="rounded-full px-2 py-1 text-xs font-semibold" [class]="category.aiLeverage.state === 'APPLICABLE' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-500/20 text-slate-300'">{{ getAiLeverageLabel(category.aiLeverage) }}</span>
+                    @if (getAiLeverageDescription(category.aiLeverage); as description) {
+                      <p class="mt-1 max-w-56 text-[10px] text-content-muted">{{ description }}</p>
+                    }
+                  </td>
+                  <td class="px-4 py-3 text-content-primary">{{ category.demand7d }} / {{ category.demand30d }}</td>
+                  <td class="px-4 py-3" [class]="getProposalClass(category.medianProposals)">{{ category.medianProposals ?? 'Not observed' }}</td>
+                  <td class="px-4 py-3 text-content-primary">{{ category.medianBudget == null ? 'Not observed' : (category.medianBudget | currency:'USD':'symbol':'1.0-0') }}</td>
+                  <td class="px-4 py-3 text-content-primary">{{ category.verifiedClientsPct == null ? 'Not observed' : (category.verifiedClientsPct | number:'1.0-1') + '%' }}</td>
+                  <td class="px-4 py-3 text-content-primary">{{ category.profileFit ?? 'Not observed' }}</td>
+                  <td class="px-4 py-3"><span class="rounded-full px-2 py-1 text-xs font-semibold" [class]="getOppBadgeClass(category.overallOpportunity)">{{ category.overallOpportunity ?? 'Not observed' }}</span></td>
+                  <td class="px-4 py-3">
+                    <p class="text-content-primary">{{ category.sampleConfidence == null ? 'Not observed' : (category.sampleConfidence | number:'1.0-0') + '%' }}</p>
+                    <p class="mt-1 text-[10px] text-content-muted">Applicants {{ category.metricCoverage.proposalsKnownJobs }} · fixed {{ category.metricCoverage.fixedBudgetJobs }} · verified {{ category.metricCoverage.paymentVerificationKnownJobs }}</p>
+                  </td>
+                  <td class="px-4 py-3 text-xs">
+                    @if (category.trend; as trend) {
+                      <p class="text-content-primary">30d demand {{ formatDelta(trend.demand30dDelta) }}</p>
+                      <p class="mt-1 text-content-muted">Opportunity {{ formatDelta(trend.overallOpportunityDelta) }} · proposals {{ formatDelta(trend.medianProposalsDelta) }}</p>
+                      <p class="mt-1 text-[10px] text-content-muted">vs {{ trend.comparedTo }} ({{ trend.elapsedDays }}d)</p>
+                    } @else {
+                      <span class="text-content-muted">Not enough history</span>
+                    }
+                  </td>
+                  <td class="px-4 py-3">
+                    @if (category.decision; as decision) {
+                      <p class="text-xs font-semibold text-content-primary">{{ decision.status }}</p>
+                      <p class="mt-1 max-w-48 truncate text-[10px] text-content-muted" [title]="decision.rationale">{{ decision.operator }} · {{ decision.rationale }}</p>
+                    } @else {
+                      <div class="flex flex-wrap gap-1">
+                        <button (click)="createDecision(category, 'PRIORITIZED', decisionOperator.value, decisionRationale.value)" [disabled]="isSavingDecision() || data.operationalHealth.state !== 'READY'" class="rounded border border-emerald-500/30 px-2 py-1 text-[10px] text-emerald-300 disabled:opacity-40">Prioritize</button>
+                        <button (click)="createDecision(category, 'WATCHED', decisionOperator.value, decisionRationale.value)" [disabled]="isSavingDecision() || data.operationalHealth.state !== 'READY'" class="rounded border border-amber-500/30 px-2 py-1 text-[10px] text-amber-300 disabled:opacity-40">Watch</button>
+                        <button (click)="createDecision(category, 'DISMISSED', decisionOperator.value, decisionRationale.value)" [disabled]="isSavingDecision() || data.operationalHealth.state !== 'READY'" class="rounded border border-border-subtle px-2 py-1 text-[10px] text-content-muted disabled:opacity-40">Dismiss</button>
+                      </div>
+                    }
+                  </td>
+                  <td class="px-4 py-3">
+                    <button (click)="toggleEvidence(category.slug)" class="rounded-lg border border-border-subtle px-2 py-1 text-xs text-content-primary hover:bg-surface-hover">
+                      {{ selectedEvidenceSlug() === category.slug ? 'Hide' : 'Inspect' }} {{ category.evidenceJobs.length }}
+                    </button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr><td colspan="14" class="px-4 py-8 text-center text-content-muted">No tenant category snapshots are available.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+
+
+
     @if (data.sharedMarketEvidence.length > 0) {
       <section aria-label="Shared market evidence" class="rounded-2xl border border-border-subtle bg-surface-elevated p-4">
         <div>
@@ -89,20 +425,6 @@
       </section>
     }
 
-    <section class="rounded-2xl border border-border-subtle bg-surface-elevated p-4">
-      <div class="flex flex-col gap-3 md:flex-row md:items-end">
-        <label class="flex-1 text-xs text-content-muted">Decision owner
-          <input #decisionOperator type="text" class="mt-1 w-full rounded-lg border border-border-subtle bg-app px-3 py-2 text-sm text-content-primary" placeholder="Your name" />
-        </label>
-        <label class="flex-[2] text-xs text-content-muted">Decision rationale
-          <input #decisionRationale type="text" class="mt-1 w-full rounded-lg border border-border-subtle bg-app px-3 py-2 text-sm text-content-primary" placeholder="Why this category should be prioritized, watched, or dismissed" />
-        </label>
-      </div>
-      @if (decisionMessage()) {
-        <p class="mt-2 text-xs text-content-muted" aria-live="polite">{{ decisionMessage() }}</p>
-      }
-    </section>
-
     @if (observedMovements().length > 0) {
       <section class="rounded-2xl border border-border-subtle bg-surface-elevated p-4">
         <div>
@@ -119,97 +441,6 @@
         </div>
       </section>
     }
-
-    <section class="rounded-2xl border border-border-subtle bg-surface-elevated">
-      <div class="flex flex-col gap-3 border-b border-border-subtle p-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 class="font-semibold text-content-primary">Category opportunities</h2>
-          <p class="mt-1 text-xs text-content-muted">Null means the source did not provide enough evidence to calculate that metric.</p>
-        </div>
-        <button (click)="filterLane.set(filterLane() === 'ALL' ? 'CORE_ADJACENT' : 'ALL')" class="rounded-lg border border-border-subtle px-3 py-1.5 text-xs text-content-muted">
-          {{ filterLane() === 'ALL' ? 'Hide excluded' : 'Show all lanes' }}
-        </button>
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[980px] text-left text-sm">
-          <thead class="border-b border-border-subtle text-xs uppercase tracking-wide text-content-muted">
-            <tr>
-              <th class="px-4 py-3">#</th>
-              <th class="px-4 py-3">Category</th>
-              <th class="px-4 py-3">Profile eligibility</th>
-              <th class="px-4 py-3">AI leverage</th>
-              <th class="px-4 py-3">Demand 7d / 30d</th>
-              <th class="px-4 py-3">Observed proposals</th>
-              <th class="px-4 py-3">Fixed budget median</th>
-              <th class="px-4 py-3">Verified clients</th>
-              <th class="px-4 py-3">Profile fit</th>
-              <th class="px-4 py-3">Opportunity</th>
-              <th class="px-4 py-3">Confidence</th>
-              <th class="px-4 py-3">Trend</th>
-              <th class="px-4 py-3">Decision</th>
-              <th class="px-4 py-3">Evidence</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (category of categories(); track category.slug) {
-              <tr class="border-b border-border-subtle/70 hover:bg-surface-hover">
-                <td class="px-4 py-3 text-content-muted">{{ category.rank }}</td>
-                <td class="px-4 py-3">
-                  <p class="font-medium text-content-primary">{{ category.category }}</p>
-                  <p class="mt-0.5 text-xs text-content-muted">{{ category.lane }} · {{ category.sampleJobs }} jobs · {{ category.asOf }}</p>
-                </td>
-                <td class="px-4 py-3"><span class="rounded-full px-2 py-1 text-xs font-semibold" [class]="getEligibilityBadgeClass(category.profileEligibility)">{{ getEligibilityLabel(category.profileEligibility) }}</span></td>
-                <td class="px-4 py-3">
-                  <span class="rounded-full px-2 py-1 text-xs font-semibold" [class]="category.aiLeverage.state === 'APPLICABLE' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-500/20 text-slate-300'">{{ getAiLeverageLabel(category.aiLeverage) }}</span>
-                  @if (getAiLeverageDescription(category.aiLeverage); as description) {
-                    <p class="mt-1 max-w-56 text-[10px] text-content-muted">{{ description }}</p>
-                  }
-                </td>
-                <td class="px-4 py-3 text-content-primary">{{ category.demand7d }} / {{ category.demand30d }}</td>
-                <td class="px-4 py-3" [class]="getProposalClass(category.medianProposals)">{{ category.medianProposals ?? 'Not observed' }}</td>
-                <td class="px-4 py-3 text-content-primary">{{ category.medianBudget == null ? 'Not observed' : (category.medianBudget | currency:'USD':'symbol':'1.0-0') }}</td>
-                <td class="px-4 py-3 text-content-primary">{{ category.verifiedClientsPct == null ? 'Not observed' : (category.verifiedClientsPct | number:'1.0-1') + '%' }}</td>
-                <td class="px-4 py-3 text-content-primary">{{ category.profileFit ?? 'Not observed' }}</td>
-                <td class="px-4 py-3"><span class="rounded-full px-2 py-1 text-xs font-semibold" [class]="getOppBadgeClass(category.overallOpportunity)">{{ category.overallOpportunity ?? 'Not observed' }}</span></td>
-                <td class="px-4 py-3">
-                  <p class="text-content-primary">{{ category.sampleConfidence == null ? 'Not observed' : (category.sampleConfidence | number:'1.0-0') + '%' }}</p>
-                  <p class="mt-1 text-[10px] text-content-muted">Applicants {{ category.metricCoverage.proposalsKnownJobs }} · fixed {{ category.metricCoverage.fixedBudgetJobs }} · verified {{ category.metricCoverage.paymentVerificationKnownJobs }}</p>
-                </td>
-                <td class="px-4 py-3 text-xs">
-                  @if (category.trend; as trend) {
-                    <p class="text-content-primary">30d demand {{ formatDelta(trend.demand30dDelta) }}</p>
-                    <p class="mt-1 text-content-muted">Opportunity {{ formatDelta(trend.overallOpportunityDelta) }} · proposals {{ formatDelta(trend.medianProposalsDelta) }}</p>
-                    <p class="mt-1 text-[10px] text-content-muted">vs {{ trend.comparedTo }} ({{ trend.elapsedDays }}d)</p>
-                  } @else {
-                    <span class="text-content-muted">Not enough history</span>
-                  }
-                </td>
-                <td class="px-4 py-3">
-                  @if (category.decision; as decision) {
-                    <p class="text-xs font-semibold text-content-primary">{{ decision.status }}</p>
-                    <p class="mt-1 max-w-48 truncate text-[10px] text-content-muted" [title]="decision.rationale">{{ decision.operator }} Â· {{ decision.rationale }}</p>
-                  } @else {
-                    <div class="flex flex-wrap gap-1">
-                      <button (click)="createDecision(category, 'PRIORITIZED', decisionOperator.value, decisionRationale.value)" [disabled]="isSavingDecision() || data.operationalHealth.state !== 'READY'" class="rounded border border-emerald-500/30 px-2 py-1 text-[10px] text-emerald-300 disabled:opacity-40">Prioritize</button>
-                      <button (click)="createDecision(category, 'WATCHED', decisionOperator.value, decisionRationale.value)" [disabled]="isSavingDecision() || data.operationalHealth.state !== 'READY'" class="rounded border border-amber-500/30 px-2 py-1 text-[10px] text-amber-300 disabled:opacity-40">Watch</button>
-                      <button (click)="createDecision(category, 'DISMISSED', decisionOperator.value, decisionRationale.value)" [disabled]="isSavingDecision() || data.operationalHealth.state !== 'READY'" class="rounded border border-border-subtle px-2 py-1 text-[10px] text-content-muted disabled:opacity-40">Dismiss</button>
-                    </div>
-                  }
-                </td>
-                <td class="px-4 py-3">
-                  <button (click)="toggleEvidence(category.slug)" class="rounded-lg border border-border-subtle px-2 py-1 text-xs text-content-primary hover:bg-surface-hover">
-                    {{ selectedEvidenceSlug() === category.slug ? 'Hide' : 'Inspect' }} {{ category.evidenceJobs.length }}
-                  </button>
-                </td>
-              </tr>
-            } @empty {
-              <tr><td colspan="14" class="px-4 py-8 text-center text-content-muted">No category snapshots yet. Run a local scrape to create evidence.</td></tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    </section>
 
     @if (selectedEvidenceCategory(); as selected) {
       <section class="rounded-2xl border border-border-subtle bg-surface-elevated p-4">

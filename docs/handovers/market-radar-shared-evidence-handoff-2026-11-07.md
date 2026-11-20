@@ -1,31 +1,24 @@
-# Market Radar shared evidence: local-deployment handoff
+# Market Radar shared evidence: verified local deployment
 
-The shared market-evidence feature is implemented and unit-tested. The remaining task is to rebuild the **local backend and frontend** so the Docker-served Radar uses the current source, then rerun the existing Sandbox QA plan. No Apify call is required for this step.
+The shared market-evidence feature is implemented, deployed to the local backend and frontend, and verified through Sandbox QA. No Apify call was required.
 
-## Quick path
+## Verified outcome
 
-1. In an elevated PowerShell, restore Docker CLI communication:
+1. Docker CLI communication was restored; `docker version` returned server version `28.4.0`.
 
-   ```powershell
-   Start-Service com.docker.service
-   docker version
-   ```
-
-   Continue only when `docker version` prints both `Client` and `Server` sections.
-
-2. From the repository root, rebuild only the application services:
+2. The local application services were rebuilt and restarted:
 
    ```powershell
    docker compose up -d --build backend frontend
    ```
 
-   This leaves the `postgres` service and its named volume untouched.
-
-3. Run the visual regression flow:
+3. Sandbox QA passed both checks on 2026-11-20:
 
    ```powershell
    npm run sandbox:run -- --remote --target nielsen --url http://127.0.0.1:7001 --requirement .sandbox/requirements/market-radar-shared-evidence-local.md --visual-plan .sandbox/visual-plans/market-radar-shared-evidence-local.json
    ```
+
+   Evidence: `.sandbox/runs/2026-11-20T14-30-16-715Z-46a82a88`.
 
 ## What changed
 
@@ -42,19 +35,21 @@ The shared market-evidence feature is implemented and unit-tested. The remaining
 - Backend focused suite: 24 passing tests for the Apify actor client, approved-page command, page workflow, and runner script.
 - Angular focused component test: passed after adding the shared-evidence section.
 - Node date utility test: 3 passing tests; it was excluded from Angular's TypeScript spec compilation because it is a Node-native test.
-- Sandbox QA reaches the local application and passes its HTTP check.
+- Sandbox QA passes both the HTTP check and the authenticated Playwright flow after rebuilding backend and frontend.
 
-## Current blocker and interpretation
+## Resolved blockers and follow-up
 
-The current Docker images are older than the source changes. Sandbox QA correctly fails its Playwright assertion waiting for `[aria-label='Shared market evidence']`; this is deployment drift, not evidence that the component implementation is absent.
+The earlier stale-image failure was resolved by rebuilding the backend and frontend. The initial regenerated backend invalidated the prior synthetic QA token; regenerating the local QA storage state resolved the authenticated Playwright run.
 
-Docker Desktop's UI showed **Engine running**, but the CLI from the agent and the user's terminal stalled. A read-only service check found:
+The frontend Docker context transferred approximately 4 GB during the build. This does not affect Radar correctness, but `frontend/.dockerignore` should be tightened in a separate change to exclude local dependency and cache directories.
+
+Docker Desktop's UI showed **Engine running**, but the CLI had temporarily stalled. A read-only service check found:
 
 ```text
 com.docker.service  Stopped  Manual
 ```
 
-The agent's attempt to start that service was denied by Windows service permissions. Use an elevated user terminal for the quick-path commands above. Do not run another Apify scrape while resolving this local deployment issue.
+The Docker CLI subsequently recovered without deleting images, containers, or database data. Do not run another Apify scrape solely for this deployment validation.
 
 ## Scope and safety
 
@@ -65,8 +60,8 @@ The agent's attempt to start that service was denied by Windows service permissi
 
 ## Completion checklist
 
-- [ ] `docker version` reports both Client and Server.
-- [ ] `docker compose up -d --build backend frontend` completes.
-- [ ] Sandbox QA passes both the HTTP and Playwright checks.
-- [ ] The checkpoint shows `Shared market evidence`, `social-media-content`, and `Partial coverage`.
+- [x] `docker version` reports both Client and Server.
+- [x] `docker compose up -d --build backend frontend` completes.
+- [x] Sandbox QA passes both the HTTP and Playwright checks.
+- [x] The checkpoint shows `Shared market evidence`, `social-media-content`, and `Partial coverage`.
 - [ ] Review the uncommitted diff before any commit; keep credentials and `.sandbox/fixtures/` out of Git.

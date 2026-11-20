@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "viewport": { "width": 1440, "height": 900 },
+  "maxDiffPixels": 1000000,
+  "storageState": ".sandbox/fixtures/auth-state-armando.json",
+  "stepTimeoutMs": 30000,
+  "scenarioTimeoutMs": 90000,
+  "scenarios": [
+    {
+      "id": "armando-russi-radar",
+      "profile": "nielsen",
+      "steps": [
+        { "action": "goto", "path": "/radar/market" },
+        { "action": "waitFor", "selector": "[aria-label='Category opportunities table']", "state": "visible" },
+        { "action": "waitFor", "selector": "[aria-label='Category opportunities table'] tbody tr:nth-child(5)", "state": "visible" },
+        { "action": "waitFor", "selector": "[aria-label='Historical market comparison'] tbody tr:nth-child(9)", "state": "visible" },
+        { "action": "screenshot", "id": "08-armando-russi-radar-populated", "checkpoint": "Market Radar con datos reales poblados para Armando Russi", "fullPage": true, "captureOnly": true }
+      ]
+    }
+  ]
+}

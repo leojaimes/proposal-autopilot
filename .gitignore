@@ -57,3 +57,5 @@ graphify-out/cache/
 
 # Local market-data backups: raw payloads and restoration dumps must not enter Git
 /backups/market-radar/
+dump_*.sql
+*.dump

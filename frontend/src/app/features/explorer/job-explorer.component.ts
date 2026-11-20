@@ -21,6 +21,9 @@ import {
 @Component({
   selector: 'app-job-explorer',
   standalone: true,
+  host: {
+    class: 'flex-1 flex flex-col w-full h-full min-h-0 overflow-y-auto',
+  },
   imports: [
     CommonModule,
     FormsModule,

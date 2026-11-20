@@ -199,6 +199,14 @@
         </span>
       </div>
     } @else {
+    <!-- Excel Export Button -->
+    <button (click)="downloadExcel()"
+            class="px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm group"
+            title="Descargar libro de trabajo Excel (.xlsx) con Pipeline, Today y Leaderboard">
+      <svg lucideFileDown class="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform"></svg>
+      <span>Exportar Excel</span>
+    </button>
+
     <!-- Workbench Quick Action Button -->
     <button (click)="viewModeChange.emit('WORKBENCH')"
             [ngClass]="activeView() === 'WORKBENCH' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/40 shadow-sm' : 'bg-[#1c1f2a] hover:bg-[#262a35] text-content-primary border-border-subtle/80'"

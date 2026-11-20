@@ -1,4 +1,4 @@
-﻿import { Component, ChangeDetectionStrategy, inject, signal, computed, effect, HostListener } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, effect, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReportService } from '../../core/services/report.service';
@@ -27,6 +27,8 @@ import {
   LucideMapPin,
   LucideStar,
   LucideRocket,
+  LucideChevronLeft,
+  LucideChevronRight,
 } from '@lucide/angular';
 import { MermaidViewerComponent } from '../../shared/components/mermaid-viewer/mermaid-viewer.component';
 import { JobCardSkeletonComponent } from './job-card-skeleton.component';
@@ -63,7 +65,12 @@ import { I18nPipe } from '../../core/pipes/i18n.pipe';
     LucideMapPin,
     LucideStar,
     LucideRocket,
+    LucideChevronLeft,
+    LucideChevronRight,
   ],
+  host: {
+    class: 'flex-1 flex h-full w-full min-h-0 overflow-hidden',
+  },
   templateUrl: './dispatch-terminal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -71,7 +78,7 @@ export class DispatchTerminalComponent {
   public readonly report = inject(ReportService);
   public readonly pipeline = inject(PipelineStateService);
 
-  public readonly selectedTier = signal<'ALL' | 'High' | 'Low'>('High'); // High Fit active by default!
+  public readonly selectedTier = signal<'ALL' | 'High' | 'Low'>('ALL'); // Feed activo completo por defecto ordenado por score
   public readonly searchTerm = signal<string>('');
   public readonly selectedJob = signal<JobReportItem | null>(null);
   public readonly copied = signal<boolean>(false);
@@ -107,7 +114,53 @@ export class DispatchTerminalComponent {
     return list;
   });
 
+  // Pagination Signals (Cabina de Despacho)
+  public readonly currentPage = signal<number>(1);
+  public readonly pageSize = signal<number>(15);
+
+  public readonly totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.filteredJobs().length / this.pageSize()))
+  );
+
+  public readonly paginatedJobs = computed(() => {
+    const start = (this.currentPage() - 1) * this.pageSize();
+    return this.filteredJobs().slice(start, start + this.pageSize());
+  });
+
+  public readonly pageStart = computed(() =>
+    this.filteredJobs().length === 0 ? 0 : (this.currentPage() - 1) * this.pageSize() + 1
+  );
+
+  public readonly pageEnd = computed(() =>
+    Math.min(this.currentPage() * this.pageSize(), this.filteredJobs().length)
+  );
+
+  public nextPage(): void {
+    if (this.currentPage() < this.totalPages()) {
+      this.currentPage.update(p => p + 1);
+    }
+  }
+
+  public prevPage(): void {
+    if (this.currentPage() > 1) {
+      this.currentPage.update(p => p - 1);
+    }
+  }
+
+  public goToPage(page: number): void {
+    if (page >= 1 && page <= this.totalPages()) {
+      this.currentPage.set(page);
+    }
+  }
+
   constructor() {
+    // Reset to page 1 whenever search or tier filters change
+    effect(() => {
+      this.searchTerm();
+      this.selectedTier();
+      this.currentPage.set(1);
+    });
+
     // If no High fit jobs exist, fall back to 'ALL' so top leads are visible immediately
     effect(() => {
       const highCount = this.highFitCount();
@@ -183,7 +236,12 @@ export class DispatchTerminalComponent {
     }
     const idx = jobs.findIndex(j => j.id === current.id);
     if (idx >= 0 && idx < jobs.length - 1) {
-      this.selectJob(jobs[idx + 1]);
+      const nextJob = jobs[idx + 1];
+      const targetPage = Math.floor((idx + 1) / this.pageSize()) + 1;
+      if (targetPage !== this.currentPage()) {
+        this.currentPage.set(targetPage);
+      }
+      this.selectJob(nextJob);
     }
   }
 
@@ -197,7 +255,12 @@ export class DispatchTerminalComponent {
     }
     const idx = jobs.findIndex(j => j.id === current.id);
     if (idx > 0) {
-      this.selectJob(jobs[idx - 1]);
+      const prevJob = jobs[idx - 1];
+      const targetPage = Math.floor((idx - 1) / this.pageSize()) + 1;
+      if (targetPage !== this.currentPage()) {
+        this.currentPage.set(targetPage);
+      }
+      this.selectJob(prevJob);
     }
   }
 

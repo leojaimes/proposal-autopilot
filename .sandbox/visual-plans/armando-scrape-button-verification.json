@@ -1,0 +1,24 @@
+{
+  "version": 2,
+  "viewport": { "width": 1440, "height": 900 },
+  "maxDiffPixels": 1000000,
+  "storageState": ".sandbox/fixtures/auth-state-armando.json",
+  "stepTimeoutMs": 30000,
+  "scenarioTimeoutMs": 120000,
+  "scenarios": [
+    {
+      "id": "armando-scrape-button-verification",
+      "profile": "nielsen",
+      "steps": [
+        { "action": "goto", "path": "/dispatch" },
+        { "action": "waitFor", "selector": "app-sidebar button[title='Scrapear Upwork']", "state": "visible" },
+        { "action": "screenshot", "id": "09-terminal-before-scrape", "checkpoint": "Terminal antes de disparar el scrape", "captureOnly": true },
+        { "action": "click", "selector": "app-sidebar button[title='Scrapear Upwork']" },
+        { "action": "waitFor", "selector": "app-live-scrape-progress span:has-text('SSE Live Stream')", "state": "visible", "timeoutMs": 15000 },
+        { "action": "screenshot", "id": "10-sse-progress-in-action", "checkpoint": "Banner SSE en vivo activado tras clic en Scrapear Upwork", "captureOnly": true },
+        { "action": "waitFor", "selector": "app-live-scrape-progress", "state": "hidden", "timeoutMs": 90000 },
+        { "action": "screenshot", "id": "11-terminal-after-scrape-results", "checkpoint": "Resultados de vacantes renderizados en el terminal", "fullPage": true, "captureOnly": true }
+      ]
+    }
+  ]
+}

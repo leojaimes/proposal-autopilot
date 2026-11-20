@@ -1,0 +1,37 @@
+{
+  "version": 2,
+  "viewport": { "width": 1440, "height": 900 },
+  "maxDiffPixels": 1000000,
+  "storageState": ".sandbox/fixtures/auth-state-armando.json",
+  "stepTimeoutMs": 30000,
+  "scenarioTimeoutMs": 120000,
+  "scenarios": [
+    {
+      "id": "armando-russi-profile-e2e",
+      "profile": "nielsen",
+      "steps": [
+        { "action": "goto", "path": "/" },
+        { "action": "waitFor", "selector": "header .profile-dropdown-container button", "state": "visible" },
+        { "action": "screenshot", "id": "01-armando-initial-terminal", "checkpoint": "Cabina inicial autenticada como Armando Russi", "captureOnly": true },
+        { "action": "click", "selector": "header .profile-dropdown-container button" },
+        { "action": "waitFor", "selector": "button:has-text('Crear Perfil de Cero')", "state": "visible" },
+        { "action": "screenshot", "id": "02-profile-dropdown-opened", "checkpoint": "Menú de perfiles desplegado", "captureOnly": true },
+        { "action": "click", "selector": "button:has-text('Crear Perfil de Cero')" },
+        { "action": "waitFor", "selector": "input[type='file']", "state": "attached" },
+        { "action": "screenshot", "id": "03-profile-creation-modal-open", "checkpoint": "Modal de calibración abierto", "captureOnly": true },
+        { "action": "upload", "selector": "input[type='file']", "paths": [".sandbox/fixtures/armando-positioning.pdf"] },
+        { "action": "waitFor", "selector": "span:has-text('armando-positioning.pdf')", "state": "visible" },
+        { "action": "screenshot", "id": "04-pdf-file-attached", "checkpoint": "Archivo PDF adjuntado", "captureOnly": true },
+        { "action": "click", "selector": "button:has-text('Sintetizar Proyectos, Taxonomía y Scoring')" },
+        { "action": "waitFor", "selector": "span:has-text('Perfil Extraído')", "state": "visible", "timeoutMs": 60000 },
+        { "action": "screenshot", "id": "05-profile-synthesized-preview", "checkpoint": "Síntesis completa con Gemini 3.8 Flash mostrando Proof Stories y roles de Armando", "captureOnly": true },
+        { "action": "click", "selector": "button:has-text('Activar Perfil y Re-evaluar Leads de Inmediato')" },
+        { "action": "waitFor", "selector": ".fixed.inset-0", "state": "hidden", "timeoutMs": 30000 },
+        { "action": "screenshot", "id": "06-profile-activated-dashboard", "checkpoint": "Perfil de Armando Russi activo en la cabina", "captureOnly": true },
+        { "action": "goto", "path": "/radar/market" },
+        { "action": "waitFor", "selector": "header", "state": "visible", "timeoutMs": 15000 },
+        { "action": "screenshot", "id": "07-market-radar-current-view", "checkpoint": "Vista del Radar de Mercado para Armando Russi", "fullPage": true, "captureOnly": true }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "viewport": { "width": 2500, "height": 1100 },
+  "maxDiffPixels": 1000000,
+  "storageState": ".sandbox/fixtures/auth-state-armando.json",
+  "stepTimeoutMs": 30000,
+  "scenarioTimeoutMs": 120000,
+  "scenarios": [
+    {
+      "id": "market-radar-29-columns-verification",
+      "profile": "nielsen",
+      "steps": [
+        { "action": "goto", "path": "/radar/market" },
+        { "action": "waitFor", "selector": "h2:has-text('Matriz Estratégica Market Radar (29 Columnas)')", "state": "visible", "timeoutMs": 25000 },
+        { "action": "waitFor", "selector": "table th:has-text('Yield $/hr (IA)')", "state": "visible" },
+        { "action": "screenshot", "id": "12-market-radar-29-columns-overview", "checkpoint": "Matriz unificada de 29 columnas completa renderizada en pantalla", "fullPage": true, "captureOnly": true }
+      ]
+    }
+  ]
+}

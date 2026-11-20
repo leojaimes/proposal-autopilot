@@ -1,0 +1,545 @@
+[
+  {
+    "segment": "all-upwork",
+    "actor": "hyperbach/upwork-jobs-history",
+    "runId": "IiGYQ0udh6VDzzzRD",
+    "observedAt": "2026-11-20T14:45:08.9480667Z",
+    "input": {
+      "from": "2025-07-01",
+      "estimate": true,
+      "to": "2026-09-30"
+    },
+    "statusMessage": "Estimate, nothing delivered or charged: 2,213,577 postings, 2025-07-01 to 2026-09-30, every category. All of them would cost $442.97 on your plan ($0.20 per 1,000 + $0.25 per run). Your maximum charge ($5.00) covers 23,749 of them. By month and category: the Estimate on the Output tab.",
+    "output": {
+      "selection": "2025-07-01 to 2026-09-30, every category",
+      "rows": 2213577,
+      "rows_this_run_would_deliver": 23749,
+      "price_usd": 442.9654,
+      "price_this_run_usd": 442.9654,
+      "price_per_1000_usd": 0.2,
+      "start_fee_usd": 0.25,
+      "max_charge_usd": 4.999999,
+      "rows_by_month": {
+        "2025-07": 193230,
+        "2025-08": 190956,
+        "2025-09": 191234,
+        "2025-10": 162209,
+        "2025-11": 171579,
+        "2025-12": 147390,
+        "2026-01": 177111,
+        "2026-02": 116197,
+        "2026-03": 133616,
+        "2026-04": 93404,
+        "2026-05": 143751,
+        "2026-06": 120190,
+        "2026-07": 131346,
+        "2026-08": 123809,
+        "2026-09": 117555
+      },
+      "rows_by_category": {
+        "Web, Mobile & Software Dev": 490406,
+        "Design & Creative": 579428,
+        "Sales & Marketing": 429896,
+        "Admin Support": 190429,
+        "Accounting & Consulting": 98486,
+        "Engineering & Architecture": 96931,
+        "Writing": 76024,
+        "Data Science & Analytics": 65435,
+        "IT & Networking": 46474,
+        "Customer Service": 41368,
+        "Translation": 36678,
+        "Legal": 31493,
+        "Uncategorized": 30529
+      },
+      "newest_day_on_sale": "2026-10-15"
+    }
+  },
+  {
+    "segment": "social-media-content",
+    "actor": "hyperbach/upwork-jobs-history",
+    "runId": "0WrvnEeuHv9gS0d0D",
+    "observedAt": "2026-11-20T14:45:13.6776239Z",
+    "input": {
+      "from": "2025-07-01",
+      "estimate": true,
+      "to": "2026-09-30",
+      "skills": [
+        "social media",
+        "content creation"
+      ]
+    },
+    "statusMessage": "Estimate, nothing delivered or charged: 261,558 postings, 2025-07-01 to 2026-09-30, every category, skills social media, content creation. All of them would cost $52.56 on your plan ($0.20 per 1,000 + $0.25 per run). Your maximum charge ($5.00) covers 23,749 of them. By month and category: the Estimate on the Output tab.",
+    "output": {
+      "selection": "2025-07-01 to 2026-09-30, every category, skills social media, content creation",
+      "rows": 261558,
+      "rows_this_run_would_deliver": 23749,
+      "price_usd": 52.5616,
+      "price_this_run_usd": 52.5616,
+      "price_per_1000_usd": 0.2,
+      "start_fee_usd": 0.25,
+      "max_charge_usd": 4.999999,
+      "rows_by_month": {
+        "2025-07": 21043,
+        "2025-08": 20964,
+        "2025-09": 21536,
+        "2025-10": 18582,
+        "2025-11": 19975,
+        "2025-12": 16984,
+        "2026-01": 20500,
+        "2026-02": 13094,
+        "2026-03": 15642,
+        "2026-04": 11290,
+        "2026-05": 18231,
+        "2026-06": 15269,
+        "2026-07": 17392,
+        "2026-08": 16222,
+        "2026-09": 14834
+      },
+      "rows_by_category": {
+        "Web, Mobile & Software Dev": 5377,
+        "Design & Creative": 67995,
+        "Sales & Marketing": 150256,
+        "Admin Support": 18614,
+        "Accounting & Consulting": 4681,
+        "Engineering & Architecture": 443,
+        "Writing": 4905,
+        "Data Science & Analytics": 938,
+        "IT & Networking": 434,
+        "Customer Service": 3596,
+        "Translation": 321,
+        "Legal": 339,
+        "Uncategorized": 3659
+      },
+      "newest_day_on_sale": "2026-10-15"
+    }
+  },
+  {
+    "segment": "translation",
+    "actor": "hyperbach/upwork-jobs-history",
+    "runId": "idse0lKc3Y5MHcSW4",
+    "observedAt": "2026-11-20T14:45:18.1346809Z",
+    "input": {
+      "from": "2025-07-01",
+      "estimate": true,
+      "to": "2026-09-30",
+      "categories": [
+        "translation"
+      ]
+    },
+    "statusMessage": "Estimate, nothing delivered or charged: 36,678 postings, 2025-07-01 to 2026-09-30, Translation. All of them would cost $7.59 on your plan ($0.20 per 1,000 + $0.25 per run). Your maximum charge ($5.00) covers 23,749 of them. By month and category: the Estimate on the Output tab.",
+    "output": {
+      "selection": "2025-07-01 to 2026-09-30, Translation",
+      "rows": 36678,
+      "rows_this_run_would_deliver": 23749,
+      "price_usd": 7.5856,
+      "price_this_run_usd": 7.5856,
+      "price_per_1000_usd": 0.2,
+      "start_fee_usd": 0.25,
+      "max_charge_usd": 4.999999,
+      "rows_by_month": {
+        "2025-07": 3223,
+        "2025-08": 3045,
+        "2025-09": 3153,
+        "2025-10": 2870,
+        "2025-11": 3412,
+        "2025-12": 2438,
+        "2026-01": 2672,
+        "2026-02": 1912,
+        "2026-03": 1819,
+        "2026-04": 1379,
+        "2026-05": 1946,
+        "2026-06": 1969,
+        "2026-07": 2359,
+        "2026-08": 2334,
+        "2026-09": 2147
+      },
+      "rows_by_category": {
+        "Translation": 36678
+      },
+      "newest_day_on_sale": "2026-10-15"
+    }
+  },
+  {
+    "segment": "ux-ui-design",
+    "actor": "hyperbach/upwork-jobs-history",
+    "runId": "FYA04ocL1mbVR3Ggc",
+    "observedAt": "2026-11-20T14:45:21.3888587Z",
+    "input": {
+      "from": "2025-07-01",
+      "estimate": true,
+      "to": "2026-09-30",
+      "skills": [
+        "ux design",
+        "ui design"
+      ]
+    },
+    "statusMessage": "Estimate, nothing delivered or charged: 13,246 postings, 2025-07-01 to 2026-09-30, every category, skills ux design, ui design. All of them would cost $2.90 on your plan ($0.20 per 1,000 + $0.25 per run). By month and category: the Estimate on the Output tab.",
+    "output": {
+      "selection": "2025-07-01 to 2026-09-30, every category, skills ux design, ui design",
+      "rows": 13246,
+      "rows_this_run_would_deliver": 13246,
+      "price_usd": 2.8992,
+      "price_this_run_usd": 2.8992,
+      "price_per_1000_usd": 0.2,
+      "start_fee_usd": 0.25,
+      "max_charge_usd": 4.999999,
+      "rows_by_month": {
+        "2025-07": 915,
+        "2025-08": 866,
+        "2025-09": 1120,
+        "2025-10": 1295,
+        "2025-11": 1281,
+        "2025-12": 843,
+        "2026-01": 996,
+        "2026-02": 581,
+        "2026-03": 712,
+        "2026-04": 551,
+        "2026-05": 857,
+        "2026-06": 710,
+        "2026-07": 729,
+        "2026-08": 818,
+        "2026-09": 972
+      },
+      "rows_by_category": {
+        "Web, Mobile & Software Dev": 10873,
+        "Design & Creative": 1667,
+        "Sales & Marketing": 255,
+        "Admin Support": 52,
+        "Accounting & Consulting": 24,
+        "Engineering & Architecture": 36,
+        "Writing": 17,
+        "Data Science & Analytics": 75,
+        "IT & Networking": 38,
+        "Uncategorized": 192,
+        "Translation": 6,
+        "Customer Service": 11
+      },
+      "newest_day_on_sale": "2026-10-15"
+    }
+  },
+  {
+    "segment": "n8n-automation",
+    "actor": "hyperbach/upwork-jobs-history",
+    "runId": "begn7ieYszzYFrNJy",
+    "observedAt": "2026-11-20T14:45:25.9689048Z",
+    "input": {
+      "from": "2025-07-01",
+      "estimate": true,
+      "to": "2026-09-30",
+      "skills": [
+        "n8n"
+      ]
+    },
+    "statusMessage": "Estimate, nothing delivered or charged: 13,472 postings, 2025-07-01 to 2026-09-30, every category, skills n8n. All of them would cost $2.94 on your plan ($0.20 per 1,000 + $0.25 per run). By month and category: the Estimate on the Output tab.",
+    "output": {
+      "selection": "2025-07-01 to 2026-09-30, every category, skills n8n",
+      "rows": 13472,
+      "rows_this_run_would_deliver": 13472,
+      "price_usd": 2.9444,
+      "price_this_run_usd": 2.9444,
+      "price_per_1000_usd": 0.2,
+      "start_fee_usd": 0.25,
+      "max_charge_usd": 4.999999,
+      "rows_by_month": {
+        "2025-07": 1066,
+        "2025-08": 1195,
+        "2025-09": 1301,
+        "2025-10": 1264,
+        "2025-11": 1315,
+        "2025-12": 1068,
+        "2026-01": 1129,
+        "2026-02": 652,
+        "2026-03": 729,
+        "2026-04": 478,
+        "2026-05": 837,
+        "2026-06": 624,
+        "2026-07": 695,
+        "2026-08": 575,
+        "2026-09": 544
+      },
+      "rows_by_category": {
+        "Web, Mobile & Software Dev": 8545,
+        "Design & Creative": 135,
+        "Sales & Marketing": 1710,
+        "Admin Support": 385,
+        "Accounting & Consulting": 97,
+        "Engineering & Architecture": 56,
+        "Writing": 43,
+        "Data Science & Analytics": 1642,
+        "IT & Networking": 553,
+        "Customer Service": 101,
+        "Uncategorized": 197,
+        "Translation": 5,
+        "Legal": 3
+      },
+      "newest_day_on_sale": "2026-10-15"
+    }
+  },
+  {
+    "segment": "gohighlevel",
+    "actor": "hyperbach/upwork-jobs-history",
+    "runId": "lO5LhyalgGpvxO9ZY",
+    "observedAt": "2026-11-20T14:45:33.6833566Z",
+    "input": {
+      "from": "2025-07-01",
+      "estimate": true,
+      "to": "2026-09-30",
+      "skills": [
+        "gohighlevel"
+      ]
+    },
+    "statusMessage": "Estimate, nothing delivered or charged: 4,289 postings, 2025-07-01 to 2026-09-30, every category, skills gohighlevel. All of them would cost $1.11 on your plan ($0.20 per 1,000 + $0.25 per run). By month and category: the Estimate on the Output tab.",
+    "output": {
+      "selection": "2025-07-01 to 2026-09-30, every category, skills gohighlevel",
+      "rows": 4289,
+      "rows_this_run_would_deliver": 4289,
+      "price_usd": 1.1078,
+      "price_this_run_usd": 1.1078,
+      "price_per_1000_usd": 0.2,
+      "start_fee_usd": 0.25,
+      "max_charge_usd": 4.999999,
+      "rows_by_month": {
+        "2025-09": 287,
+        "2025-10": 394,
+        "2025-11": 407,
+        "2025-12": 287,
+        "2026-01": 469,
+        "2026-02": 276,
+        "2026-03": 326,
+        "2026-04": 224,
+        "2026-05": 374,
+        "2026-06": 336,
+        "2026-07": 332,
+        "2026-08": 318,
+        "2026-09": 259
+      },
+      "rows_by_category": {
+        "Web, Mobile & Software Dev": 1265,
+        "Design & Creative": 53,
+        "Sales & Marketing": 2219,
+        "Admin Support": 412,
+        "Accounting & Consulting": 46,
+        "Engineering & Architecture": 5,
+        "Writing": 11,
+        "Data Science & Analytics": 72,
+        "IT & Networking": 90,
+        "Customer Service": 115,
+        "Legal": 1
+      },
+      "newest_day_on_sale": "2026-10-15"
+    }
+  },
+  {
+    "segment": "ux-research",
+    "actor": "hyperbach/upwork-jobs-history",
+    "runId": "sqyAGlJgAx67PMeYW",
+    "observedAt": "2026-11-20T14:45:36.9217402Z",
+    "input": {
+      "from": "2025-07-01",
+      "estimate": true,
+      "to": "2026-09-30",
+      "skills": [
+        "ux research",
+        "user research"
+      ]
+    },
+    "statusMessage": "Estimate, nothing delivered or charged: 2,436 postings, 2025-07-01 to 2026-09-30, every category, skills ux research, user research. All of them would cost $0.74 on your plan ($0.20 per 1,000 + $0.25 per run). By month and category: the Estimate on the Output tab.",
+    "output": {
+      "selection": "2025-07-01 to 2026-09-30, every category, skills ux research, user research",
+      "rows": 2436,
+      "rows_this_run_would_deliver": 2436,
+      "price_usd": 0.7372,
+      "price_this_run_usd": 0.7372,
+      "price_per_1000_usd": 0.2,
+      "start_fee_usd": 0.25,
+      "max_charge_usd": 4.999999,
+      "rows_by_month": {
+        "2025-07": 201,
+        "2025-08": 202,
+        "2025-09": 195,
+        "2025-10": 151,
+        "2025-11": 177,
+        "2025-12": 203,
+        "2026-01": 215,
+        "2026-02": 125,
+        "2026-03": 137,
+        "2026-04": 79,
+        "2026-05": 174,
+        "2026-06": 137,
+        "2026-07": 130,
+        "2026-08": 162,
+        "2026-09": 148
+      },
+      "rows_by_category": {
+        "Web, Mobile & Software Dev": 1683,
+        "Design & Creative": 137,
+        "Sales & Marketing": 66,
+        "Admin Support": 414,
+        "Accounting & Consulting": 11,
+        "Engineering & Architecture": 3,
+        "Writing": 21,
+        "Data Science & Analytics": 29,
+        "Uncategorized": 36,
+        "Customer Service": 10,
+        "IT & Networking": 3,
+        "Translation": 23
+      },
+      "newest_day_on_sale": "2026-10-15"
+    }
+  },
+  {
+    "segment": "aeo-geo",
+    "actor": "hyperbach/upwork-jobs-history",
+    "runId": "SidcpoFEIf47xITpe",
+    "observedAt": "2026-11-20T14:45:40.4529796Z",
+    "input": {
+      "from": "2025-07-01",
+      "estimate": true,
+      "to": "2026-09-30",
+      "skills": [
+        "answer engine optimization",
+        "generative engine optimization"
+      ]
+    },
+    "statusMessage": "Estimate, nothing delivered or charged: 246 postings, 2025-07-01 to 2026-09-30, every category, skills answer engine optimization, generative engine optimization. All of them would cost $0.30 on your plan ($0.20 per 1,000 + $0.25 per run). By month and category: the Estimate on the Output tab.",
+    "output": {
+      "selection": "2025-07-01 to 2026-09-30, every category, skills answer engine optimization, generative engine optimization",
+      "rows": 246,
+      "rows_this_run_would_deliver": 246,
+      "price_usd": 0.2992,
+      "price_this_run_usd": 0.2992,
+      "price_per_1000_usd": 0.2,
+      "start_fee_usd": 0.25,
+      "max_charge_usd": 4.999999,
+      "rows_by_month": {
+        "2025-09": 15,
+        "2025-10": 19,
+        "2025-11": 25,
+        "2025-12": 9,
+        "2026-01": 20,
+        "2026-02": 7,
+        "2026-03": 17,
+        "2026-04": 14,
+        "2026-05": 14,
+        "2026-06": 28,
+        "2026-07": 24,
+        "2026-08": 33,
+        "2026-09": 21
+      },
+      "rows_by_category": {
+        "Web, Mobile & Software Dev": 17,
+        "Design & Creative": 2,
+        "Sales & Marketing": 215,
+        "Admin Support": 2,
+        "Writing": 4,
+        "Accounting & Consulting": 2,
+        "Legal": 1,
+        "Data Science & Analytics": 3
+      },
+      "newest_day_on_sale": "2026-10-15"
+    }
+  },
+  {
+    "segment": "ai-prototyping",
+    "actor": "hyperbach/upwork-jobs-history",
+    "runId": "IwGrP5dbgfpORba0a",
+    "observedAt": "2026-11-20T14:45:44.0911934Z",
+    "input": {
+      "from": "2025-07-01",
+      "estimate": true,
+      "to": "2026-09-30",
+      "skills": [
+        "ai prototyping",
+        "rapid prototyping"
+      ]
+    },
+    "statusMessage": "Estimate, nothing delivered or charged: 440 postings, 2025-07-01 to 2026-09-30, every category, skills ai prototyping, rapid prototyping. All of them would cost $0.34 on your plan ($0.20 per 1,000 + $0.25 per run). By month and category: the Estimate on the Output tab.",
+    "output": {
+      "selection": "2025-07-01 to 2026-09-30, every category, skills ai prototyping, rapid prototyping",
+      "rows": 440,
+      "rows_this_run_would_deliver": 440,
+      "price_usd": 0.338,
+      "price_this_run_usd": 0.338,
+      "price_per_1000_usd": 0.2,
+      "start_fee_usd": 0.25,
+      "max_charge_usd": 4.999999,
+      "rows_by_month": {
+        "2025-07": 29,
+        "2025-08": 23,
+        "2025-09": 20,
+        "2025-10": 17,
+        "2025-11": 34,
+        "2025-12": 26,
+        "2026-01": 27,
+        "2026-02": 32,
+        "2026-03": 27,
+        "2026-04": 23,
+        "2026-05": 35,
+        "2026-06": 34,
+        "2026-07": 37,
+        "2026-08": 34,
+        "2026-09": 42
+      },
+      "rows_by_category": {
+        "Web, Mobile & Software Dev": 120,
+        "Design & Creative": 122,
+        "Engineering & Architecture": 171,
+        "Data Science & Analytics": 4,
+        "Admin Support": 8,
+        "Uncategorized": 10,
+        "Sales & Marketing": 2,
+        "Accounting & Consulting": 1,
+        "IT & Networking": 2
+      },
+      "newest_day_on_sale": "2026-10-15"
+    }
+  },
+  {
+    "segment": "design-systems",
+    "actor": "hyperbach/upwork-jobs-history",
+    "runId": "fpSKnDCwHN2Hq355a",
+    "observedAt": "2026-11-20T14:45:47.7103862Z",
+    "input": {
+      "from": "2025-07-01",
+      "estimate": true,
+      "to": "2026-09-30",
+      "skills": [
+        "design system"
+      ]
+    },
+    "statusMessage": "Estimate, nothing delivered or charged: 173 postings, 2025-07-01 to 2026-09-30, every category, skills design system. All of them would cost $0.28 on your plan ($0.20 per 1,000 + $0.25 per run). By month and category: the Estimate on the Output tab.",
+    "output": {
+      "selection": "2025-07-01 to 2026-09-30, every category, skills design system",
+      "rows": 173,
+      "rows_this_run_would_deliver": 173,
+      "price_usd": 0.2846,
+      "price_this_run_usd": 0.2846,
+      "price_per_1000_usd": 0.2,
+      "start_fee_usd": 0.25,
+      "max_charge_usd": 4.999999,
+      "rows_by_month": {
+        "2025-09": 9,
+        "2025-10": 17,
+        "2025-11": 13,
+        "2025-12": 9,
+        "2026-01": 15,
+        "2026-02": 11,
+        "2026-03": 12,
+        "2026-04": 12,
+        "2026-05": 23,
+        "2026-06": 7,
+        "2026-07": 11,
+        "2026-08": 12,
+        "2026-09": 22
+      },
+      "rows_by_category": {
+        "Web, Mobile & Software Dev": 139,
+        "Design & Creative": 31,
+        "Accounting & Consulting": 1,
+        "IT & Networking": 1,
+        "Sales & Marketing": 1
+      },
+      "newest_day_on_sale": "2026-10-15"
+    }
+  }
+]

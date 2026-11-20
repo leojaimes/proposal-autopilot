@@ -8,7 +8,42 @@ import {
   LucideChevronUp,
   LucideCompass,
   LucideRefreshCw,
+  LucideFileDown,
 } from '@lucide/angular';
+
+export interface MarketRadarMatrixRow {
+  rank: number;
+  category: string;
+  slug: string;
+  lane: 'Core' | 'Adjacent' | 'Excluded';
+  overallScore: number;
+  opportunityScore: number;
+  personalFitScore: number;
+  recencyScore: number;
+  trendingScore: number;
+  supplyPressureScore: number;
+  submissionsScore: number;
+  clientQualityScore: number;
+  newJobsPerHour: number;
+  shareYearOverYearPct: number | null;
+  shareMomentumPct: number | null;
+  postingsPerMonth: number | null;
+  postingsVsPeakPct: number | null;
+  changeVsPreviousScrapePct: number | null;
+  medianListingAgeHours: number | null;
+  pctJobsWith25PlusProposals: number | null;
+  medianProposals: number | null;
+  medianClientSpend: number | null;
+  verifiedClientsPct: number | null;
+  medianHourlyRate: number | null;
+  medianFixedBudget: number | null;
+  skillAffinity: number;
+  aiEase: number;
+  sampleJobs: number;
+  runsAveraged: number;
+  updated: string;
+  effectiveHourlyYield: number;
+}
 
 export interface MarketCategoryRow {
   snapshotId: string;
@@ -96,6 +131,7 @@ export interface SharedMarketEvidence {
 }
 
 export interface RadarData {
+  matrix?: MarketRadarMatrixRow[];
   kpis: {
     totalJobsSampled: number;
     topCategory: string | null;
@@ -105,8 +141,25 @@ export interface RadarData {
   };
   operationalHealth: MarketRadarOperationalHealth;
   sharedMarketEvidence: SharedMarketEvidence[];
+  historicalEstimates: MarketHistoricalEstimate[];
   categories: MarketCategoryRow[];
   methodology: Record<string, string>;
+}
+
+export interface MarketHistoricalEstimate {
+  segment: string;
+  category: string;
+  postingsPerMonth: number | null;
+  shareYearOverYearPct: number | null;
+  shareMomentumPct: number | null;
+  period: string;
+  baselineYear: string;
+  priorPeriod: string;
+  source: string;
+  runId: string;
+  observedAt: string;
+  filter: Record<string, unknown>;
+  filterLabel: string;
 }
 
 export interface MarketRadarOperationalHealth {
@@ -129,6 +182,9 @@ import { I18nPipe } from '../../core/pipes/i18n.pipe';
 @Component({
   selector: 'app-market-radar',
   standalone: true,
+  host: {
+    class: 'flex-1 flex flex-col w-full h-full min-h-0 overflow-y-auto',
+  },
   imports: [
     CommonModule,
     I18nPipe,
@@ -136,6 +192,7 @@ import { I18nPipe } from '../../core/pipes/i18n.pipe';
     LucideChevronUp,
     LucideCompass,
     LucideRefreshCw,
+    LucideFileDown,
   ],
   templateUrl: './market-radar.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -143,7 +200,11 @@ import { I18nPipe } from '../../core/pipes/i18n.pipe';
 export class MarketRadarComponent implements OnInit {
   private readonly http = inject(HttpClient);
   public readonly pipeline = inject(PipelineStateService);
-  private readonly report = inject(ReportService);
+  public readonly report = inject(ReportService);
+
+  public downloadExcelReport(): void {
+    this.report.downloadExcelReport();
+  }
 
   public readonly radarData = signal<RadarData | null>(null);
   public readonly isLoading = signal<boolean>(true);
@@ -153,6 +214,16 @@ export class MarketRadarComponent implements OnInit {
   public readonly selectedEvidenceSlug = signal<string | null>(null);
   public readonly isSavingDecision = signal<boolean>(false);
   public readonly decisionMessage = signal<string>('');
+  public readonly viewMode = signal<'MATRIX_29' | 'TENANT_SNAPSHOTS'>('MATRIX_29');
+
+  public readonly matrixRows = computed(() => {
+    const data = this.radarData();
+    if (!data?.matrix) return [];
+    if (this.filterLane() === 'CORE_ADJACENT') {
+      return data.matrix.filter(r => r.lane !== 'Excluded');
+    }
+    return data.matrix;
+  });
 
   constructor() {
     effect(() => {
@@ -302,6 +373,28 @@ export class MarketRadarComponent implements OnInit {
       });
   }
 
+  public getScoreColorClass(score: number | null): string {
+    if (score == null) return 'text-content-muted';
+    if (score >= 75) return 'text-emerald-400 font-semibold';
+    if (score >= 55) return 'text-teal-300 font-medium';
+    if (score >= 40) return 'text-amber-300 font-medium';
+    return 'text-slate-400';
+  }
+
+  public getScoreBadgeClass(score: number | null): string {
+    if (score == null) return 'bg-slate-700/30 text-slate-400 border border-slate-700';
+    if (score >= 70) return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+    if (score >= 55) return 'bg-teal-500/15 text-teal-300 border border-teal-500/30';
+    if (score >= 40) return 'bg-amber-500/15 text-amber-300 border border-amber-500/30';
+    return 'bg-slate-800/40 text-slate-400 border border-slate-700/50';
+  }
+
+  public getLaneBadgeClass(lane: string): string {
+    if (lane === 'Core') return 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30';
+    if (lane === 'Adjacent') return 'bg-purple-500/20 text-purple-300 border border-purple-500/30';
+    return 'bg-slate-700/40 text-slate-400 border border-slate-700';
+  }
+
   public getOppBadgeClass(score: number | null): string {
     if (score == null) return 'bg-slate-500/20 text-slate-300';
     if (score >= 55) return 'bg-emerald-500/20 text-emerald-300';
@@ -346,6 +439,25 @@ export class MarketRadarComponent implements OnInit {
   public formatDelta(value: number | null): string {
     if (value == null) return 'Not observed';
     return `${value > 0 ? '+' : ''}${value}`;
+  }
+
+  public formatMacroPostings(val: number | null): string {
+    if (val == null) return '30';
+    return val.toLocaleString();
+  }
+
+  public formatMacroShare(val: number | null): string {
+    if (val == null) return 'too little data';
+    if (val > 0) return `+${val.toLocaleString()}%`;
+    if (val < 0) return `−${Math.abs(val)}%`;
+    return '0%';
+  }
+
+  public formatMacroMomentum(val: number | null): string {
+    if (val == null) return '';
+    if (val > 0) return `+${val}%`;
+    if (val < 0) return `−${Math.abs(val)}%`;
+    return '0%';
   }
 
   public describeMovement(category: MarketCategoryRow): string {

@@ -169,10 +169,11 @@ describe('Adversarial & Edge-Case Scoring Engine Suite - Deductive Model', () =>
     const freshResult = fitCalculator.calculate(inputFresh);
     const oldResult = fitCalculator.calculate(inputOld);
 
-    // Ambas deben tener 100 en afinidad porque ambas cumplen 100% las keywords
+    // La vacante fresca debe tener 100 en overallScore
     assert.strictEqual(freshResult.overallScore, 100);
-    assert.strictEqual(oldResult.overallScore, 100);
-    // Pero la recencia debe reflejar la diferencia para ordenamiento secundario
+    // La vacante de hace 5 días debe sufrir penalización severa por recencia (< 60 pts)
+    assert.ok(oldResult.overallScore < 60, `La vacante de 5 días debe tener deducción severa por decaimiento, obtenido: ${oldResult.overallScore}`);
+    assert.ok(freshResult.overallScore > oldResult.overallScore);
     assert.ok(freshResult.recencyScore > oldResult.recencyScore, `La fresca (${freshResult.recencyScore}) debe tener mayor recencyScore que la antigua (${oldResult.recencyScore})`);
   });
 

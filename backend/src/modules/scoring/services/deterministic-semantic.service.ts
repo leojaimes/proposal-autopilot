@@ -96,6 +96,32 @@ export class TokenWindowMatcher {
       const clean = tokens.join(' ');
       if (clean) set.add(clean);
 
+      // Si contiene "ux" o "ui", indexar variantes compuestas universales
+      if (clean.includes('ux') || clean.includes('ui')) {
+        set.add('ux ui');
+        set.add('ui ux');
+        set.add('ux ui designer');
+        set.add('ui ux designer');
+        set.add('ux designer');
+        set.add('ui designer');
+        set.add('product designer');
+      }
+      if (clean.includes('design system')) {
+        set.add('design system');
+        set.add('figma design system');
+        set.add('ui kit');
+      }
+
+      // También indexar subfrases significativas de 2 o 3 palabras
+      for (let i = 0; i < tokens.length - 1; i++) {
+        const sub2 = tokens.slice(i, i + 2).join(' ');
+        set.add(sub2);
+        if (i < tokens.length - 2) {
+          const sub3 = tokens.slice(i, i + 3).join(' ');
+          set.add(sub3);
+        }
+      }
+
       // También indexar la versión lematizada en el Set para match bidireccional
       const stemmed = tokens.map(t => this.stem(t)).join(' ');
       if (stemmed && stemmed !== clean) {
@@ -199,7 +225,9 @@ export class DeterministicSemanticService {
       score += 12;
     }
 
-    const affinityScore = Math.min(100, Math.max(10, score));
+    const affinityScore = (matchedLane as string) === 'EXCLUDED' ? 15 
+                        : matchedLane === 'OFF_NICHE' ? 70 
+                        : Math.min(100, Math.max(40, score));
     const affinityMultiplier = Number((affinityScore / 100).toFixed(2));
 
     return {

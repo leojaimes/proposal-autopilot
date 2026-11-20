@@ -17,6 +17,7 @@ export interface FitCalculationInput {
   postedDate?: Date | string | null;
   excludedCountries?: string[];
   targetCountries?: string[];
+  geoFilterMode?: 'WEIGHTED_PREFERENCE' | 'STRICT_EXCLUDE';
   weights?: {
     skill: number;
     ai: number;
@@ -139,28 +140,40 @@ export class FitCalculatorService {
       drags.push(`Rating del cliente bajo (${rating.toFixed(1)} estrellas, -10 pts)`);
     }
 
-    // 4. Frescura de Publicación (Priorizando 100% el Match de Perfil sobre la Fecha)
-    // Cero penalizaciones a la afinidad del perfil por días transcurridos
+    // 4. Frescura de Publicación y Decaimiento Exponencial Continuo
     let recencyScore = 85;
+    let recencyDeduction = 0;
     if (input.postedDate != null) {
       const postedTime = new Date(input.postedDate).getTime();
       const diffHours = Math.max(0, (Date.now() - postedTime) / (1000 * 3600));
 
       if (diffHours < 3) {
-        drivers.push('Publicación muy reciente (< 3 horas, ventaja primer postor)');
+        drivers.push(`Publicación muy reciente (< 3h: ${diffHours.toFixed(1)}h, ventaja primer postor)`);
         recencyScore = 100;
-      } else if (diffHours <= 24) {
-        recencyScore = 95;
-      } else if (diffHours <= 72) {
+        recencyDeduction = 0;
+      } else if (diffHours <= 8) {
+        drivers.push(`Publicación fresca (${diffHours.toFixed(1)}h, ventana activa)`);
         recencyScore = 90;
-      } else if (diffHours <= 168) {
-        recencyScore = 85;
-      } else if (diffHours <= 504) {
+        recencyDeduction = 5;
+      } else if (diffHours <= 24) {
         recencyScore = 75;
+        recencyDeduction = 15;
+        drags.push(`Publicación de hoy (${Math.round(diffHours)}h transcurridas, -15 pts)`);
+      } else if (diffHours <= 48) {
+        recencyScore = 45;
+        recencyDeduction = 30;
+        drags.push(`Publicación de ayer (${Math.round(diffHours)}h, ventana tardía, -30 pts)`);
+      } else if (diffHours <= 168) {
+        recencyScore = 20;
+        recencyDeduction = 50;
+        drags.push(`Ventana caducada (${Math.round(diffHours / 24)} días, baja probabilidad de apertura, -50 pts)`);
       } else {
-        recencyScore = 60;
+        recencyScore = 5;
+        recencyDeduction = 70;
+        drags.push(`Vacante histórica/expirada (${Math.round(diffHours / 24)} días, postulación inviable, -70 pts)`);
       }
     }
+    deductions += recencyDeduction;
 
     // 5. Cálculo nominal deductivo con ajuste de pesos de perfil. Los pesos por
     // defecto no alteran el comportamiento histórico; los personalizados cambian
@@ -184,15 +197,19 @@ export class FitCalculatorService {
       );
 
       if (affinity.matchedLane === 'EXCLUDED') {
-        overallScore = Math.min(15, Math.round(overallScore * affinity.affinityMultiplier));
+        overallScore = Math.min(15, overallScore);
         drags.push(affinity.reason);
-      } else {
-        overallScore = Math.max(15, Math.min(100, Math.round(overallScore * affinity.affinityMultiplier)));
-        if (affinity.affinityMultiplier >= 0.70) {
-          drivers.push(`Afinidad de Rol: ${affinity.matchedLane} (${Math.round(affinity.affinityMultiplier * 100)}%)`);
-        } else {
-          drags.push(`Afinidad de Rol moderada: ${affinity.matchedLane} (${Math.round(affinity.affinityMultiplier * 100)}%)`);
-        }
+      } else if (affinity.matchedLane === 'CORE') {
+        drivers.push(`Afinidad de Rol: CORE (${affinity.affinityScore}%)`);
+      } else if (affinity.matchedLane === 'HYBRID') {
+        overallScore = Math.max(15, Math.round(overallScore * 0.95));
+        drivers.push(`Afinidad de Rol: HYBRID (${affinity.affinityScore}%)`);
+      } else if (affinity.matchedLane === 'TANGENTIAL') {
+        overallScore = Math.max(15, Math.round(overallScore * 0.85));
+        drags.push(`Afinidad de Rol tangencial: TANGENTIAL (${affinity.affinityScore}%)`);
+      } else if (match.matchLevel === 'OFF_NICHE') {
+        overallScore = Math.max(15, Math.round(overallScore * 0.70));
+        drags.push(affinity.reason);
       }
     }
 
@@ -227,11 +244,18 @@ export class FitCalculatorService {
       } else if (targets.length > 0) {
         const matchesTarget = targets.some(tg => countryClean.includes(tg) || tg.includes(countryClean));
         if (!matchesTarget) {
-          overallScore = Math.min(15, overallScore);
-          eligibilityStatus = 'EXCLUDED';
-          isCapped = true;
-          capReason = `GEO MISMATCH: Ubicación (${input.clientCountry}) no coincide con los países o ciudades objetivo (${input.targetCountries?.join(', ')})`;
-          drags.push(capReason);
+          if (input.geoFilterMode === 'WEIGHTED_PREFERENCE') {
+            // WEIGHTED_PREFERENCE: deducción leve sin destruir la vacante
+            overallScore = Math.max(15, overallScore - 10);
+            drags.push(`Ubicación secundaria: (${input.clientCountry}) fuera de foco primario (-10 pts)`);
+          } else {
+            // STRICT_EXCLUDE o por defecto: exclusión y cap a 15
+            overallScore = Math.min(15, overallScore);
+            eligibilityStatus = 'EXCLUDED';
+            isCapped = true;
+            capReason = `GEO MISMATCH: Ubicación (${input.clientCountry}) no coincide con los países o ciudades objetivo (${input.targetCountries?.join(', ')})`;
+            drags.push(capReason);
+          }
         } else {
           drivers.push(`Ubicación Objetivo: Coincide con ${input.clientCountry}`);
         }
@@ -250,6 +274,21 @@ export class FitCalculatorService {
       overallScore = Math.min(35, overallScore);
       isCapped = true;
       capReason = capReason || 'OFF_NICHE: Sin coincidencia con las expresiones activas del motor';
+    }
+
+    // 7.1 Techo Estricto por Antigüedad / TTL de la Vacante
+    if (input.postedDate != null) {
+      const postedTime = new Date(input.postedDate).getTime();
+      const diffHours = Math.max(0, (Date.now() - postedTime) / (1000 * 3600));
+      if (diffHours > 168) { // Más de 7 días (como las vacantes históricas de 15 días)
+        overallScore = Math.min(25, overallScore);
+        isCapped = true;
+        capReason = capReason || `EXPIRED_LISTING: Vacante histórica publicada hace ${Math.round(diffHours / 24)} días (Connects protegidos)`;
+      } else if (diffHours > 48 && (input.proposalsCount ?? 0) > 15) {
+        overallScore = Math.min(35, overallScore);
+        isCapped = true;
+        capReason = capReason || `EXPIRED_WINDOW: Más de 48h con alta competencia (${input.proposalsCount} bids)`;
+      }
     }
 
     if (input.taxonomy) {

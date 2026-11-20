@@ -365,6 +365,17 @@ model SharedUpworkJob {
   @@map("shared_upwork_jobs")
 }
 
+model MarketHistoricalEstimate {
+  segment    String   @id @db.VarChar(50)
+  actor      String   @db.VarChar(100)
+  runId      String   @map("run_id") @db.VarChar(100)
+  observedAt DateTime @map("observed_at")
+  input      Json
+  output     Json
+
+  @@map("market_historical_estimates")
+}
+
 enum SharedUpworkSourceKind {
   HISTORICAL
   LIVE

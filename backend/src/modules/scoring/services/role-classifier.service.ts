@@ -125,6 +125,24 @@ export class RoleClassifierService {
         }
       }
 
+      // A.2 Detección de Roles Nucleares Equivalentes (UI/UX, Product Designer, Design System, Figma)
+      const hasUxCore = (taxonomy.coreRoles || []).some(r => /ux|design|system/i.test(r));
+      if (hasUxCore) {
+        const directUxRegex = /\b(ux\s*[\/\-]?\s*ui|ui\s*[\/\-]?\s*ux|ux\s+designer|ui\s+designer|product\s+designer|figma\s+designer|interaction\s+designer|design\s+systems?)\b/i;
+        if (directUxRegex.test(titleLower)) {
+          return {
+            matchLevel: 'DIRECT_MATCH',
+            matchedQuery: 'UX/UI & Product Design Core',
+            baseFitScore: 95,
+            normalizedRole: title.slice(0, 50),
+            lane: StrategicLane.CORE_AI_UX,
+            isDisqualified: false,
+            isIncompatible: false,
+            reason: 'Coincidencia directa con el stack nuclear de UX/UI y Diseño de Producto',
+          };
+        }
+      }
+
       // B. Hybrid Roles en Título (85 pts)
       for (const hybrid of taxonomy.hybridRoles || []) {
         if (!hybrid || hybrid.trim().length === 0) continue;

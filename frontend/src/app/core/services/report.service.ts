@@ -463,4 +463,28 @@ export class ReportService {
       })
     );
   }
+
+  public downloadExcelReport(personaName?: string): void {
+    const active = personaName || this.pipeline.activeProfile()?.name || '';
+    const url = active
+      ? `${this.baseUrl}/export/excel?personaName=${encodeURIComponent(active)}`
+      : `${this.baseUrl}/export/excel`;
+
+    this.http.get(url, { responseType: 'blob' }).pipe(
+      tap((blob) => {
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        const cleanPersona = (active || 'Reporte').toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const dateFormatted = new Date().toISOString().split('T')[0];
+        a.download = `Proposal_Autopilot_Report_${cleanPersona}_${dateFormatted}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+      })
+    ).subscribe({
+      error: (err) => console.error('Error al descargar reporte Excel:', err),
+    });
+  }
 }

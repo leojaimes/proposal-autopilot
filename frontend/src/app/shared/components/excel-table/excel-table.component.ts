@@ -7,9 +7,11 @@ import {
   computed,
   ContentChild,
   TemplateRef,
+  inject,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ReportService } from '../../../core/services/report.service';
 import {
   ExcelColumnDef,
   ColumnFilterCriteria,
@@ -29,6 +31,8 @@ import { LucideZap, LucideSearch } from '@lucide/angular';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ExcelDataTableComponent<T extends Record<string, any> = any> {
+  private readonly report = inject(ReportService, { optional: true });
+
   // Inputs
   public readonly data = input.required<T[]>();
   public readonly columns = input.required<ExcelColumnDef<T>[]>();
@@ -281,6 +285,10 @@ export class ExcelDataTableComponent<T extends Record<string, any> = any> {
   }
 
   public onDownloadCsv(): void {
+    if (this.report) {
+      this.report.downloadExcelReport();
+      return;
+    }
     const items = this.processedData();
     if (items.length === 0) return;
 

@@ -1,10 +1,10 @@
-﻿<div class="flex-1 flex flex-col overflow-hidden bg-[#0a0e18]">
+<div class="flex-1 w-full h-full flex flex-col overflow-hidden bg-[#0a0e18]">
   
   <!-- WORKSPACE BODY: Left Feed + Right Console -->
-  <div class="flex-1 flex overflow-hidden">
+  <div class="flex-1 w-full h-full flex overflow-hidden min-h-0">
 
     <!-- LEFT PANE: Triage Queue (380px) -->
-    <aside class="w-[380px] flex-shrink-0 border-r border-border-subtle/70 bg-[#0f131d] flex flex-col h-full select-none">
+    <aside class="w-[380px] flex-shrink-0 border-r border-border-subtle/70 bg-[#0f131d] flex flex-col h-full select-none min-h-0">
       
       <!-- Triage Filter Bar -->
       <div class="p-3.5 border-b border-border-subtle/70 space-y-2.5 bg-[#171b26]/90 backdrop-blur-md">
@@ -70,7 +70,7 @@
               <span>{{ 'terminal.updating_leads' | translate }}</span>
             </div>
           }
-          @for (job of filteredJobs(); track job.id) {
+          @for (job of paginatedJobs(); track job.id) {
           <div (click)="selectJob(job)"
                class="p-3.5 rounded-xl cursor-pointer transition-all duration-150 relative group border"
                [ngClass]="selectedJob()?.id === job.id 
@@ -166,6 +166,40 @@
       }
       </div>
 
+      <!-- Pagination Navigation Bar -->
+      @if (filteredJobs().length > 0) {
+        <div class="px-3 py-2 border-t border-border-subtle/70 bg-[#121622] flex items-center justify-between text-xs font-mono select-none">
+          <div class="flex items-center gap-1.5 text-content-muted text-[11px]">
+            <span class="text-content-secondary font-semibold">{{ pageStart() }}-{{ pageEnd() }}</span>
+            <span>de</span>
+            <span class="text-cyan-400 font-bold">{{ filteredJobs().length }}</span>
+            <span>leads</span>
+          </div>
+
+          <div class="flex items-center gap-1">
+            <button 
+              (click)="prevPage()" 
+              [disabled]="currentPage() === 1"
+              class="px-2 py-1 rounded bg-[#171b26] border border-border-subtle text-content-secondary hover:text-white hover:border-cyan-400/50 disabled:opacity-40 disabled:pointer-events-none transition-colors flex items-center gap-1 text-[11px]"
+              title="Página anterior">
+              <svg lucideChevronLeft class="w-3.5 h-3.5"></svg>
+              <span>Prev</span>
+            </button>
+            <span class="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 font-bold text-[11px]">
+              {{ currentPage() }}/{{ totalPages() }}
+            </span>
+            <button 
+              (click)="nextPage()" 
+              [disabled]="currentPage() >= totalPages()"
+              class="px-2 py-1 rounded bg-[#171b26] border border-border-subtle text-content-secondary hover:text-white hover:border-cyan-400/50 disabled:opacity-40 disabled:pointer-events-none transition-colors flex items-center gap-1 text-[11px]"
+              title="Página siguiente">
+              <span>Next</span>
+              <svg lucideChevronRight class="w-3.5 h-3.5"></svg>
+            </button>
+          </div>
+        </div>
+      }
+
       <!-- Bottom Connects Saved Bar (Stitch) -->
       <div class="p-3 border-t border-border-subtle/70 bg-[#171b26] flex items-center justify-between text-xs text-content-muted">
         <div class="flex items-center gap-1.5">
@@ -179,7 +213,7 @@
     </aside>
 
     <!-- RIGHT PANE: Dispatch Console & Proposal Workspace -->
-    <main class="flex-1 overflow-y-auto bg-[#0a0e18] p-5 lg:p-6">
+    <main class="flex-1 overflow-y-auto bg-[#0a0e18] p-5 lg:p-6 min-h-0">
       @if (selectedJob(); as current) {
         <div class="w-full max-w-[1800px] mx-auto space-y-6 animate-fadeIn pb-12">
           
