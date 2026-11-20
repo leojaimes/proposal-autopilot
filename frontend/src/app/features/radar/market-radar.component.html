@@ -94,8 +94,8 @@
                 </thead>
                 <tbody class="divide-y divide-[#182030] text-xs">
                   @for (estimate of data.historicalEstimates; track estimate.segment) {
-                    <tr class="hover:bg-white/[0.03] transition-colors">
-                      <td class="py-2.5 px-3 font-medium text-white">
+                    <tr class="group hover:bg-[#161d2d] focus-visible:bg-[#161d2d] focus-visible:outline-none transition-colors duration-150 cursor-pointer" tabindex="0">
+                      <td class="py-2.5 px-3 font-medium text-white relative before:absolute before:left-0 before:top-0 before:bottom-0 before:w-0.5 before:bg-cyan-400 before:opacity-0 group-hover:before:opacity-100 group-focus-visible:before:opacity-100 transition-opacity">
                         {{ estimate.category }}
                       </td>
                       <td class="py-2.5 px-3 text-right font-medium text-white">
@@ -144,8 +144,8 @@
                 </thead>
                 <tbody class="divide-y divide-[#182030] text-xs">
                   @for (row of matrixRows(); track row.category) {
-                    <tr class="hover:bg-white/[0.03] transition-colors">
-                      <td class="py-2.5 px-2 text-center font-mono font-bold text-content-muted">
+                    <tr class="group hover:bg-[#161d2d] focus-visible:bg-[#161d2d] focus-visible:outline-none transition-colors duration-150 cursor-pointer" tabindex="0">
+                      <td class="py-2.5 px-2 text-center font-mono font-bold text-content-muted relative before:absolute before:left-0 before:top-0 before:bottom-0 before:w-0.5 before:bg-brand-primary before:opacity-0 group-hover:before:opacity-100 group-focus-visible:before:opacity-100 transition-opacity">
                         {{ row.rank }}
                       </td>
                       <td class="py-2.5 px-3 font-medium text-white flex items-center gap-1.5">
@@ -270,45 +270,45 @@
             </thead>
             <tbody class="divide-y divide-border-subtle/60 font-mono">
               @for (row of matrixRows(); track row.slug) {
-                <tr class="hover:bg-surface-hover/80 transition-colors">
-                  <td class="sticky left-0 z-10 w-12 min-w-12 bg-[#0f131d] px-3 py-2.5 border-r border-border-subtle text-center font-bold text-content-primary">{{ row.rank }}</td>
-                  <td class="sticky left-12 z-10 min-w-[200px] bg-[#0f131d] px-4 py-2.5 border-r border-border-subtle font-sans font-medium text-content-primary whitespace-nowrap">{{ row.category }}</td>
-                  <td class="px-3 py-2.5 text-center font-sans">
+                <tr class="group hover:bg-[#161d2d] focus-visible:bg-[#161d2d] focus-visible:outline-none transition-colors duration-150 cursor-pointer" tabindex="0">
+                  <td class="sticky left-0 z-10 w-12 min-w-12 bg-[#0f131d] group-hover:bg-[#161d2d] group-focus-visible:bg-[#161d2d] px-3 py-2.5 border-r border-border-subtle text-center font-bold text-content-primary relative before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-brand-primary before:opacity-0 group-hover:before:opacity-100 group-focus-visible:before:opacity-100 transition-all duration-150">{{ row.rank }}</td>
+                  <td class="sticky left-12 z-10 min-w-[200px] bg-[#0f131d] group-hover:bg-[#161d2d] group-focus-visible:bg-[#161d2d] px-4 py-2.5 border-r border-border-subtle font-sans font-medium text-content-primary whitespace-nowrap shadow-[4px_0_12px_rgba(0,0,0,0.35)] transition-colors duration-150">{{ row.category }}</td>
+                  <td class="px-3 py-2.5 text-center font-sans hover:bg-white/[0.04] transition-colors duration-100">
                     <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold" [class]="getLaneBadgeClass(row.lane)">{{ row.lane }}</span>
                   </td>
-                  <td class="px-3 py-2.5 text-center bg-brand-primary/5">
+                  <td class="px-3 py-2.5 text-center bg-brand-primary/5 group-hover:bg-brand-primary/15 hover:bg-brand-primary/20 transition-colors duration-150">
                     <span class="inline-block min-w-8 rounded px-1.5 py-0.5 text-xs font-bold" [class]="getScoreBadgeClass(row.overallScore)">{{ row.overallScore }}</span>
                   </td>
-                  <td class="px-3 py-2.5 text-center font-medium" [class]="getScoreColorClass(row.opportunityScore)">{{ row.opportunityScore }}</td>
-                  <td class="px-3 py-2.5 text-center font-medium" [class]="getScoreColorClass(row.personalFitScore)">{{ row.personalFitScore }}</td>
-                  <td class="px-2.5 py-2.5 text-center text-content-muted">{{ row.recencyScore }}</td>
-                  <td class="px-2.5 py-2.5 text-center text-content-muted">{{ row.trendingScore }}</td>
-                  <td class="px-2.5 py-2.5 text-center text-content-muted">{{ row.supplyPressureScore }}</td>
-                  <td class="px-2.5 py-2.5 text-center text-content-muted">{{ row.submissionsScore }}</td>
-                  <td class="px-2.5 py-2.5 text-center text-content-muted">{{ row.clientQualityScore }}</td>
-                  <td class="px-3 py-2.5 text-right text-content-primary">{{ row.newJobsPerHour | number:'1.2-2' }}</td>
-                  <td class="px-3 py-2.5 text-right font-medium" [class]="(row.shareYearOverYearPct ?? 0) >= 0 ? 'text-emerald-400' : 'text-amber-400'">
+                  <td class="px-3 py-2.5 text-center font-medium hover:bg-white/[0.04] transition-colors duration-100" [class]="getScoreColorClass(row.opportunityScore)">{{ row.opportunityScore }}</td>
+                  <td class="px-3 py-2.5 text-center font-medium hover:bg-white/[0.04] transition-colors duration-100" [class]="getScoreColorClass(row.personalFitScore)">{{ row.personalFitScore }}</td>
+                  <td class="px-2.5 py-2.5 text-center text-content-muted hover:bg-white/[0.04] transition-colors duration-100">{{ row.recencyScore }}</td>
+                  <td class="px-2.5 py-2.5 text-center text-content-muted hover:bg-white/[0.04] transition-colors duration-100">{{ row.trendingScore }}</td>
+                  <td class="px-2.5 py-2.5 text-center text-content-muted hover:bg-white/[0.04] transition-colors duration-100">{{ row.supplyPressureScore }}</td>
+                  <td class="px-2.5 py-2.5 text-center text-content-muted hover:bg-white/[0.04] transition-colors duration-100">{{ row.submissionsScore }}</td>
+                  <td class="px-2.5 py-2.5 text-center text-content-muted hover:bg-white/[0.04] transition-colors duration-100">{{ row.clientQualityScore }}</td>
+                  <td class="px-3 py-2.5 text-right text-content-primary hover:bg-white/[0.04] transition-colors duration-100">{{ row.newJobsPerHour | number:'1.2-2' }}</td>
+                  <td class="px-3 py-2.5 text-right font-medium hover:bg-white/[0.04] transition-colors duration-100" [class]="(row.shareYearOverYearPct ?? 0) >= 0 ? 'text-emerald-400' : 'text-amber-400'">
                     {{ row.shareYearOverYearPct == null ? 'N/A' : (row.shareYearOverYearPct > 0 ? '+' : '') + row.shareYearOverYearPct + '%' }}
                   </td>
-                  <td class="px-3 py-2.5 text-right font-medium" [class]="(row.shareMomentumPct ?? 0) >= 0 ? 'text-emerald-400' : 'text-amber-400'">
+                  <td class="px-3 py-2.5 text-right font-medium hover:bg-white/[0.04] transition-colors duration-100" [class]="(row.shareMomentumPct ?? 0) >= 0 ? 'text-emerald-400' : 'text-amber-400'">
                     {{ row.shareMomentumPct == null ? 'N/A' : (row.shareMomentumPct > 0 ? '+' : '') + row.shareMomentumPct + '%' }}
                   </td>
-                  <td class="px-3 py-2.5 text-right text-content-primary">{{ row.postingsPerMonth == null ? 'N/A' : (row.postingsPerMonth | number:'1.0-0') }}</td>
-                  <td class="px-3 py-2.5 text-right text-amber-300">{{ row.postingsVsPeakPct == null ? 'N/A' : row.postingsVsPeakPct + '%' }}</td>
-                  <td class="px-3 py-2.5 text-right text-content-muted">{{ row.changeVsPreviousScrapePct == null ? '0%' : (row.changeVsPreviousScrapePct > 0 ? '+' : '') + row.changeVsPreviousScrapePct + '%' }}</td>
-                  <td class="px-3 py-2.5 text-right text-content-muted">{{ row.medianListingAgeHours | number:'1.1-1' }}h</td>
-                  <td class="px-3 py-2.5 text-right" [class]="(row.pctJobsWith25PlusProposals ?? 0) > 50 ? 'text-amber-400' : 'text-emerald-400'">{{ row.pctJobsWith25PlusProposals }}%</td>
-                  <td class="px-3 py-2.5 text-right font-medium" [class]="(row.medianProposals ?? 0) <= 15 ? 'text-emerald-400' : 'text-amber-400'">{{ row.medianProposals }}</td>
-                  <td class="px-3 py-2.5 text-right text-content-primary font-medium">{{ row.medianClientSpend | currency:'USD':'symbol':'1.0-0' }}</td>
-                  <td class="px-3 py-2.5 text-right" [class]="(row.verifiedClientsPct ?? 0) >= 80 ? 'text-emerald-400' : 'text-content-muted'">{{ row.verifiedClientsPct }}%</td>
-                  <td class="px-3 py-2.5 text-right text-content-primary font-medium">{{ row.medianHourlyRate | currency:'USD':'symbol':'1.0-0' }}/h</td>
-                  <td class="px-3 py-2.5 text-right text-content-primary font-bold">{{ row.medianFixedBudget | currency:'USD':'symbol':'1.0-0' }}</td>
-                  <td class="px-2.5 py-2.5 text-center text-content-muted">{{ row.skillAffinity }}</td>
-                  <td class="px-2.5 py-2.5 text-center font-medium text-purple-300">{{ row.aiEase }}</td>
-                  <td class="px-3 py-2.5 text-right text-content-muted">{{ row.sampleJobs }}</td>
-                  <td class="px-2.5 py-2.5 text-center text-content-muted">{{ row.runsAveraged }}</td>
-                  <td class="px-3 py-2.5 text-center text-content-muted font-sans text-[10px]">{{ row.updated }}</td>
-                  <td class="px-3 py-2.5 text-right font-bold text-emerald-400 bg-emerald-500/10">
+                  <td class="px-3 py-2.5 text-right text-content-primary hover:bg-white/[0.04] transition-colors duration-100">{{ row.postingsPerMonth == null ? 'N/A' : (row.postingsPerMonth | number:'1.0-0') }}</td>
+                  <td class="px-3 py-2.5 text-right text-amber-300 hover:bg-white/[0.04] transition-colors duration-100">{{ row.postingsVsPeakPct == null ? 'N/A' : row.postingsVsPeakPct + '%' }}</td>
+                  <td class="px-3 py-2.5 text-right text-content-muted hover:bg-white/[0.04] transition-colors duration-100">{{ row.changeVsPreviousScrapePct == null ? '0%' : (row.changeVsPreviousScrapePct > 0 ? '+' : '') + row.changeVsPreviousScrapePct + '%' }}</td>
+                  <td class="px-3 py-2.5 text-right text-content-muted hover:bg-white/[0.04] transition-colors duration-100">{{ row.medianListingAgeHours | number:'1.1-1' }}h</td>
+                  <td class="px-3 py-2.5 text-right hover:bg-white/[0.04] transition-colors duration-100" [class]="(row.pctJobsWith25PlusProposals ?? 0) > 50 ? 'text-amber-400' : 'text-emerald-400'">{{ row.pctJobsWith25PlusProposals }}%</td>
+                  <td class="px-3 py-2.5 text-right font-medium hover:bg-white/[0.04] transition-colors duration-100" [class]="(row.medianProposals ?? 0) <= 15 ? 'text-emerald-400' : 'text-amber-400'">{{ row.medianProposals }}</td>
+                  <td class="px-3 py-2.5 text-right text-content-primary font-medium hover:bg-white/[0.04] transition-colors duration-100">{{ row.medianClientSpend | currency:'USD':'symbol':'1.0-0' }}</td>
+                  <td class="px-3 py-2.5 text-right hover:bg-white/[0.04] transition-colors duration-100" [class]="(row.verifiedClientsPct ?? 0) >= 80 ? 'text-emerald-400' : 'text-content-muted'">{{ row.verifiedClientsPct }}%</td>
+                  <td class="px-3 py-2.5 text-right text-content-primary font-medium hover:bg-white/[0.04] transition-colors duration-100">{{ row.medianHourlyRate | currency:'USD':'symbol':'1.0-0' }}/h</td>
+                  <td class="px-3 py-2.5 text-right text-content-primary font-bold hover:bg-white/[0.04] transition-colors duration-100">{{ row.medianFixedBudget | currency:'USD':'symbol':'1.0-0' }}</td>
+                  <td class="px-2.5 py-2.5 text-center text-content-muted hover:bg-white/[0.04] transition-colors duration-100">{{ row.skillAffinity }}</td>
+                  <td class="px-2.5 py-2.5 text-center font-medium text-purple-300 hover:bg-white/[0.04] transition-colors duration-100">{{ row.aiEase }}</td>
+                  <td class="px-3 py-2.5 text-right text-content-muted hover:bg-white/[0.04] transition-colors duration-100">{{ row.sampleJobs }}</td>
+                  <td class="px-2.5 py-2.5 text-center text-content-muted hover:bg-white/[0.04] transition-colors duration-100">{{ row.runsAveraged }}</td>
+                  <td class="px-3 py-2.5 text-center text-content-muted font-sans text-[10px] hover:bg-white/[0.04] transition-colors duration-100">{{ row.updated }}</td>
+                  <td class="px-3 py-2.5 text-right font-bold text-emerald-400 bg-emerald-500/10 group-hover:bg-emerald-500/20 hover:bg-emerald-500/30 transition-colors duration-150">
                     {{ row.effectiveHourlyYield | currency:'USD':'symbol':'1.0-0' }}/h
                   </td>
                 </tr>
