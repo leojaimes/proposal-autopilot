@@ -56,6 +56,7 @@ import {
   ],
   templateUrl: './user-profile.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'flex-1 flex flex-col w-full h-full min-h-0 overflow-y-auto' },
 })
 export class UserProfileComponent {
   public readonly pipeline = inject(PipelineStateService);
